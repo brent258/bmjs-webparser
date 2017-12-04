@@ -1,0 +1,32 @@
+{
+  "name": "bmjs-webparser",
+  "version": "1.0.0",
+  "description": "A utility for extracting text and image content.",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha -R spec test/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brent258/bmjs-webparser.git"
+  },
+  "keywords": [
+    "PKG",
+    "javascript",
+    "nodejs"
+  ],
+  "author": "Brent McCoy",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/brent258/bmjs-webparser/issues"
+  },
+  "homepage": "https://github.com/brent258/bmjs-webparser#readme",
+  "devDependencies": {
+    "chai": "^4.1.2",
+    "mocha": "^4.0.1"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.2",
+    "unfluff": "^1.1.0"
+  }
+}
