@@ -3,7 +3,7 @@ const wp = require('../index');
 
 describe('web parser', function() {
 
-  it('should be an object with correct properties', () => {
+  /*it('should be an object with correct properties', () => {
     expect(wp).to.be.an('object');
     expect(wp).to.have.property('imageFromKeyword');
     expect(wp).to.not.be.undefined;
@@ -60,14 +60,13 @@ describe('web parser', function() {
     .catch(error => {
       done(error);
     })
-  });
+  });*/
 
   it('get page text should retrieve text object', function(done) {
     this.timeout(0);
     wp.init();
-    wp.getPageText('https://bowwowinsurance.com.au/dogs/dog-breeds/non-shedding-dog-breeds/').then(data => {
+    wp.getPageText('https://www.thespruce.com/steps-to-train-your-dog-1118273').then(data => {
       expect(data).to.be.an('object');
-      console.log(data);
       done();
     })
     .catch(error => {

@@ -2,13 +2,15 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-const unfluff = require('unfluff');
 const cheerio = require('cheerio');
 
 module.exports = {
   savePath: '',
   downloadedImageMetadata: [],
   downloadedImageLinks: [],
+  embeddedTags: ['a','span','em','strong','code','b'],
+  headerTags: ['h1','h2','h3','h4','h5','h6'],
+  listTags: ['ul','ol'],
   init: function() {
     this.downloadedImageLinks = [];
     this.downloadedImageMetadata = [];
@@ -187,19 +189,87 @@ module.exports = {
           html += data;
         });
         res.on('end', () => {
+          html = html.replace(/(\s*\n\s*|\s*\r\s*)/g,'');
           let $ = cheerio.load(html);
           let pageObject = {
             title: '',
             description: '',
             body: '',
             subtitles: [],
-            keywords: [],
+            keywords: '',
             lists: []
           };
           try {
-            pageObject.title = $('title').text();
-            pageObject.description = $('meta[name="description"]').attr('content');
-            pageObject.keywords = $('meta[name="keywords"]').attr('content');
+            pageObject.title = $('title').text() || '';
+            pageObject.description = $('meta[name="description"]').attr('content') || '';
+            pageObject.keywords = $('meta[name="keywords"]').attr('content') || '';
+            let paragraphs = $('p') || undefined;
+            let bodyData = [];
+            if (paragraphs) {
+              for (let i = 0; i < paragraphs.length; i++) {
+                let paragraphCount = `${i}`;
+                let data = {h: '', p: '', li: []};
+                if (paragraphs[paragraphCount].prev && this.headerTags.includes(paragraphs[paragraphCount].prev.name)) {
+                  for (let j = 0; j < paragraphs[paragraphCount].prev.children.length; j++) {
+                    if (paragraphs[paragraphCount].prev.children[j].type === 'text') {
+                      data.h += paragraphs[paragraphCount].prev.children[j].data;
+                    }
+                    else if (paragraphs[paragraphCount].prev.children[j].type === 'tag' && this.embeddedTags.includes(paragraphs[paragraphCount].prev.children[j].name)) {
+                      for (let k = 0; k < paragraphs[paragraphCount].prev.children[j].children.length; k++) {
+                        if (paragraphs[paragraphCount].prev.children[j].children[k].type === 'text') {
+                          data.h += paragraphs[paragraphCount].prev.children[j].children[k].data;
+                        }
+                      }
+                    }
+                  }
+                }
+                else if (paragraphs[paragraphCount].parent && paragraphs[paragraphCount].parent.prev && this.headerTags.includes(paragraphs[paragraphCount].parent.prev.name)) {
+                  for (let j = 0; j < paragraphs[paragraphCount].parent.prev.children.length; j++) {
+                    if (paragraphs[paragraphCount].parent.prev.children[j].type === 'text') {
+                      data.h += paragraphs[paragraphCount].parent.prev.children[j].data;
+                    }
+                    else if (paragraphs[paragraphCount].parent.prev.children[j].type === 'tag' && this.embeddedTags.includes(paragraphs[paragraphCount].parent.prev.children[j].name)) {
+                      for (let k = 0; k < paragraphs[paragraphCount].parent.prev.children[j].children.length; k++) {
+                        if (paragraphs[paragraphCount].parent.prev.children[j].children[k].type === 'text') {
+                          data.h += paragraphs[paragraphCount].parent.prev.children[j].children[k].data;
+                        }
+                      }
+                    }
+                  }
+                }
+                if (paragraphs[paragraphCount].children && !Object.keys(paragraphs[paragraphCount].attribs).length) {
+                  for (let j = 0; j < paragraphs[paragraphCount].children.length; j++) {
+                    if (paragraphs[paragraphCount].children[j].type === 'text') {
+                      data.p += paragraphs[paragraphCount].children[j].data;
+                    }
+                    else if (paragraphs[paragraphCount].children[j].type === 'tag' && this.embeddedTags.includes(paragraphs[paragraphCount].children[j].name)) {
+                      if (data.p || data.h) {
+                        for (let k = 0; k < paragraphs[paragraphCount].children[j].children.length; k++) {
+                          if (paragraphs[paragraphCount].children[j].children[k].type === 'text') {
+                            data.p += paragraphs[paragraphCount].children[j].children[k].data;
+                          }
+                        }
+                      }
+                      else {
+                        for (let k = 0; k < paragraphs[paragraphCount].children[j].children.length; k++) {
+                          if (paragraphs[paragraphCount].children[j].children[k].type === 'text') {
+                            data.h += paragraphs[paragraphCount].children[j].children[k].data;
+                          }
+                        }
+                      }
+                    }
+                  }
+                  if (!data.p.match(/\.\s[A-Z]/)) {
+                    data.p = '';
+                  }
+                  if (data.p || data.h || data.li) {
+                    bodyData.push(data);
+                  }
+                  console.log(data);
+                }
+              }
+              pageObject.body = bodyData;
+            }
             resolve(pageObject);
           }
           catch (error) {
