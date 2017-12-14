@@ -65,7 +65,7 @@ describe('web parser', function() {
   it('get page text should retrieve text object', function(done) {
     this.timeout(0);
     wp.init();
-    wp.getPageText('https://www.thespruce.com/steps-to-train-your-dog-1118273').then(data => {
+    wp.getPageText('https://www.wikihow.com/Train-a-Dog').then(data => {
       expect(data).to.be.an('object');
       done();
     })

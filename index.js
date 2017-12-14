@@ -1,5 +1,4 @@
-const http = require('http');
-const https = require('https');
+const request = require('request-promise');
 const fs = require('fs');
 const path = require('path');
 const cheerio = require('cheerio');
@@ -8,9 +7,11 @@ module.exports = {
   savePath: '',
   downloadedImageMetadata: [],
   downloadedImageLinks: [],
+  paragraphTags: ['p','div'],
   embeddedTags: ['a','span','em','strong','code','b'],
   headerTags: ['h1','h2','h3','h4','h5','h6'],
-  listTags: ['ul','ol'],
+  listTags: ['ul','ol','li'],
+  punctuationMarks: ['.','!','?'],
   init: function() {
     this.downloadedImageLinks = [];
     this.downloadedImageMetadata = [];
@@ -171,113 +172,116 @@ module.exports = {
     }
     return results;
   },
+  nearestParent: function(element) {
+    let search = [];
+    if (element.parent) {
+      search.push(element.parent.name);
+    }
+    if (search.length) {
+      if ((search.includes('h1') || search.includes('h2') || search.includes('h3') || search.includes('h4') || search.includes('h5') || search.includes('h6')) || (search.includes('a') || search.includes('span') || search.includes('b') || search.includes('strong') || search.includes('em')) && this.headerTags.includes(element.parent.parent.name)) {
+        return 'HEADER';
+      }
+      else if (search.includes('li')) {
+        return 'LIST';
+      }
+      else if (search.includes('a') && !this.paragraphTags.includes(element.parent.parent.name)) {
+        return 'LINK';
+      }
+      else if (search.includes('p') || search.includes('div')) {
+        return 'TEXT';
+      }
+      else if ((search.includes('a') || search.includes('span') || search.includes('b') || search.includes('strong') || search.includes('em')) && this.paragraphTags.includes(element.parent.parent.name)) {
+        return 'EMBED';
+      }
+      else {
+        this.nearestParent(element.parent);
+      }
+    }
+  },
+  destructurePageText: function(elements) {
+    if (!elements || typeof elements !== 'object') {
+      return;
+    }
+    let data = '';
+    for (let i = 0; i < elements.length; i++) {
+      if (elements[i].type === 'text') {
+        let type = this.nearestParent(elements[i]);
+        if (elements[i].data.match(/[a-z]/) && type !== undefined) {
+          data += '[' + JSON.stringify({content: elements[i].data, type: type}) + ']';
+        }
+      }
+      else if (elements[i].children && elements[i].type !== 'comment' && elements[i].name !== 'script' && elements[i].name !== 'style') {
+        data += this.destructurePageText(elements[i].children);
+      }
+    }
+    return data;
+  },
+  filterPageText: function(data) {
+    if (!data || typeof data !== 'string') {
+      return;
+    }
+    let rawData = JSON.parse(data.replace(/\}\]\[\{/g,'},{'));
+    let objCount = 0;
+    let objs = [];
+    for (let i = 0; i < rawData.length; i++) {
+      if ((rawData[i].type === 'HEADER' && i > 0) || objs[objCount] && objs[objCount].p && (this.punctuationMarks.includes(objs[objCount].p[objs[objCount].p.length-1]) || rawData[i].content[0].match(/[A-Z0-9]/))) {
+        objCount++;
+      }
+      if (objs[objCount] === undefined) {
+        objs[objCount] = {h: '', p: '', li: [], a: []};
+      }
+      if (rawData[i].type === 'TEXT' || rawData[i].type === 'EMBED') {
+        objs[objCount].p += rawData[i].content;
+      }
+      else if (rawData[i].type === 'HEADER') {
+        objs[objCount].h += rawData[i].content;
+      }
+      else if (rawData[i].type === 'LIST') {
+        objs[objCount].li.push(rawData[i].content);
+      }
+      else if (rawData[i].type === 'LINK') {
+        objs[objCount].a.push(rawData[i].content);
+      }
+    }
+    return objs;
+  },
   getPageText: function(url) {
     return new Promise((resolve,reject) => {
       if (!url || typeof url !== 'string' || !url.match(/(http:\/\/|https:\/\/)/)) {
         reject('Unable to get page text without valid URL.');
       }
-      let request;
-      if (url.match(/https:\/\//)) {
-        request = https;
-      }
-      else {
-        request = http;
-      }
-      request.get(url, res => {
-        let html = '';
-        res.on('data', data => {
-          html += data;
-        });
-        res.on('end', () => {
-          html = html.replace(/(\s*\n\s*|\s*\r\s*)/g,'');
-          let $ = cheerio.load(html);
-          let pageObject = {
-            title: '',
-            description: '',
-            body: '',
-            subtitles: [],
-            keywords: '',
-            lists: []
-          };
-          try {
-            pageObject.title = $('title').text() || '';
-            pageObject.description = $('meta[name="description"]').attr('content') || '';
-            pageObject.keywords = $('meta[name="keywords"]').attr('content') || '';
-            let paragraphs = $('p') || undefined;
-            let bodyData = [];
-            if (paragraphs) {
-              for (let i = 0; i < paragraphs.length; i++) {
-                let paragraphCount = `${i}`;
-                let data = {h: '', p: '', li: []};
-                if (paragraphs[paragraphCount].prev && this.headerTags.includes(paragraphs[paragraphCount].prev.name)) {
-                  for (let j = 0; j < paragraphs[paragraphCount].prev.children.length; j++) {
-                    if (paragraphs[paragraphCount].prev.children[j].type === 'text') {
-                      data.h += paragraphs[paragraphCount].prev.children[j].data;
-                    }
-                    else if (paragraphs[paragraphCount].prev.children[j].type === 'tag' && this.embeddedTags.includes(paragraphs[paragraphCount].prev.children[j].name)) {
-                      for (let k = 0; k < paragraphs[paragraphCount].prev.children[j].children.length; k++) {
-                        if (paragraphs[paragraphCount].prev.children[j].children[k].type === 'text') {
-                          data.h += paragraphs[paragraphCount].prev.children[j].children[k].data;
-                        }
-                      }
-                    }
-                  }
-                }
-                else if (paragraphs[paragraphCount].parent && paragraphs[paragraphCount].parent.prev && this.headerTags.includes(paragraphs[paragraphCount].parent.prev.name)) {
-                  for (let j = 0; j < paragraphs[paragraphCount].parent.prev.children.length; j++) {
-                    if (paragraphs[paragraphCount].parent.prev.children[j].type === 'text') {
-                      data.h += paragraphs[paragraphCount].parent.prev.children[j].data;
-                    }
-                    else if (paragraphs[paragraphCount].parent.prev.children[j].type === 'tag' && this.embeddedTags.includes(paragraphs[paragraphCount].parent.prev.children[j].name)) {
-                      for (let k = 0; k < paragraphs[paragraphCount].parent.prev.children[j].children.length; k++) {
-                        if (paragraphs[paragraphCount].parent.prev.children[j].children[k].type === 'text') {
-                          data.h += paragraphs[paragraphCount].parent.prev.children[j].children[k].data;
-                        }
-                      }
-                    }
-                  }
-                }
-                if (paragraphs[paragraphCount].children && !Object.keys(paragraphs[paragraphCount].attribs).length) {
-                  for (let j = 0; j < paragraphs[paragraphCount].children.length; j++) {
-                    if (paragraphs[paragraphCount].children[j].type === 'text') {
-                      data.p += paragraphs[paragraphCount].children[j].data;
-                    }
-                    else if (paragraphs[paragraphCount].children[j].type === 'tag' && this.embeddedTags.includes(paragraphs[paragraphCount].children[j].name)) {
-                      if (data.p || data.h) {
-                        for (let k = 0; k < paragraphs[paragraphCount].children[j].children.length; k++) {
-                          if (paragraphs[paragraphCount].children[j].children[k].type === 'text') {
-                            data.p += paragraphs[paragraphCount].children[j].children[k].data;
-                          }
-                        }
-                      }
-                      else {
-                        for (let k = 0; k < paragraphs[paragraphCount].children[j].children.length; k++) {
-                          if (paragraphs[paragraphCount].children[j].children[k].type === 'text') {
-                            data.h += paragraphs[paragraphCount].children[j].children[k].data;
-                          }
-                        }
-                      }
-                    }
-                  }
-                  if (!data.p.match(/\.\s[A-Z]/)) {
-                    data.p = '';
-                  }
-                  if (data.p || data.h || data.li) {
-                    bodyData.push(data);
-                  }
-                  console.log(data);
-                }
-              }
-              pageObject.body = bodyData;
-            }
-            resolve(pageObject);
+      let options = {
+        method: 'GET',
+        uri: url,
+        gzip: true
+      };
+      request(options).then(html => {
+        html = html.replace(/(\s*\n\s*|\s*\r\s*)/g,'');
+        let $ = cheerio.load(html);
+        let pageObject = {
+          title: '',
+          description: '',
+          body: '',
+          keywords: '',
+        };
+        try {
+          pageObject.title = $('title').text() || '';
+          pageObject.description = $('meta[name="description"]').attr('content') || '';
+          pageObject.keywords = $('meta[name="keywords"]').attr('content') || '';
+          let paragraphs = $('body').contents() || undefined;
+          if (paragraphs) {
+            let data = this.destructurePageText(paragraphs);
+            pageObject.body = this.filterPageText(data);
+            console.log(pageObject);
           }
-          catch (error) {
-            reject(error);
-          }
-        });
-      }).on('error', error => {
-        reject('Error accessing URL: ' + url);
+          resolve(pageObject);
+        }
+        catch (error) {
+          reject(error);
+        }
+      })
+      .catch(error => {
+        reject(error);
       });
     });
   },
