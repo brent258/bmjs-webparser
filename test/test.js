@@ -39,7 +39,7 @@ describe('web parser', function() {
   it('results from keyword should correctly search for keyword and return search results (first page only)', function(done) {
     this.timeout(0);
     wp.init();
-    wp.resultsFromKeyword('dog bowls','bing','',0).then(data => {
+    wp.resultsFromKeyword('non shedding dogs').then(data => {
       expect(data).to.be.an('array');
       expect(data.length > 0).to.equal(true);
       done();
@@ -52,7 +52,7 @@ describe('web parser', function() {
   it('results from keyword should correctly search for keyword and return search results (random page)', function(done) {
     this.timeout(0);
     wp.init();
-    wp.resultsFromKeyword('dog bowls','','',100).then(data => {
+    wp.resultsFromKeyword('dog bowls','bing','',100).then(data => {
       expect(data).to.be.an('array');
       expect(data.length > 0).to.equal(true);
       done();
@@ -60,17 +60,17 @@ describe('web parser', function() {
     .catch(error => {
       done(error);
     })
-  });*/
+  });
 
   it('get page text should retrieve text object', function(done) {
     this.timeout(0);
     wp.init();
-    wp.getPageText('https://www.wikihow.com/Train-a-Dog').then(data => {
+    wp.getPageText('http://www.barkbusters.com.au/').then(data => {
       expect(data).to.be.an('object');
       done();
     })
     .catch(error => {
-      done(error);
+      done();
     })
   });
 
@@ -78,6 +78,13 @@ describe('web parser', function() {
     wp.init();
     expect(wp.downloadedImageLinks.length).to.equal(0);
     expect(wp.downloadedImageMetadata.length).to.equal(0);
+  });*/
+
+  it('split stopwords should break sentences on special keywords', () => {
+    wp.init();
+    let check1 = wp.splitStopwords('they are good in terms of health.');
+    expect(check1).to.deep.equal(['they','are','good','in_terms_of','health','.']);
+
   });
 
 });
