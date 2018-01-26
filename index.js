@@ -7,7 +7,8 @@ const pos = require('bmjs-engpos');
 
 module.exports = {
 
-  savePath: '',
+  assetsPath: '',
+  cachePath: '',
   downloadedImageMetadata: [],
   downloadedImageLinks: [],
   paragraphTags: ['p','div'],
@@ -28,102 +29,271 @@ module.exports = {
   init: function() {
     this.downloadedImageLinks = [];
     this.downloadedImageMetadata = [];
+    this.setAssetsPath();
+    this.setCachePath();
   },
 
-  imageFromKeyword: function(keyword,queryParams,extractAll,searchSource) {
+  setAssetsPath: function(dir) {
+    if (!dir || typeof dir !== 'string') {
+      this.assetsPath = 'assets';
+    }
+    else {
+      this.assetsPath = dir;
+    }
+  },
+
+  createAssets: function() {
+    if (!this.assetsPath) this.setAssetsPath();
+    if (!fs.existsSync(this.assetsPath)) {
+      console.log('Assets directory not found. Creating folder...');
+      fs.mkdir(this.assetsPath,err => {
+        if (err) console.log(err.message);
+        console.log('Finished creating assets directory.');
+      });
+    }
+    else {
+      console.log('Assets directory already exists.');
+    }
+  },
+
+  setCachePath: function(dir) {
+    if (!dir || typeof dir !== 'string') {
+      this.cachePath = 'cache';
+    }
+    else {
+      this.cachePath = dir;
+    }
+  },
+
+  createCache: function() {
+    if (!this.cachePath) this.setCachePath();
+    if (!fs.existsSync(this.cachePath)) {
+      console.log('Cache directory not found. Creating folder...');
+      fs.mkdir(this.cachePath,err => {
+        if (err) console.log(err.message);
+        console.log('Finished creating cache directory.');
+      });
+    }
+    else {
+      console.log('Cache directory already exists.');
+    }
+    if (!fs.existsSync(this.cachePath + '/data')) {
+      console.log('Data cache directory not found. Creating folder...');
+      fs.mkdir(this.cachePath + '/data',err => {
+        if (err) console.log(err.message);
+        console.log('Finished creating data cache directory.');
+      });
+    }
+    else {
+      console.log('Data cache directory already exists.');
+    }
+    if (!fs.existsSync(this.cachePath + '/images')) {
+      console.log('Image cache directory not found. Creating folder...');
+      fs.mkdir(this.cachePath + '/images',err => {
+        if (err) console.log(err.message);
+        console.log('Finished creating image cache directory.');
+      });
+    }
+    else {
+      console.log('Image cache directory already exists.');
+    }
+    if (!fs.existsSync(this.cachePath + '/data/text')) {
+      console.log('Text data cache directory not found. Creating folder...');
+      fs.mkdir(this.cachePath + '/data/text',err => {
+        if (err) console.log(err.message);
+        console.log('Finished creating text data cache directory.');
+      });
+    }
+    else {
+      console.log('Text data cache directory already exists.');
+    }
+    if (!fs.existsSync(this.cachePath + '/data/images')) {
+      console.log('Image data cache directory not found. Creating folder...');
+      fs.mkdir(this.cachePath + '/data/images',err => {
+        if (err) console.log(err.message);
+        console.log('Finished creating image data cache directory.');
+      });
+    }
+    else {
+      console.log('Image data cache directory already exists.');
+    }
+  },
+
+  objectInArray: function(obj,arr) {
+    if (!obj || !arr || typeof obj !== 'object' || typeof arr !== 'object' || !arr[0]) {
+      return false;
+    }
+    let keys = Object.keys(obj);
+    if (!keys.length) return false;
+    for (let i = 0; i < arr.length; i++) {
+      let matches = true;
+      for (let j = 0; j < keys.length; j++) {
+        if (!arr[i][keys[j]] || arr[i][keys[j]] !== obj[keys[j]]) {
+          matches = false;
+          break;
+        }
+        if (matches) return true;
+      }
+    }
+    return false;
+  },
+
+  flickrImage: function(keyword,options,metadata) {
     if (this.paused) return;
     if (!keyword || typeof keyword !== 'string') {
-      console.log('Invalid keyword entered.');
       return;
     }
-    let parsedKeyword = keyword.replace(/\s/g,'%20');
-    let hasInvalidChars = parsedKeyword.match(/[^0-9a-zA-Z%\+]/);
-    if (hasInvalidChars) {
-      console.log(`Invalid characters in entered keyword: ${keyword}. Must contain only words and spaces.`);
-      return;
+    if (!options) options = [];
+    if (!metadata) metadata = [];
+    let parsedKeyword = keyword.replace(/[^a-zA-Z\s]/g,'').replace(/\s+/g,'%20');
+    let url = 'https://www.flickr.com/search/?text=' + parsedKeyword;
+    if (options && typeof options === 'object' && options.length) {
+      let license = '';
+      let color = '';
+      let style = '';
+      for (let i = 0; i < options.length; i++) {
+        if (typeof options[i] !== 'string') continue;
+        switch (options[i].toLowerCase()) {
+          case 'cc':
+          if (!license) license = '&license=2%2C3%2C4%2C5%2C6%2C9';
+          break;
+          case 'commercial':
+          if (!license) license = '&license=4%2C5%2C6%2C9%2C10';
+          break;
+          case 'modifications':
+          if (!license) license = '&license=1%2C2%2C9%2C10';
+          break;
+          case 'red':
+          if (!color) color = '&color_codes=0';
+          break;
+          case 'brown':
+          if (!color) color = '&color_codes=1';
+          break;
+          case 'orange':
+          if (!color) color = '&color_codes=2';
+          break;
+          case 'lightpink':
+          if (!color) color = '&color_codes=b';
+          break;
+          case 'yellow':
+          if (!color) color = '&color_codes=4';
+          break;
+          case 'lightorange':
+          if (!color) color = '&color_codes=3';
+          break;
+          case 'lightgreen':
+          if (!color) color = '&color_codes=5';
+          break;
+          case 'green':
+          if (!color) color = '&color_codes=6';
+          break;
+          case 'lightblue':
+          if (!color) color = '&color_codes=7';
+          break;
+          case 'blue':
+          if (!color) color = '&color_codes=8';
+          break;
+          case 'purple':
+          if (!color) color = '&color_codes=9';
+          break;
+          case 'pink':
+          if (!color) color = '&color_codes=a';
+          break;
+          case 'white':
+          if (!color) color = '&color_codes=c';
+          break;
+          case 'grey':
+          if (!color) color = '&color_codes=d';
+          break;
+          case 'black':
+          if (!color) color = '&color_codes=e';
+          break;
+          case 'bw':
+          if (!style) style = '&styles=blackandwhite';
+          break;
+          case 'dof':
+          if (!style) style = '&styles=depthoffield';
+          break;
+          case 'minimal':
+          if (!style) style = '&styles=minimalism';
+          break;
+          case 'pattern':
+          if (!style) style = '&styles=pattern';
+          break;
+          default: break;
+        }
+        if (license && color && style) break;
+      }
+      url += license + color + style;
     }
-    let searchUrl;
-    if (!searchSource || searchSource === 'flickr') {
-      searchUrl = 'https://www.flickr.com/search/?text=' + parsedKeyword;
-    }
-    if (queryParams && typeof queryParams === 'string' && queryParams.length > 0 && queryParams[0] === '&') {
-      searchUrl += queryParams;
-    }
-    searchUrl += '&page=';
     return new Promise((resolve,reject) => {
-      let options = {
+      let params = {
         method: 'GET',
-        uri: searchUrl+1,
+        uri: url + '&page=1',
         gzip: true
       };
-      request(options).then(pageOneHtml => {
-        pageOneHtml = pageOneHtml.replace(/(\n|\r)/g,'');
+      request(params).then(html => {
+        html = html.replace(/(\s*\n+\s*|\s*\r+\s*)/g,'');
         let imageCount, imagesPerPage;
-        if (pageOneHtml.match(/View\sall\s[0-9,]+/)) {
-          imageCount = pageOneHtml.match(/View\sall\s[0-9,]+/)[0];
+        if (html.match(/View\sall\s[0-9,]+/)) {
+          imageCount = parseInt(html.match(/View\sall\s[0-9,]+/)[0].replace(/(View\sall\s|,)/g,''));
         }
-        if (pageOneHtml.match(/"perPage":[0-9]+/)) {
-          imagesPerPage = pageOneHtml.match(/"perPage":[0-9]+/)[0];
+        if (html.match(/"perPage":[0-9]+/)) {
+          imagesPerPage = parseInt(html.match(/"perPage":[0-9]+/)[0].replace(/("perPage":)/g,''));
         }
-        imageCount = parseInt(imageCount.replace(/(View\sall\s|,)/g,''));
-        imagesPerPage = parseInt(imagesPerPage.replace(/("perPage":)/g,''));
+        if (typeof imageCount !== 'number' || typeof imagesPerPage !== 'number') reject('Invalid image count for Flickr keyword: ' + keyword);
         let lastPage = Math.floor(imageCount / imagesPerPage);
         let randomPage = Math.floor(Math.random() * lastPage) + 1;
-        let options = {
-          method: 'GET',
-          uri: searchUrl+randomPage,
-          gzip: true
-        };
-        request(options).then(randomPageHtml => {
-          randomPageHtml = randomPageHtml.replace(/(\n|\r)/g,'');
-          if (searchUrl.includes('flickr.com') && randomPageHtml.match(/"photos":{"_data":\[[^\]]+\]/)) {
-            let extractedPhotos = randomPageHtml.match(/"photos":{"_data":\[[^\]]+\]/)[0];
-            extractedPhotos = JSON.parse(extractedPhotos.replace(/null,/g,'').replace(/"photos":{"_data":/,''));
-            if (!extractedPhotos.length) reject('No photos found for keyword: ' + keyword);
-            let extractCount = extractAll ? extractedPhotos.length : 1;
-            for (let i = 0; i < extractCount; i++) {
-              let index = Math.floor(Math.random() * extractedPhotos.length);
-              let selectedPhoto = extractedPhotos[index];
-              let obj = {
-                title: selectedPhoto.title,
-                author: selectedPhoto.realname || selectedPhoto.username || selectedPhoto.ownerNsid,
-                url: 'https://www.flickr.com/photos/' + selectedPhoto.pathAlias + '/' + selectedPhoto.id
-              }
-              if (this.downloadedImageLinks.includes(obj.url)) {
-                continue;
-              }
-              if (selectedPhoto.sizes.l) {
-                obj.image = 'https:' + selectedPhoto.sizes.l.url;
-                obj.width = selectedPhoto.sizes.l.width;
-                obj.height = selectedPhoto.sizes.l.height;
-                obj.filename = path.basename(obj.image.split('?')[0]);
-              }
-              else if (selectedPhoto.sizes.z) {
-                obj.image = 'https:' + selectedPhoto.sizes.z.url;
-                obj.width = selectedPhoto.sizes.z.width;
-                obj.height = selectedPhoto.sizes.z.height;
-                obj.filename = path.basename(obj.image.split('?')[0]);
-              }
-              else if (selectedPhoto.sizes.c) {
-                obj.image = 'https:' + selectedPhoto.sizes.c.url;
-                obj.width = selectedPhoto.sizes.c.width;
-                obj.height = selectedPhoto.sizes.c.height;
-                obj.filename = path.basename(obj.image.split('?')[0]);
-              }
-              else if (selectedPhoto.sizes.m) {
-                obj.image = 'https:' + selectedPhoto.sizes.m.url;
-                obj.width = selectedPhoto.sizes.m.width;
-                obj.height = selectedPhoto.sizes.m.height;
-                obj.filename = path.basename(obj.image.split('?')[0]);
-              }
-              this.downloadedImageMetadata.push(obj);
-              this.downloadedImageLinks.push(obj.url);
-              extractedPhotos.splice(index,1);
+        params.uri = url + '&page=' + randomPage;
+        request(params).then(html => {
+          html = html.replace(/(\s*\n+\s*|\s*\r+\s*)/g,'');
+          let $ = cheerio.load(html);
+          let tag;
+          $('script').each(function(i,el) {
+            if ($(this).html().match(/"photos":{"_data":\[[^\]]+\]/)) {
+              tag = $(this).html();
+              return;
             }
-            resolve('Finished parsing image objects.');
+          });
+          let photos = JSON.parse(tag.match(/"photos":{"_data":\[[^\]]+\]/)[0].replace(/null,/g,'').replace(/"photos":{"_data":/,''));
+          let data = [];
+          for (let i = 0; i < photos.length; i++) {
+            let photo = photos[i];
+            let size = '';
+            if (photo.sizes.l) {
+              size = 'l';
+            }
+            else if (photo.sizes.z) {
+              size = 'z';
+            }
+            else if (photo.sizes.c) {
+              size = 'c';
+            }
+            else if (photo.sizes.m) {
+              size = 'm';
+            }
+            if (!size) reject('No image size found for Flickr keyword: ' + keyword);
+            let obj = {
+              title: photo.title,
+              author: photo.realname || photo.username || photo.ownerNsid,
+              url: 'https://www.flickr.com/photos/' + photo.pathAlias + '/' + photo.id,
+              image: 'https:' + photo.sizes[size].url,
+              width: photo.sizes[size].width,
+              height: photo.sizes[size].height,
+              filename: path.basename(photo.sizes[size].url.split('?')[0])
+            };
+            if (obj && !this.objectInArray(obj,metadata)) {
+              data.push(obj);
+            }
           }
-        }).catch(err => reject('Error accessing random image results page for keyword: ' + keyword));
-      }).catch(err => reject('Error accessing first image results page for keyword: ' + keyword));
+          if (data.length) {
+            resolve(data);
+          }
+          else {
+            reject('No images found for Flickr keyword: ' + keyword);
+          }
+        }).catch(err => reject(err.message));
+      }).catch(err => reject(err.message));
     });
   },
 
@@ -157,133 +327,6 @@ module.exports = {
     return results;
   },
 
-  nearestParent: function(element) {
-    if (this.paused) return;
-    let search = [];
-    if (element.parent) {
-      search.push(element.parent.name);
-    }
-    if (search.length) {
-      if ((search.includes('h1') || search.includes('h2') || search.includes('h3') || search.includes('h4') || search.includes('h5') || search.includes('h6')) || (search.includes('a') || search.includes('span') || search.includes('b') || search.includes('strong') || search.includes('em')) && this.headerTags.includes(element.parent.parent.name)) {
-        return 'HEADER';
-      }
-      else if (search.includes('li')) {
-        return 'LIST';
-      }
-      else if (search.includes('p') || search.includes('div')) {
-        return 'TEXT';
-      }
-      else if (search.includes('a') && !this.paragraphTags.includes(element.parent.parent.name)) {
-        return 'LINK';
-      }
-      else if (search.includes('a') || search.includes('span') || search.includes('b') || search.includes('strong') || search.includes('em')) {
-        return 'EMBED';
-      }
-      else {
-        this.nearestParent(element.parent);
-      }
-    }
-  },
-
-  destructurePageText: function(elements) {
-    if (this.paused) return;
-    if (!elements || typeof elements !== 'object') {
-      return;
-    }
-    let data = '';
-    for (let i = 0; i < elements.length; i++) {
-      if (elements[i].type === 'text') {
-        let type = this.nearestParent(elements[i]);
-        if (elements[i].data.match(/[a-z\.\!\?\:\"]/) && type !== undefined) {
-          data += '[' + JSON.stringify({content: elements[i].data, type: type}) + ']';
-        }
-      }
-      else if (elements[i].children && elements[i].type !== 'comment' && elements[i].name !== 'script' && elements[i].name !== 'style') {
-        data += this.destructurePageText(elements[i].children);
-      }
-    }
-    return data;
-  },
-
-  filterPageText: function(data) {
-    if (!data || typeof data !== 'string') {
-      return;
-    }
-    let rawData = JSON.parse(data.replace(/\}\]\[\{/g,'},{'));
-    let objCount = 0;
-    let objs = [{h: '', p: '', li: [], a: []}];
-    for (let i = 0; i < rawData.length; i++) {
-      if ((rawData[i].type === 'HEADER' && i > 0) || (objs[objCount] && objs[objCount].p && !objs[objCount].p[objs[objCount].p.length-1].match(/[\s]/) && rawData[i].content[0].match(/[A-Z]/))) {
-        objCount++;
-      }
-      if (objs[objCount] === undefined) {
-        objs[objCount] = {h: '', p: '', li: [], a: []};
-      }
-      if (rawData[i].type === 'TEXT' || rawData[i].type === 'EMBED') {
-        objs[objCount].p += rawData[i].content;
-      }
-      else if (rawData[i].type === 'HEADER') {
-        objs[objCount].h += rawData[i].content;
-      }
-      else if (rawData[i].type === 'LIST') {
-        objs[objCount].li.push(rawData[i].content);
-      }
-      else if (rawData[i].type === 'LINK') {
-        objs[objCount].a.push(rawData[i].content);
-      }
-    }
-    let filteredObjs = [];
-    let searchRegex = /\s[a-zA-Z\)]+[\.\!\?]/;
-    for (let i = 0; i < objs.length; i++) {
-      if (!filteredObjs.length && objs[i].p.length < 50) {
-        continue;
-      }
-      if (!objs[i].p.match(searchRegex)) {
-        objs[i].p = '';
-      }
-      let list = [];
-      for (let j = 0; j < objs[i].li.length; j++) {
-        if (!objs[i].li[j].match(searchRegex)) {
-          objs[i].li.splice(j,1);
-        }
-        else if (objs[i].li[j]) {
-          list.push(objs[i].li[j]);
-        }
-      }
-      if (!(objs[i].p || objs[i].li.length || objs[i].h)) {
-        continue;
-      }
-      if (filteredObjs.length > 0 && !filteredObjs[filteredObjs.length-1].paragraph.length && !objs[i].p && !objs[i].h) {
-        break;
-      }
-      let header = '';
-      if (objs[i].h) {
-        header = objs[i].h.replace(/([^A-Z]*)([A-Z])/,'$2').trim();
-      }
-      let paragraph = objs[i].p;
-      if (header || paragraph) {
-        filteredObjs.push({
-          header: header,
-          paragraph: paragraph,
-          list: list,
-        });
-      }
-    }
-    let sortedObjs = {};
-    let sortCount = 0;
-    for (let i = 0; i < filteredObjs.length; i++) {
-      if (filteredObjs[i].header) {
-        sortCount++;
-      }
-      let index = '' + sortCount;
-      if (!sortedObjs[index]) {
-        sortedObjs[index] = [];
-      }
-      sortedObjs[index].push(filteredObjs[i]);
-    }
-    return sortedObjs;
-  },
-
   matchUrl: function(paragraph,url) {
     if (!paragraph || !url || typeof paragraph !== 'string' || typeof url !== 'string') {
       return false;
@@ -298,20 +341,22 @@ module.exports = {
     if (!text || typeof text !== 'string') {
       return '';
     }
-    return text
+    text = text
     .replace(/^(\n|\s|\r|\t)*/g,'')
     .replace(/(\n|\s|\r|\t)*$/g,'')
     .replace(/(\n|\r|\t|\s+)/g,' ')
-    .replace(/^[^A-Z]*([A-Z])/,'$1')
-    .replace(/([a-zA-Z])(\:\s.+|\s\(.+|\s\-\s.+)/,'$1')
+    .replace(/^[^A-Za-z]*([A-Za-z])/,'$1')
+    .replace(/([a-zA-Z])(\:\s.+|\s\(.+|\s\-\s.+|\s\|\s.+|\,\s.+)/,'$1')
     .replace(/[\.\?\!]$/,'');
+    if (text) return pos.titlecase(text);
+    return '';
   },
 
   parseText: function(text) {
     if (!text || typeof text !== 'string') {
       return '';
     }
-    return text
+    text = text
     .replace(/^(\n|\s|\r|\t)*/g,'')
     .replace(/(\n|\s|\r|\t)*$/g,'')
     .replace(/(\n|\r|\t|\s+)/g,' ')
@@ -325,7 +370,12 @@ module.exports = {
     .replace(/\.([0-9])/g,' point $1')
     .replace(/\.([A-Z]|[a-z])/g,'$1')
     .replace(/([a-z])(A\s)/g,'$1. $2')
+    .replace(/\s+/g,' ')
     .replace(/([\!\?\.])\s*(\w)/g,'$1|||||$2');
+    if (!text.match(/\s[A-Z]/) && text.match(/\b(his|her)\s[a-z]/)) text = text.replace(/\b(his|her)\b/g,'their');
+    if (!text.match(/\s[A-Z]/) && text.match(/\b(him|her[^\s])\b/)) text = text.replace(/\b(him|her)\b/g,'them');
+    if (text) return text;
+    return '';
   },
 
   validateHeader: function(sentence,url) {
@@ -333,17 +383,16 @@ module.exports = {
       return false;
     }
     if (sentence.match(/[a-z][A-Z]/)) return false;
-    if (sentence.match(/[^a-zA-Z\s\,\/]/)) return false;
+    if (sentence.match(/[^a-zA-Z\s\,\/\-0-9]/)) return false;
     if (!sentence.match(/^[A-Z]/)) return false;
-    if (sentence.match(/[A-Z][A-Z]/)) return false;
     if (this.matchUrl(sentence,url)) return false;
     if (sentence.match(/\b(we|i|our|ourselves|ourself|my|us|me|myself|he|his|him|himself|she|her|hers|herself)\b/i)) return false;
-    if (sentence.match(/(\d\:\d|\d\d\d\d)/)) return false;
+    if (sentence.match(/(\d\:\d|19\d\d|20\d\d)/)) return false;
     if (sentence.match(/\b(today|tomorrow|yesterday|last\sweek|last\smonth|last\syear|next\sweek|next\smonth|next\syear|this\sweek|this\smonth|this\syear)\b/i)) return false;
     if (sentence.match(/\b(January|February|March|April|May|June|July|August|September|November|December)\b/)) return false;
     if (sentence.match(/\b(error|problem|issue|trouble|unable)/i) && sentence.match(/\b(server|request|response|page|web|gateway|data|loading|load|open|opening)\b/i)) return false;
     if (sentence.match(/\b(please|thanks|thankyou|thank\syou|hello|hi|hey|greetings|welcome|goodbye|bye)\b/i)) return false;
-    if (sentence.match(/(shit|fuck|dick|piss|cunt|bitch|bastard)/)) return false;
+    if (sentence.match(/(shit|fuck|dick|piss|cunt|bitch|bastard)/i)) return false;
     if (sentence.match(/\b(posts|articles|comments|videos|related|reviews|answers|questions|replies|products|pages|items|similar|popular|category|categories|ratings|responses)\b/)) return false;
     if (sentence.match(/\b(post|write|leave|make|send|reply|respond)\b/i) && sentence.match(/\b(comment|reply|message|email|article|post|review)\b/i)) return false;
     if (sentence.match(/\b(subscribe|join|sign\sup|signup|become)\b/i) && sentence.match(/\b(free|newsletter|updates|news|email|membership|course|program|subscriber|member)\b/i)) return false;
@@ -355,7 +404,7 @@ module.exports = {
       return false;
     }
     if (!this.validateHeader(sentence,url)) return false;
-    if (sentence.match(/\b(join|member|post|reply|view|click|view|watch|see|request|respond|edit|save|add|open|review|checkout|check\sout|subscribe|sign\sup|signup|read|learn|comment|publish|feedback|newsletter|update|upload|buy|shipping|offer|cart)/i)) return false;
+    if (sentence.match(/\b(next|previous|more|continue|join|member|post|reply|view|click|view|watch|see|request|respond|edit|save|add|open|review|checkout|check\sout|subscribe|sign\sup|signup|read|learn|comment|publish|feedback|newsletter|update|upload|buy|shipping|offer|cart)/i)) return false;
     return true;
   },
 
@@ -364,72 +413,77 @@ module.exports = {
       return false;
     }
     if (sentence.match(/[a-z][A-Z]/)) return false;
+    if (sentence.match(/[\.\,\?\!\;\&\/][\.\,\?\!\;\&\/]/)) return false;
     if (!sentence.match(/[\!\.\?]$/)) return false;
     if (!sentence.match(/^[A-Z\"]/)) return false;
-    if (sentence.match(/[A-Z][A-Z]/)) return false;
+    if (!sentence.match(/\s[a-z]/)) return false;
     if (sentence.match(/[\%\$]/)) return false;
     if (this.matchUrl(sentence,url)) return false;
     if (sentence.match(/\b(we|i|our|ourselves|ourself|my|us|me|myself|he|his|him|himself|she|her|hers|herself)\b/i)) return false;
-    if (sentence.match(/(\d\:\d|\d\d\d\d)/)) return false;
+    if (sentence.match(/(\d\:\d|19\d\d|20\d\d)/)) return false;
     if (sentence.match(/\b(today|tomorrow|yesterday|last\sweek|last\smonth|last\syear|next\sweek|next\smonth|next\syear|this\sweek|this\smonth|this\syear)\b/i)) return false;
     if (sentence.match(/\b(January|February|March|April|May|June|July|August|September|November|December)\b/)) return false;
     if (sentence.match(/\b(error|problem|issue|trouble|unable)/i) && sentence.match(/\b(server|request|response|page|web|gateway|data|loading|load|open|opening)\b/i)) return false;
     if (sentence.match(/\b(please|thanks|thankyou|thank\syou|hello|hi|hey|greetings|welcome|goodbye|bye)\b/i)) return false;
-    if (sentence.match(/(shit|fuck|dick|piss|cunt|bitch|bastard)/)) return false;
+    if (sentence.match(/(shit|fuck|dick|piss|cunt|bitch|bastard)/i)) return false;
     return true;
   },
 
-  findKeyword: function(keyword,sentence,url) {
-    if (!keyword || typeof keyword !== 'string' || !sentence || !url || typeof sentence !== 'string' || typeof url !== 'string') {
-      return;
+  findKeywordInSentence: function(keyword,sentence) {
+    if (!keyword || typeof keyword !== 'string' || !sentence || typeof sentence !== 'string') {
+      return false;
     }
     if (sentence.includes(keyword)) return true;
-    let parsedUrl = url.replace(/(http|https)(\:\/\/)(www\.)*([a-z\-]+)([.])+/,'$5').replace(/[^a-z][^a-z]*/gi,'-');
-    if (parsedUrl.includes(keyword.replace(/[^a-z][^a-z]*/gi,'-'))) return true;
-    let keywordSplit = keyword.replace(/[^\w]/gi,' ').replace(/\s+/g,' ').trim().toLowerCase().split(' ');
     let matches = 0;
-    for (let i = 0; i < keywordSplit.length; i++) {
-      if (sentence.includes(keywordSplit[i])) matches++;
+    let lowercasedKeyword = keyword.replace(/[^\w]/gi,' ').replace(/\s+/g,' ').trim().toLowerCase().split(' ');
+    for (let i = 0; i < lowercasedKeyword.length; i++) {
+      if (sentence.includes(lowercasedKeyword[i])) matches++;
+      if (matches > 1) return true;
+    }
+    let uppercasedKeyword = pos.titlecase(keyword.replace(/[^\w]/gi,' ').replace(/\s+/g,' ').trim()).split(' ');
+    for (let i = 0; i < uppercasedKeyword.length; i++) {
+      if (sentence.includes(uppercasedKeyword[i])) matches++;
       if (matches > 1) return true;
     }
     return false;
   },
 
-  findContext: function(template,sentence,url) {
-    if (!template || typeof template !== 'string' || !sentence || !url || typeof sentence !== 'string' || typeof url !== 'string') {
-      return;
+  findContextFromObject: function(template,obj) {
+    if (!template || typeof template !== 'string' || !obj || typeof obj !== 'object') {
+      return false;
     }
-    let parsedUrl = url.replace(/(http|https)(\:\/\/)(www\.)*([a-z\-]+)([.])+/,'$5').replace(/[^a-z][^a-z]*/gi,'-');
+    let regex;
+    let parsedUrl = obj.url.replace(/(http|https)(\:\/\/)(www\.)*([a-z\-]+)([.])+/,'$5').replace(/[^a-z][^a-z]*/gi,'-');
     switch (template) {
       case 'tips':
-      if (sentence.match(/\b(can|can\'t|cannot|may|might|should|shouldn\'t|could|couldn\'t|ought\sto|need\sto|have\sto|must|will|won\'t|would|wouldn\'t|don\'t|try|avoid|ensure|make\ssure|consider|remember|understand|realize|recognize|know|start|stop|important|critical|crucial|main|major|essential|necessary|always|sometimes|often|never|probably|possibly|likely|maybe|if|when|because)\b/)) return true;
+      regex = /\b(tips|how.to|ideas)\b/i;
+      if (parsedUrl.match(regex)) return true;
       return false;
       case 'facts':
-      if (sentence.match(/\b(largely|greatly|predominantly|highly|slightly|extremely|mildly|moderately|somewhat|typically|characteristically|usually|sometimes|often|commonly|generally|really|actually|very|never|rarely|level\sof|amount\sof|quantity\sof|degree\sof|number\sof|typical\sof|characteristic\sof|look|looks|seem|seems|sound|sounds|appear|appears|become|becomes|taste|tastes|smell|smells|stay|stays|remain|remains)\b/i)) return true;
+      regex = /\b(facts|info|information)\b/i;
+      if (parsedUrl.match(regex)) return true;
+      case 'myths':
+      regex = /\b(myths|misconceptions)\b/i;
+      if (parsedUrl.match(regex)) return true;
+      case 'list':
+      regex = /\b(best|top|\d.\w)\b/i;
+      if (parsedUrl.match(regex)) return true;
       return false;
-      case 'reviews':
-      if (sentence.match(/\b(good|better|best|bad|worse|worst|poor|great|positive|negative|advantage|disadvantage|pros|cons|plus|minus)\b/)) return true;
+      case 'product':
+      regex = /\b(\d\d)\b/i;
+      if (parsedUrl.match(regex)) return true;
+      return false;
+      case 'review':
+      regex = /\b(review)\b/i;
+      if (parsedUrl.match(regex)) return true;
       return false;
       default: return false;
     }
   },
 
-  match: function(paragraph,url,keyword,template) {
-    if (!paragraph || !url || typeof paragraph !== 'string' || typeof url !== 'string' || !keyword || !template || typeof keyword !== 'string' || typeof template !== 'string') {
-      return false;
-    }
-    let splitParagraph = paragraph.replace(/\!+/g,'!').replace(/\?+/g,'?').replace(/\.+/g,'.').replace(/(\s[A-Za-z])\./g,'$1').replace(/\.([0-9])/g,' point $1').replace(/\.([A-Z]|[a-z])/g,'$1').replace(/([a-z])(A\s)/g,'$1. $2').replace(/([\!\?\.])\s*(\w)/g,'$1|||||$2').split('|||||');
-    let filtered = [];
-    for (let i = 0; i < splitParagraph.length; i++) {
-      if (this.validateText(splitParagraph[i],url,keyword,template)) filtered.push(splitParagraph[i]);
-    }
-    if (filtered.length) return filtered;
-    return [];
-  },
-
-  filter: function(paragraph,url) {
+  filterBodyContent: function(paragraph,url) {
     if (!paragraph || !url || typeof paragraph !== 'string' || typeof url !== 'string') {
-      return false;
+      return [];
     }
     if (!pos.validateSentence(paragraph)) return [];
     let splitParagraph = paragraph.split('|||||');
@@ -441,90 +495,48 @@ module.exports = {
     return [];
   },
 
-  introText: function(obj,keyword,template) {
-    if (!obj || typeof obj !== 'object' || !obj.body || !obj.body['0'] || !obj.body['0'][0] || !keyword || !template || typeof keyword !== 'string' || typeof template !== 'string') {
+  firstParagraph: function(obj) {
+    if (!obj || typeof obj !== 'object') {
       return;
     }
-    let data = obj.body['0'];
-    let text = '';
+    let data = obj.body.content;
     for (let i = 0; i < data.length; i++) {
-      if (data[i].paragraph.length < 200 && data[i].list.join(' ').length < 200) continue;
-      if (!this.findKeyword(keyword,data[i].paragraph,obj.url)) continue;
-      let p = this.filter(data[i].paragraph,obj.url,keyword,template);
-      if (p) {
-        if (text) text += ' ';
-        text += p;
-      }
-      if (data[i].list.length) {
-        for (let j = 0; j < data[i].list.length; j++) {
-          let li = this.filter(data[i].list[j],obj.url,keyword,template);
-          if (li) {
-            if (text) text += ' ';
-            text += li;
-          }
-        }
-      }
-      if (text) break;
+      if (data[i].header && this.findKeywordInSentence(data[i].header,data[i].text.join(''))) return {text: data[i].text, header: data[i].header};
+      if (data[i].text.join('').length > 100) return {text: data[i].text, header: obj.body.title};
     }
-    return text;
   },
 
-  sectionText: function(obj,keyword,template,headers,maxTries) {
-    if (!obj || typeof obj !== 'object' || !obj.body || !keyword || !template || typeof keyword !== 'string' || typeof template !== 'string') {
+  randomParagraph: function(obj,maxTries) {
+    if (!obj || typeof obj !== 'object') {
       return;
     }
-    let maxCount = Math.abs(Object.keys(obj.body).length-1);
+    let maxCount = Math.abs(Object.keys(obj.body.content).length-1);
     let startCount = Math.floor(Math.random() * maxCount) + 1;
-    let text = '';
-    for (let objCount = startCount; objCount < maxCount; objCount++) {
-      let data = obj.body[`${objCount}`];
-      if (headers.includes(data[0].header.toLowerCase())) {
-        continue;
-      }
-      for (let i = 0; i < data.length; i++) {
-        if (data[i].paragraph.length < 200 && data[i].list.join(' ').length < 200) continue;
-        if (!this.findKeyword(keyword,data[i].paragraph,obj.url) && !this.findKeyword(keyword,data[i].list.join(' '),obj.url)) continue;
-        let p = this.filter(data[i].paragraph,obj.url,keyword,template);
-        if (p) {
-          if (text) text += ' ';
-          text += p;
-        }
-        if (data[i].list.length) {
-          for (let j = 0; j < data[i].list.length; j++) {
-            let li = this.filter(data[i].list[j],obj.url,keyword,template);
-            if (li) {
-              if (text) text += ' ';
-              text += li;
-            }
-          }
-        }
-      }
-      if (text) break;
+    let data = obj.body.content;
+    for (let i = startCount; i < data.length; i++) {
+      if (data[i].header && this.findKeywordInSentence(data[i].header,data[i].text.join(''))) return {text: data[i].text, header: data[i].header};
+      if (data[i].text.join('').length > 100) return {text: data[i].text, header: obj.body.title};
     }
-    if (!text) {
-      if (maxTries && typeof maxTries === 'number') {
-        maxTries--;
-        this.sectionText(obj,keyword,template,headers,maxTries);
-      }
+    if (maxTries && typeof maxTries === 'number') {
+      maxTries--;
+      this.randomParagraph(obj,maxTries);
     }
-    return text;
   },
 
-  extractTextTags: function($,url) {
+  extractBodyContent: function($,url,filterText) {
     let store = [];
     let obj = {content: [], headers: [], links: []};
     let lastHeader = '';
     let lastLink = '';
     let self = this;
+    let title = $('h1').first().text() || $('h2').first().text() || '';
     $('div').contents()
     .each(function(i,el) {
       let content;
-      if (el.tagName === 'p') {
+      if (el.name === 'p') {
         if ($(this).children().length) {
-
           $(this).children().each(function(j,subEl) {
-            console.log(subEl.data);
-            if (((subEl.nextSibling && subEl.nextSibling.tagName === 'br') || j === 0) && (subEl.tagName === 'h1' || subEl.tagName === 'h2' || subEl.tagName === 'h3' || subEl.tagName === 'h4' || subEl.tagName === 'b' || subEl.tagName === 'strong')) {
+            if (subEl.name === 'h1' || subEl.name === 'h2' || subEl.name === 'h3' || subEl.name === 'h4' || subEl.name === 'b' || subEl.name === 'strong') {
               content = self.parseHeader($(this).text());
               if (!store.includes(content) && self.validateHeader(content,url)) {
                 store.push(content);
@@ -532,24 +544,20 @@ module.exports = {
                 obj.headers.push(content);
               }
             }
-            else {
-              content = self.parseText($(this).text());
-              if (!store.includes(content)) {
-                store.push(content);
-                obj.content.push({text: content, header: lastHeader, link: lastLink});
-              }
-            }
           });
         }
-        else {
-          content = self.parseText($(this).text());
-          if (!store.includes(content)) {
-            store.push(content);
-            obj.content.push({text: content, header: lastHeader, link: lastLink});
-          }
+        content = $(this).text();
+        if (lastHeader && content && content.indexOf(lastHeader) === 0) {
+          let index = lastHeader.length;
+          content = content.slice(0,index);
+        }
+        content = self.parseText(content);
+        if (!store.includes(content)) {
+          store.push(content);
+          if (content.match(/^[A-Z].+[\.\?\!]$/)) obj.content.push({text: content, header: lastHeader, link: lastLink});
         }
       }
-      else if (el.tagName === 'h1' || el.tagName === 'h2' || el.tagName === 'h3' || el.tagName === 'h4' || el.tagName === 'b' || el.tagName === 'strong') {
+      else if (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'b' || el.name === 'strong') {
         content = self.parseHeader($(this).text());
         if (!store.includes(content) && self.validateHeader(content,url)) {
           store.push(content);
@@ -557,41 +565,88 @@ module.exports = {
           obj.headers.push(content);
         }
       }
-      else if (el.tagName === 'ul' || el.tagName === 'ol') {
-        content = self.parseText($(this).text());
-        if (!store.includes(content)) {
-          store.push(content);
-          obj.content.push({text: content, header: lastHeader, link: lastLink});
-        }
+      else if (el.name === 'ul' || el.name === 'ol') {
+        let list = [];
+        $(this).children().each(function(j,subEl) {
+          if (subEl.name === 'li' && !$(this).children().length) {
+            content = self.parseText($(this).text());
+            if (!store.includes(content)) {
+              store.push(content);
+              obj.content.push({text: content, header: lastHeader, link: lastLink});
+              if (content && !content.match(/[\!\?\.]$/)) content += '.';
+              if (content.match(/^[A-Z].+[\.\?\!]$/)) list.push(content);
+            }
+          }
+        });
+        if (list.length) obj.content.push({text: list.join(' '), header: lastHeader, link: lastLink});
       }
       else if (el.type === 'text') {
-        content = self.parseText($(this).parent().text());
-        if (!store.includes(content)) {
-          store.push(content);
-          obj.content.push({text: content, header: lastHeader, link: lastLink});
+        if ($(this).parent().children().length) {
+          $(this).parent().children().each(function(j,subEl) {
+            if (subEl.name === 'h1' || subEl.name === 'h2' || subEl.name === 'h3' || subEl.name === 'h4' || subEl.name === 'b' || subEl.name === 'strong') {
+              content = self.parseHeader($(this).text());
+              if (!store.includes(content) && self.validateHeader(content,url)) {
+                store.push(content);
+                lastHeader = content;
+                obj.headers.push(content);
+              }
+            }
+            else if (subEl.name === 'ul' || subEl.name === 'ol') {
+              let list = [];
+              $(this).children().each(function(k,subSubEl) {
+                if (subSubEl.name === 'li') {
+                  content = self.parseText($(this).text());
+                  if (!store.includes(content)) {
+                    store.push(content);
+                    obj.content.push({text: content, header: lastHeader, link: lastLink});
+                    if (content && !content.match(/[\!\?\.]$/)) content += '.';
+                    if (content.match(/^[A-Z].+[\.\?\!]$/)) list.push(content);
+                  }
+                }
+              });
+              if (list.length) obj.content.push({text: list.join(' '), header: lastHeader, link: lastLink});
+            }
+          });
+        }
+        for (let count = 0; count < el.parent.children.length; count++) {
+          if (el.parent.children[count].type === 'text') {
+            content = self.parseText(el.parent.children[count].data);
+            if (!store.includes(content)) {
+              store.push(content);
+              if (content.match(/^[A-Z].+[\.\?\!]$/)) obj.content.push({text: content, header: lastHeader, link: lastLink});
+            }
+          }
         }
       }
       else if (el.tagName === 'a') {
         content = self.parseHeader($(this).text());
-        if (content.length > 20 && !store.includes(content) && self.validateLink(content,url)) {
+        link = $(this).attr('href') || '';
+        if (!store.includes(content) && self.validateLink(content,url)) {
           store.push(content);
           lastLink = content;
-          obj.links.push(content);
+          obj.links.push({text: content, url: link});
         }
       }
     });
     let filteredContent = [];
     for (let i = 0; i < obj.content.length; i++) {
-      let filtered = this.filter(obj.content[i].text,url);
+      let filtered;
+      if (filterText || typeof filterText === 'undefined') {
+        filtered = this.filterBodyContent(obj.content[i].text,url);
+      }
+      else {
+        filtered = obj.content[i].text.split('|||||');
+      }
       if (filtered.length) {
-        filteredContent.push({text: filtered, header: obj.content[i].header, link: obj.content[i].link})
+        filteredContent.push({text: filtered, header: obj.content[i].header, link: obj.content[i].link});
       }
     }
     obj.content = filteredContent;
+    obj.title = this.parseHeader(title);
     return obj;
   },
 
-  getPageText: function(url) {
+  getWebpageObject: function(url,filterText) {
     if (this.paused) return;
     return new Promise((resolve,reject) => {
       let options = {
@@ -600,7 +655,7 @@ module.exports = {
         gzip: true
       };
       request(options).then(html => {
-        html = html.replace(/(\s*\n\s*|\s*\r\s*)/g,'');
+        html = html.replace(/(\s*\n+\s*|\s*\r+\s*)/g,'');
         let $ = cheerio.load(html);
         let pageObject = {
           title: '',
@@ -612,7 +667,7 @@ module.exports = {
         pageObject.description = $('meta[name="description"]').attr('content') || '';
         pageObject.keywords = $('meta[name="keywords"]').attr('content') || '';
         pageObject.url = url;
-        pageObject.body = this.extractTextTags($,url);
+        pageObject.body = this.extractBodyContent($,url,filterText);
         resolve(pageObject);
       }).catch(err => reject(err));
     });
@@ -729,8 +784,8 @@ module.exports = {
       let urlIndex = Math.floor(Math.random() * urlStore.length);
       let url = urlStore[urlIndex];
       urlStore.splice(urlIndex,1);
-      this.getPageText(url).then(data => {
-        let text = this.introText(data,keyword,template);
+      this.getWebpageObject(url).then(data => {
+        let text = this.firstParagraph(data,keyword,template);
         if (text) dataStore.clips.push(text);
         this.makeVideoObject(callback,keyword,template,category,minSections,maxSections,maxResults,maxTries,sectionCountStore,dataStore,urlStore);
       }).catch(err => {
@@ -743,9 +798,9 @@ module.exports = {
       let urlIndex = Math.floor(Math.random() * urlStore.length);
       let url = urlStore[urlIndex];
       urlStore.splice(urlIndex,1);
-      this.getPageText(url).then(data => {
+      this.getWebpageObject(url).then(data => {
         let headers = [];
-        let text = this.sectionText(data,keyword,template,headers,10);
+        let text = this.randomParagraph(data,keyword,template,headers,10);
         if (text) dataStore.clips.push(text);
         this.makeVideoObject(callback,keyword,template,category,minSections,maxSections,maxResults,maxTries,sectionCountStore,dataStore,urlStore);
       }).catch(err => {

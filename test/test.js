@@ -4,13 +4,19 @@ const wp = require('../index');
 describe('web parser', function() {
 
   before(function() {
-    wp.pause();
+    wp.unpause();
   });
 
   it('should be an object with correct properties', () => {
     expect(wp).to.be.an('object');
     expect(wp).to.have.property('imageFromKeyword');
     expect(wp).to.not.be.undefined;
+  });
+
+  it('init should create empty properties', () => {
+    wp.init();
+    expect(wp.downloadedImageLinks.length).to.equal(0);
+    expect(wp.downloadedImageMetadata.length).to.equal(0);
   });
 
   it('image should be downloaded and link and metadata saved', function(done) {
@@ -62,34 +68,25 @@ describe('web parser', function() {
     });
   });
 
-  it('get page text should retrieve text object', function(done) {
+  it('get webpage object should retrieve object with webpage text properties', function(done) {
     if (wp.paused) done();
     this.timeout(0);
     wp.init();
-    wp.getPageText('http://www.barkbusters.com.au/').then(data => {
+    wp.getWebpageObject('http://www.barkbusters.com.au/').then(data => {
       expect(data).to.be.an('object');
+      expect(data).to.have.property('title');
+      expect(data).to.have.property('description');
+      expect(data).to.have.property('keywords');
+      expect(data).to.have.property('body');
+      expect(data.body).to.have.property('content');
+      expect(data.body).to.have.property('headers');
+      expect(data.body).to.have.property('links');
+      expect(data.body).to.have.property('title');
       done();
     })
     .catch(error => {
       done();
     });
-  });
-
-  it('init should create empty properties', () => {
-    wp.init();
-    expect(wp.downloadedImageLinks.length).to.equal(0);
-    expect(wp.downloadedImageMetadata.length).to.equal(0);
-  });
-
-  it('make video object should construct video object from properties', function(done) {
-    if (wp.paused) done();
-    this.timeout(0);
-    wp.init();
-    let callback = function(data) {
-      console.log(data);
-      done();
-    };
-    wp.makeVideoObject(callback,'brake fast dog bowls','reviews');
   });
 
   it('match url should find company name in body text', () => {
@@ -99,30 +96,33 @@ describe('web parser', function() {
     expect(match).to.equal(false);
   });
 
-  it('validate should filter bad sentence matches', () => {
-    let match = wp.validateText('Bark Busters is a good dog training company.','http://www.barkbusters.com.au','dog','template');
+  it('validate header should filter bad heading matches', () => {
+    let match = wp.validateHeader('Bark Busters is a good dog training company','http://www.barkbusters.com.au');
     expect(match).to.equal(false);
-    match = wp.validateText('You should teach your dog stuff.','http://www.barkbusters.com.au/dog-training-tips','dog training myths','tips');
+    match = wp.validateHeader('You should teach your dog stuff','http://www.barkbusters.com.au/dog-training-tips');
     expect(match).to.equal(true);
-    match = wp.validateText('I should teach my dog stuff.','http://www.barkbusters.com.au','dog','template');
+    match = wp.validateHeader('I should teach my dog stuff','http://www.barkbusters.com.au');
     expect(match).to.equal(false);
-    match = wp.validateText('You should teach your dog stuff in 2018.','http://www.barkbusters.com.au','dog','template');
+    match = wp.validateHeader('You should teach your dog stuff in 2018','http://www.barkbusters.com.au');
     expect(match).to.equal(false);
   });
 
-  it('find keyword should filter correct keyword matches in url and text', () => {
-    let filter;
-    filter = wp.findKeyword('dog training tips','A list of stuff to know.','http://www.barkbusters.com.au/dog%20training%20tips');
-    expect(filter).to.equal(true);
-    filter = wp.findKeyword('dog training tips','A list of tips for training.','http://www.barkbusters.com.au/');
-    expect(filter).to.equal(true);
+  it('validate text should filter bad sentence matches', () => {
+    let match = wp.validateText('Bark Busters is a good dog training company.','http://www.barkbusters.com.au');
+    expect(match).to.equal(false);
+    match = wp.validateText('You should teach your dog stuff.','http://www.barkbusters.com.au/dog-training-tips');
+    expect(match).to.equal(true);
+    match = wp.validateText('I should teach my dog stuff.','http://www.barkbusters.com.au');
+    expect(match).to.equal(false);
+    match = wp.validateText('You should teach your dog stuff in 2018.','http://www.barkbusters.com.au');
+    expect(match).to.equal(false);
   });
 
-  it('find context should filter correct keyword matches in url and text', () => {
+  it('find keyword should filter correct keyword matches in text', () => {
     let filter;
-    filter = wp.findKeyword('tips','A list of stuff to know.','http://www.barkbusters.com.au/dog%20training%20tips');
-    expect(filter).to.equal(true);
-    filter = wp.findKeyword('tips','A list of tips for training.','http://www.barkbusters.com.au/');
+    filter = wp.findKeywordInSentence('dog training tips','A list of stuff to know.');
+    expect(filter).to.equal(false);
+    filter = wp.findKeywordInSentence('dog training tips','A list of tips for training.');
     expect(filter).to.equal(true);
   });
 
@@ -130,6 +130,14 @@ describe('web parser', function() {
     expect(wp.parseHeader('7. Top Tips')).to.equal('Top Tips');
     expect(wp.parseHeader('7. Top Tips - For dog training')).to.equal('Top Tips');
     expect(wp.parseHeader('7 - Top Tips: For dog training')).to.equal('Top Tips');
+  });
+
+  it('object in array should detect an object used in an array', () => {
+    let obj1 = {name: 'Brent', age: 30};
+    let obj2 = {name: 'Comet', age: 8};
+    let obj3 = {name: 'Gizmo', age: 8};
+    expect(wp.objectInArray(obj1,[obj3,obj2,obj1])).to.equal(true);
+    expect(wp.objectInArray(obj1,[obj3,obj2])).to.equal(false);
   });
 
 });
