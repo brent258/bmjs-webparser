@@ -17,6 +17,15 @@ module.exports = {
   listTags: ['ul','ol','li'],
   punctuationMarks: ['.','!','?',':','"'],
   paused: false,
+  proxies: [],
+  lastGoogleProxy: '',
+  lastBingProxy: '',
+  lastFlickrProxy: '',
+  lastWebSearch: '',
+  imageBlacklist: [],
+  textBlacklist: [],
+  imageQueue: [],
+  textQueue: [],
 
   pause: function() {
     this.paused = true;
@@ -31,6 +40,164 @@ module.exports = {
     this.downloadedImageMetadata = [];
     this.setAssetsPath();
     this.setCachePath();
+  },
+
+  addImageBlacklist: function(item) {
+
+  },
+
+  addTextBlacklist: function(item) {
+
+  },
+
+  checkImageBlacklist: function(item) {
+
+  },
+
+  checkTextBlacklist: function(item) {
+
+  },
+
+  addProxy: function(proxy) {
+
+  },
+
+  googleProxy: function() {
+
+  },
+
+  bingProxy: function() {
+
+  },
+
+  flickrProxy: function() {
+
+  },
+
+  addTextQueue: function(keyword,data) {
+
+  },
+
+  addImageQueue: function(keyword,data) {
+
+  },
+
+  updateTextQueue: function(keyword) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  updateImageQueue: function(keyword) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  createTextCache: function(keyword) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  readTextCache: function(keyword) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  updateTextCache: function(obj,keyword) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  updateTextCacheMultiple: function(obj,keyword,limit,index) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  createImageCache: function(keyword) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  readImageCache: function(keyword) {
+    return new Promise((resolve,reject) => {
+      if (!keyword) {
+        reject('Unable to read image cache without keyword.');
+      }
+      else {
+        if (!fs.existsSync(this.cachePath + 'data/images/' + keyword + '.json')) {
+          reject();
+        }
+        else {
+          fs.readFile(this.cachePath + 'data/images/' + keyword + '.json', (err,data) => {
+            if (err) reject(err);
+            resolve(data);
+          });
+        }
+      }
+    });
+  },
+
+  updateImageCache: function(obj,keyword) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  updateImageCacheMultiple: function(obj,keyword,limit,index) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
   },
 
   setAssetsPath: function(dir) {
@@ -119,7 +286,7 @@ module.exports = {
     }
   },
 
-  objectInArray: function(obj,arr) {
+  objectInArray: function(obj,arr,ignoreKeys) {
     if (!obj || !arr || typeof obj !== 'object' || typeof arr !== 'object' || !arr[0]) {
       return false;
     }
@@ -136,6 +303,73 @@ module.exports = {
       }
     }
     return false;
+  },
+
+  calculateImageCrop: function(width,height) {
+
+  },
+
+  downloadImage: function(obj,savePath,scaleToFill) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  googleImage: function(keyword,options,tags) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  flickrImage: function(keyword,options,tags,page) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  flickrImageLoop: function(keyword,options,tags,page,store) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  images: function(keyword,options,tags,crop,cacheOnly,limit) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  selectImageWithKeyword: function(keyword,data) {
+
+  },
+
+  selectImageWithTags: function(keyword,data,tags) {
+
   },
 
   flickrImage: function(keyword,options,metadata) {
@@ -646,7 +880,7 @@ module.exports = {
     return obj;
   },
 
-  getWebpageObject: function(url,filterText) {
+  webpage: function(url,filterText) {
     if (this.paused) return;
     return new Promise((resolve,reject) => {
       let options = {
@@ -671,6 +905,54 @@ module.exports = {
         resolve(pageObject);
       }).catch(err => reject(err));
     });
+  },
+
+  resultLinks: function($,searchSource) {
+    if (searchSource === 'google') {
+
+    }
+    else if (searchSource === 'bing') {
+
+    }
+  },
+
+  googleSearch: function(keyword,domain) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  bingSearch: function(keyword,domain) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  search: function(keyword) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+    if (this.lastWebSearch !== 'google') {
+
+    }
+    else {
+
+    }
   },
 
   resultsFromKeyword: function(keyword,searchSource,maxResults,searchDomain) {
@@ -727,6 +1009,50 @@ module.exports = {
             resolve(results);
           }).catch(err => reject('Error accessing random results page for keyword: ' + keyword));
       }).catch(err => reject('Error accessing first results page for keyword: ' + keyword));
+    });
+  },
+
+  videoProperties: function(obj,fallback,options,tags,crop,cacheOnly,limit,store) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  videoSlides: function(count,url,fallback,options,tags,crop,cacheOnly,limit,store) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+
+      }
+    });
+  },
+
+  video: function(keyword,searchParams,imageParams,sectionCountStore,dataStore,urlStore,slideStore,index) {
+    return new Promise((resolve,reject) => {
+      if (!obj) {
+        reject();
+      }
+      else {
+        if (!urlStore.length) {
+
+        }
+        else if (!slideStore.length) {
+
+        }
+        else if (index < sectionCountStore) {
+
+        }
+        else {
+          resolve();
+        }
+      }
     });
   },
 
