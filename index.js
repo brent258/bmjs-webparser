@@ -333,13 +333,151 @@ module.exports = {
     });
   },
 
-  flickrImage: function(keyword,options,tags,page) {
+  flickrImage: function(keyword,imageParams,page) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword) {
+        reject('Unable to search for images without keyword.');
       }
       else {
-
+        if (!imageParams) imageParams = {};
+        if (!imageParams.options) imageParams.options = ['large','commercial'];
+        if (!imageParams.tags) imageParams.tags = [];
+        if (imageParams.crop === undefined) imageParams.crop = true;
+        if (imageParams.exact === undefined) imageParams.exact = true;
+        if (!page) page = 1;
+        let parsedKeyword = keyword.replace(/[^a-zA-Z\s]/g,'').replace(/\s+/g,'%20');
+        let url = `https://www.flickr.com/search/?text=${parsedKeyword}&page=${page}`;
+        if (imageParams.options && imageParams.options.length) {
+          let license = '';
+          let color = '';
+          let style = '';
+          for (let i = 0; i < imageParams.options.length; i++) {
+            switch (imageParams.options[i]) {
+              case 'cc':
+              if (!license) license = '&license=2%2C3%2C4%2C5%2C6%2C9';
+              break;
+              case 'commercial':
+              if (!license) license = '&license=4%2C5%2C6%2C9%2C10';
+              break;
+              case 'modifications':
+              if (!license) license = '&license=1%2C2%2C9%2C10';
+              break;
+              case 'red':
+              if (!color) color = '&color_codes=0';
+              break;
+              case 'brown':
+              if (!color) color = '&color_codes=1';
+              break;
+              case 'orange':
+              if (!color) color = '&color_codes=2';
+              break;
+              case 'lightpink':
+              if (!color) color = '&color_codes=b';
+              break;
+              case 'yellow':
+              if (!color) color = '&color_codes=4';
+              break;
+              case 'lightorange':
+              if (!color) color = '&color_codes=3';
+              break;
+              case 'lightgreen':
+              if (!color) color = '&color_codes=5';
+              break;
+              case 'green':
+              if (!color) color = '&color_codes=6';
+              break;
+              case 'lightblue':
+              if (!color) color = '&color_codes=7';
+              break;
+              case 'blue':
+              if (!color) color = '&color_codes=8';
+              break;
+              case 'purple':
+              if (!color) color = '&color_codes=9';
+              break;
+              case 'pink':
+              if (!color) color = '&color_codes=a';
+              break;
+              case 'white':
+              if (!color) color = '&color_codes=c';
+              break;
+              case 'grey':
+              if (!color) color = '&color_codes=d';
+              break;
+              case 'black':
+              if (!color) color = '&color_codes=e';
+              break;
+              case 'bw':
+              if (!style) style = '&styles=blackandwhite';
+              break;
+              case 'dof':
+              if (!style) style = '&styles=depthoffield';
+              break;
+              case 'minimal':
+              if (!style) style = '&styles=minimalism';
+              break;
+              case 'pattern':
+              if (!style) style = '&styles=pattern';
+              break;
+              default: break;
+            }
+          }
+          url += license + color + style;
+        }
+        let options = {
+          method: 'GET',
+          uri: url,
+          gzip: true,
+          headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
+        };
+        let proxy = this.flickrProxy();
+        if (proxy) {
+          options.proxy = proxy;
+        }
+        else {
+          console.log('WARNING: Proxies currently not set.');
+        }
+        request(options).then(html => {
+          html = html.replace(/(\s*\n+\s*|\s*\r+\s*)/g,'');
+          let $ = cheerio.load(html);
+          let tag;
+          $('script').each(function(i,el) {
+            if ($(this).html().match(/"photos":{"_data":.+,"fetchedStart":/)) {
+              tag = $(this).html();
+            }
+          });
+          let photos = JSON.parse(tag.match(/"photos":{"_data":.+,"fetchedStart":/)[0].replace(/null,/g,'').replace(/("photos":{"_data":|,"fetchedStart":)/g,''));
+          let data = [];
+          for (let i = 0; i < photos.length; i++) {
+            let size;
+            if (imageParams.options.includes('medium')) {
+              if (!size) size = photos[i].sizes.l ? 'l' : '';
+              if (!size) size = photos[i].sizes.m ? 'm' : '';
+            }
+            else {
+              if (!size) size = photos[i].sizes.l ? 'l' : '';
+            }
+            if (!size) continue;
+            let obj = {
+              title: photos[i].title,
+              author: photos[i].realname || photos[i].username || photos[i].ownerNsid,
+              url: 'https://www.flickr.com/photos/' + photos[i].pathAlias + '/' + photos[i].id,
+              image: 'https:' + photos[i].sizes[size].url,
+              width: parseInt(photos[i].sizes[size].width),
+              height: parseInt(photos[i].sizes[size].height),
+              filename: path.basename(photos[i].sizes[size].url.split('?')[0])
+            };
+            if (this.findKeywordInSentence(keyword,obj.title)) {
+              data.push(obj);
+            }
+          }
+          if (data.length) {
+            resolve(data);
+          }
+          else {
+            reject('No images found for Flickr keyword: ' + keyword);
+          }
+        }).catch(err => reject(err));
       }
     });
   },
@@ -435,165 +573,6 @@ module.exports = {
 
   selectImageWithTags: function(keyword,data,tags) {
 
-  },
-
-  flickrImage: function(keyword,options,metadata) {
-    if (this.paused) return;
-    if (!keyword || typeof keyword !== 'string') {
-      return;
-    }
-    if (!options) options = [];
-    if (!metadata) metadata = [];
-    let parsedKeyword = keyword.replace(/[^a-zA-Z\s]/g,'').replace(/\s+/g,'%20');
-    let url = 'https://www.flickr.com/search/?text=' + parsedKeyword;
-    if (options && typeof options === 'object' && options.length) {
-      let license = '';
-      let color = '';
-      let style = '';
-      for (let i = 0; i < options.length; i++) {
-        if (typeof options[i] !== 'string') continue;
-        switch (options[i].toLowerCase()) {
-          case 'cc':
-          if (!license) license = '&license=2%2C3%2C4%2C5%2C6%2C9';
-          break;
-          case 'commercial':
-          if (!license) license = '&license=4%2C5%2C6%2C9%2C10';
-          break;
-          case 'modifications':
-          if (!license) license = '&license=1%2C2%2C9%2C10';
-          break;
-          case 'red':
-          if (!color) color = '&color_codes=0';
-          break;
-          case 'brown':
-          if (!color) color = '&color_codes=1';
-          break;
-          case 'orange':
-          if (!color) color = '&color_codes=2';
-          break;
-          case 'lightpink':
-          if (!color) color = '&color_codes=b';
-          break;
-          case 'yellow':
-          if (!color) color = '&color_codes=4';
-          break;
-          case 'lightorange':
-          if (!color) color = '&color_codes=3';
-          break;
-          case 'lightgreen':
-          if (!color) color = '&color_codes=5';
-          break;
-          case 'green':
-          if (!color) color = '&color_codes=6';
-          break;
-          case 'lightblue':
-          if (!color) color = '&color_codes=7';
-          break;
-          case 'blue':
-          if (!color) color = '&color_codes=8';
-          break;
-          case 'purple':
-          if (!color) color = '&color_codes=9';
-          break;
-          case 'pink':
-          if (!color) color = '&color_codes=a';
-          break;
-          case 'white':
-          if (!color) color = '&color_codes=c';
-          break;
-          case 'grey':
-          if (!color) color = '&color_codes=d';
-          break;
-          case 'black':
-          if (!color) color = '&color_codes=e';
-          break;
-          case 'bw':
-          if (!style) style = '&styles=blackandwhite';
-          break;
-          case 'dof':
-          if (!style) style = '&styles=depthoffield';
-          break;
-          case 'minimal':
-          if (!style) style = '&styles=minimalism';
-          break;
-          case 'pattern':
-          if (!style) style = '&styles=pattern';
-          break;
-          default: break;
-        }
-        if (license && color && style) break;
-      }
-      url += license + color + style;
-    }
-    return new Promise((resolve,reject) => {
-      let params = {
-        method: 'GET',
-        uri: url + '&page=1',
-        gzip: true
-      };
-      request(params).then(html => {
-        html = html.replace(/(\s*\n+\s*|\s*\r+\s*)/g,'');
-        let imageCount, imagesPerPage;
-        if (html.match(/View\sall\s[0-9,]+/)) {
-          imageCount = parseInt(html.match(/View\sall\s[0-9,]+/)[0].replace(/(View\sall\s|,)/g,''));
-        }
-        if (html.match(/"perPage":[0-9]+/)) {
-          imagesPerPage = parseInt(html.match(/"perPage":[0-9]+/)[0].replace(/("perPage":)/g,''));
-        }
-        if (typeof imageCount !== 'number' || typeof imagesPerPage !== 'number') reject('Invalid image count for Flickr keyword: ' + keyword);
-        let lastPage = Math.floor(imageCount / imagesPerPage);
-        let randomPage = Math.floor(Math.random() * lastPage) + 1;
-        params.uri = url + '&page=' + randomPage;
-        request(params).then(html => {
-          html = html.replace(/(\s*\n+\s*|\s*\r+\s*)/g,'');
-          let $ = cheerio.load(html);
-          let tag;
-          $('script').each(function(i,el) {
-            if ($(this).html().match(/"photos":{"_data":\[[^\]]+\]/)) {
-              tag = $(this).html();
-              return;
-            }
-          });
-          let photos = JSON.parse(tag.match(/"photos":{"_data":\[[^\]]+\]/)[0].replace(/null,/g,'').replace(/"photos":{"_data":/,''));
-          let data = [];
-          for (let i = 0; i < photos.length; i++) {
-            let photo = photos[i];
-            let size = '';
-            if (photo.sizes.l) {
-              size = 'l';
-            }
-            else if (photo.sizes.z) {
-              size = 'z';
-            }
-            else if (photo.sizes.c) {
-              size = 'c';
-            }
-            else if (photo.sizes.m) {
-              size = 'm';
-            }
-            if (!size) reject('No image size found for Flickr keyword: ' + keyword);
-            let obj = {
-              title: photo.title,
-              author: photo.realname || photo.username || photo.ownerNsid,
-              url: 'https://www.flickr.com/photos/' + photo.pathAlias + '/' + photo.id,
-              image: 'https:' + photo.sizes[size].url,
-              width: photo.sizes[size].width,
-              height: photo.sizes[size].height,
-              filename: path.basename(photo.sizes[size].url.split('?')[0])
-            };
-            if (obj && !this.objectInArray(obj,metadata)) {
-              data.push(obj);
-            }
-          }
-          if (data.length) {
-            resolve(data);
-          }
-          else {
-            reject('No images found for Flickr keyword: ' + keyword);
-          }
-        }).catch(err => reject(err.message));
-      }).catch(err => reject(err.message));
-    });
   },
 
   getSearchLinks: function(html,searchSource) {
@@ -1091,7 +1070,7 @@ module.exports = {
     else {
       return '';
     }
-  }
+  },
 
   videoProperties: function(obj,imageParams) {
     return new Promise((resolve,reject) => {
