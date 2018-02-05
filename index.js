@@ -322,13 +322,141 @@ module.exports = {
     });
   },
 
-  googleImage: function(keyword,options,tags) {
+  googleImage: function(keyword,imageParams,domain) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword) {
+        reject('Unable to search for images without keyword.');
       }
       else {
-
+        if (!imageParams) imageParams = {};
+        if (!imageParams.options) imageParams.options = ['large','commercial'];
+        if (!imageParams.tags) imageParams.tags = [];
+        if (imageParams.crop === undefined) imageParams.crop = true;
+        if (imageParams.exact === undefined) imageParams.exact = true;
+        if (!domain) domain = 'com.au';
+        let parsedKeyword = keyword.replace(/[^a-zA-Z\s]/g,'').replace(/\s+/g,'+');
+        let url = `https://www.google.${domain}/search?q=${parsedKeyword}&tbm=isch`;
+        if (imageParams.options && imageParams.options.length) {
+          let license = '';
+          let color = '';
+          let style = '';
+          for (let i = 0; i < imageParams.options.length; i++) {
+            switch (imageParams.options[i]) {
+              case 'cc':
+              if (!license) license = '&license=2%2C3%2C4%2C5%2C6%2C9';
+              break;
+              case 'commercial':
+              if (!license) license = '&license=4%2C5%2C6%2C9%2C10';
+              break;
+              case 'modifications':
+              if (!license) license = '&license=1%2C2%2C9%2C10';
+              break;
+              case 'red':
+              if (!color) color = '&color_codes=0';
+              break;
+              case 'brown':
+              if (!color) color = '&color_codes=1';
+              break;
+              case 'orange':
+              if (!color) color = '&color_codes=2';
+              break;
+              case 'lightpink':
+              if (!color) color = '&color_codes=b';
+              break;
+              case 'yellow':
+              if (!color) color = '&color_codes=4';
+              break;
+              case 'lightorange':
+              if (!color) color = '&color_codes=3';
+              break;
+              case 'lightgreen':
+              if (!color) color = '&color_codes=5';
+              break;
+              case 'green':
+              if (!color) color = '&color_codes=6';
+              break;
+              case 'lightblue':
+              if (!color) color = '&color_codes=7';
+              break;
+              case 'blue':
+              if (!color) color = '&color_codes=8';
+              break;
+              case 'purple':
+              if (!color) color = '&color_codes=9';
+              break;
+              case 'pink':
+              if (!color) color = '&color_codes=a';
+              break;
+              case 'white':
+              if (!color) color = '&color_codes=c';
+              break;
+              case 'grey':
+              if (!color) color = '&color_codes=d';
+              break;
+              case 'black':
+              if (!color) color = '&color_codes=e';
+              break;
+              case 'bw':
+              if (!style) style = '&styles=blackandwhite';
+              break;
+              case 'dof':
+              if (!style) style = '&styles=depthoffield';
+              break;
+              case 'minimal':
+              if (!style) style = '&styles=minimalism';
+              break;
+              case 'pattern':
+              if (!style) style = '&styles=pattern';
+              break;
+              default: break;
+            }
+          }
+          url += license + color + style;
+        }
+        let options = {
+          method: 'GET',
+          uri: url,
+          gzip: true,
+          headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
+        };
+        let proxy = this.googleProxy();
+        if (proxy) {
+          options.proxy = proxy;
+        }
+        else {
+          console.log('WARNING: Proxies currently not set.');
+        }
+        request(options).then(html => {
+          html = html.replace(/(\s*\n+\s*|\s*\r+\s*)/g,'');
+          let $ = cheerio.load(html);
+          let photos = [];
+          $('.rg_meta.notranslate').each(function(i,el) {
+            if ($(this).text()) {
+              photos.push(JSON.parse($(this).text()));
+            }
+          });
+          let data = [];
+          for (let i = 0; i < photos.length; i++) {
+            let obj = {
+              title: photos[i].pt,
+              author: photos[i].isu,
+              url: photos[i].ru,
+              image: photos[i].ou,
+              width: parseInt(photos[i].ow),
+              height: parseInt(photos[i].oh),
+              filename: path.basename(photos[i].ou.split('?')[0])
+            };
+            if (this.findKeywordInSentence(keyword,obj.title)) {
+              data.push(obj);
+            }
+          }
+          if (data.length) {
+            resolve(data);
+          }
+          else {
+            reject('No images found for Google Image keyword: ' + keyword);
+          }
+        }).catch(err => reject(err));
       }
     });
   },
