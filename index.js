@@ -1014,13 +1014,103 @@ module.exports = {
     });
   },
 
-  videoProperties: function(obj,fallback,options,tags,crop,cacheOnly,limit,store) {
+  imageCredit: function(image) {
+    if (!image) {
+      return;
+    }
+    let credit = [];
+    if (image.title) credit.push(image.title);
+    if (image.author) credit.push('by ' + image.author);
+    if (image.url) credit.push('from ' + image.url);
+    if (credit.length) {
+      return credit.join(' ');
+    }
+    else {
+      return '';
+    }
+  }
+
+  videoProperties: function(obj,imageParams) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!obj || !imageParams || !imageParams.fallback) {
+        reject('Unable to create video properties without obj and fallback keyword.');
       }
       else {
-
+        if (!imageParams.type) imageParams.type = 'intro';
+        if (!imageParams.template) imageParams.template = '';
+        if (!imageParams.search) imageParams.search = 'google';
+        if (!imageParams.options) imageParams.options = ['large','commercial'];
+        if (!imageParams.tags) imageParams.tags = [];
+        if (imageParams.crop === undefined) imageParams.crop = true;
+        if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
+        if (imageParams.exact === undefined) imageParams.exact = true;
+        if (!imageParams.limit) imageParams.limit = 3;
+        let slides = [];
+        let credits = [];
+        let keyword = obj.match ? obj.header : imageParams.fallback;
+        let description = imageParams === 'intro' ? pos.prettyPrint(obj.text.join(' '),true,true,false) : keyword + '\n\n' + pos.prettyPrintList(obj.text.join(' '),true,true,true);
+        this.images(keyword,imageParams).then(data => {
+          let imageActive = true;
+          let textActive = true;
+          if (imageParams.template === 'imageOnly') textActive = false;
+          if (imageParams.template === 'textOnly') imageActive = false;
+          let bothActive = imageActive && textActive ? true : false;
+          let titleText, titleImage;
+          if (bothActive) {
+            titleImage = data[0] ? rand(data[0],null,null,null) : null;
+            titleText = keyword;
+          }
+          else if (imageActive) {
+            titleImage = data[0] ? data[0] : null;
+            titleText = '';
+          }
+          else if (textActive) {
+            titleImage = null;
+            titleText = keyword;
+          }
+          let titleObj = {
+            text: titleText,
+            audio: '',
+            image: titleImage,
+            template: imageParams.template,
+            keyword: keyword
+          };
+          let titleCredit = this.imageCredit(data[0]);
+          if (titleCredit) credits.push(titleCredit);
+          if (titleObj.text || titleObj.image) slides.push(titleObj);
+          for (let i = 0; i < obj.text.length; i++) {
+            let slideText, slideImage;
+            let snippet = pos.prettyPrintSnippet(obj.text[i],false,true,false);
+            if (bothActive) {
+              slideImage = data[i+1] ? rand(data[+1],data[+1],data[+1],null) : null;
+              slideText = !slideImage ? snippet : rand(snippet,'');
+            }
+            else if (imageActive) {
+              slideImage = data[i+1] ? data[i+1] : null;
+              slideText = '';
+            }
+            else if (textActive) {
+              slideImage = null;
+              slideText = snippet;
+            }
+            let slideObj = {
+              text: slideText,
+              audio: '',
+              image: slideImage,
+              template: imageParams.template,
+              keyword: keyword
+            };
+            let slideCredit = this.imageCredit(data[i+1]);
+            if (slideCredit) credits.push(slideCredit);
+            if (slideObj.text || slideObj.image) slides.push(slideObj);
+          }
+          if (slides.length) {
+            resolve({slides: slides, credits: credits, description: description});
+          }
+          else {
+            reject('No video properties found from: ' + obj.url);
+          }
+        }).catch(err => reject(err));
       }
     });
   },
@@ -1051,7 +1141,7 @@ module.exports = {
             this.videoProperties(data,imageParams).then(data => {
               slideStore.slides = slideStore.slides.concat(data.slides);
               slideStore.credits = slideStore.credits.concat(data.credits);
-              slideStore.description = slideStore.description.concat(data.description).join('\n');
+              slideStore.description = data.description;
               resolve(slideStore);
             }).catch(err => reject(err));
           }).catch(err => reject(err));
@@ -1060,20 +1150,20 @@ module.exports = {
           if (!slideStore.slides.length) {
             this.website(url).then(data => {
               objectStore = data;
-              this.videoProperties(objectStore,imageParams).then(data => {
+              this.videoProperties(objectStore[0],imageParams).then(data => {
                 slideStore.slides = slideStore.slides.concat(data.slides);
                 slideStore.credits = slideStore.credits.concat(data.credits);
-                slideStore.description = slideStore.description.concat(data.description);
+                slideStore.description.push(data.description);
                 objectStore.shift();
                 this.videoSlides(count,url,imageParams,objectStore,slideStore).then(data => resoleve(data)).catch(err => reject(err));
               }).catch(err => reject(err));
             }).catch(err => reject(err));
           }
           else if (objectStore.length) {
-            this.videoProperties(objectStore,imageParams).then(data => {
+            this.videoProperties(objectStore[0],imageParams).then(data => {
               slideStore.slides = slideStore.slides.concat(data.slides);
               slideStore.credits = slideStore.credits.concat(data.credits);
-              slideStore.description = slideStore.description.concat(data.description);
+              slideStore.description.push(data.description);
               objectStore.shift();
               this.videoSlides(count,url,imageParams,objectStore,slideStore).then(data => resoleve(data)).catch(err => reject(err));
             }).catch(err => reject(err));
@@ -1171,7 +1261,7 @@ module.exports = {
           .then(data => {
             slideStore.slides = slideStore.slides.concat(data.slides);
             slideStore.credits = slideStore.credits.concat(data.credits);
-            slideStore.description = slideStore.description.concat(data.description);
+            slideStore.description.push(data.description);
             urlStore.shift();
             index++;
             this.video(keyword,searchParams,imageParams,errorHandler,sectionCountStore,dataStore,urlStore,slideStore,index).then(data => resoleve(data)).catch(err => reject(err));
@@ -1186,7 +1276,7 @@ module.exports = {
           .then(data => {
             slideStore.slides = slideStore.slides.concat(data.slides);
             slideStore.credits = slideStore.credits.concat(data.credits);
-            slideStore.description = slideStore.description.concat(data.description);
+            slideStore.description.push(data.description);
             urlStore.shift();
             index++;
             this.video(keyword,searchParams,imageParams,errorHandler,sectionCountStore,dataStore,urlStore,slideStore,index).then(data => resoleve(data)).catch(err => reject(err));
