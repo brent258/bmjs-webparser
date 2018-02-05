@@ -24,10 +24,8 @@ module.exports = {
   lastWebSearch: '',
   imageBlacklist: [],
   textBlacklist: [],
-  imageQueueData: [],
-  textQueueData: [],
-  imageQueueList: [],
-  textQueueList: [],
+  imageQueue: {list: [], data: []},
+  textQueue: {list: [], data: []},
 
   pause: function() {
     this.paused = true;
@@ -38,10 +36,12 @@ module.exports = {
   },
 
   init: function() {
-    this.downloadedImageLinks = [];
-    this.downloadedImageMetadata = [];
-    this.setAssetsPath();
-    this.setCachePath();
+    if (!this.assetsPath) {
+      this.setAssetsPath();
+    }
+    if (!this.cachePath) {
+      this.setCachePath();
+    }
   },
 
   addImageBlacklist: function(item) {
@@ -76,87 +76,160 @@ module.exports = {
 
   },
 
-  addTextQueue: function(keyword,data) {
-
+  addTextQueue: function(data,keyword) {
+    this.textQueue.data.push({data: data, keyword: keyword});
+    this.textQueue.list.push(keyword);
   },
 
-  addImageQueue: function(keyword,data) {
-
+  addImageQueue: function(data,keyword) {
+    this.imageQueue.data.push({data: data, keyword: keyword});
+    this.imageQueue.list.push(keyword);
   },
 
   updateTextQueue: function(keyword) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword) {
+        reject('Unable to update text queue without keyword.');
       }
       else {
-
+        if (this.textQueue.list.includes(keyword) && this.textQueue.data.length) {
+          fs.writeFile(this.cachePath + '/data/text/' + this.textQueue.data[0].keyword + '.json', JSON.stringify(this.textQueue.data[0].data), err => {
+            this.textQueue.list.shift();
+            this.textQueue.data.shift();
+            this.updateTextQueue(keyword).then(() => resolve()).catch(err => reject(err));
+          });
+        }
+        else {
+          resolve();
+        }
       }
     });
   },
 
   updateImageQueue: function(keyword) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword) {
+        reject('Unable to update image queue without keyword.');
       }
       else {
-
+        if (this.imageQueue.list.includes(keyword) && this.imageQueue.data.length) {
+          fs.writeFile(this.cachePath + '/data/images/' + this.imageQueue.data[0].keyword + '.json', JSON.stringify(this.imageQueue.data[0].data), err => {
+            this.imageQueue.list.shift();
+            this.imageQueue.data.shift();
+            this.updateImageQueue(keyword).then(() => resolve()).catch(err => reject(err));
+          });
+        }
+        else {
+          resolve();
+        }
       }
     });
   },
 
   createTextCache: function(keyword) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword) {
+        reject('Unable to create text cache without keyword.');
       }
       else {
-
+        if (fs.existsSync(this.cachePath + '/data/text/' + keyword + '.json')) {
+          resolve('Text cache already exists for: ' + keyword);
+        }
+        else {
+          let data = [];
+          fs.writeFile(this.cachePath + '/data/text/' + keyword + '.json', JSON.stringify(data), err => {
+            if (err) reject(err);
+            resolve('Text cache created for: ' + keyword);
+          });
+        }
       }
     });
   },
 
   readTextCache: function(keyword) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword) {
+        reject('Unable to read text cache without keyword.');
       }
       else {
-
+        if (!fs.existsSync(this.cachePath + '/data/text/' + keyword + '.json')) {
+          reject('Text cache not found for: ' + keyword);
+        }
+        else {
+          fs.readFile(this.cachePath + '/data/text/' + keyword + '.json', (err,data) => {
+            if (err) reject(err);
+            resolve(JSON.parse(data));
+          });
+        }
       }
     });
   },
 
   updateTextCache: function(obj,keyword) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword || !obj) {
+        reject('Unable to update text cache without keyword and object.');
       }
       else {
-
+        this.createTextCache(keyword).then(() => {
+          this.readTextCache(keyword).then(data => {
+            if (!data.length || !this.objectInArray(obj,data)) {
+              data.push(obj);
+              this.addTextQueue(data,keyword);
+              this.updateTextQueue(keyword).then(() => {
+                resolve('Finished updating text cache for: ' + keyword);
+              }).catch(err => reject(err));
+            }
+            else {
+              resolve('Item already found in text cache for: ' + keyword);
+            }
+          }).catch(err => reject(err));
+        }).catch(err => reject(err));
       }
     });
   },
 
-  updateTextCacheMultiple: function(obj,keyword,limit,index) {
+  updateTextCacheMultiple: function(obj,keyword,index) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword || !obj) {
+        reject('Unable to update text cache without keyword and object array.');
       }
       else {
-
+        if (!index) index = 0;
+        if (obj[0]) {
+          this.updateTextCache(obj[0],keyword).then(data => {
+            console.log(data);
+            obj.shift();
+            index++;
+            this.updateTextCacheMultiple(obj,keyword,index).then(data => resolve(data)).catch(err => reject(err));
+          }).catch(err => reject(err));
+        }
+        else {
+          resolve(`Finished adding ${index} item(s) to text cache for keyword: ${keyword}`);
+        }
       }
     });
   },
 
   createImageCache: function(keyword) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword) {
+        reject('Unable to create image cache without keyword.');
       }
       else {
-
+        if (fs.existsSync(this.cachePath + '/data/images/' + keyword + '.json') && fs.existsSync(this.cachePath + '/images/' + keyword)) {
+          resolve('Image cache already exists for: ' + keyword);
+        }
+        else {
+          let data = [];
+          fs.writeFile(this.cachePath + '/data/images/' + keyword + '.json', JSON.stringify(data), err => {
+            if (err) reject(err);
+            fs.mkdir(this.cachePath + '/images/' + keyword, err => {
+              if (err) reject(err);
+              resolve('Image cache created for: ' + keyword);
+            });
+          });
+        }
       }
     });
   },
@@ -168,43 +241,73 @@ module.exports = {
       }
       else {
         if (!fs.existsSync(this.cachePath + '/data/images/' + keyword + '.json')) {
-          reject();
+          reject('Image cache not found for: ' + keyword);
         }
         else {
           fs.readFile(this.cachePath + '/data/images/' + keyword + '.json', (err,data) => {
             if (err) reject(err);
-            resolve(data);
+            resolve(JSON.parse(data));
           });
         }
       }
     });
   },
 
-  updateImageCache: function(obj,keyword) {
+  updateImageCache: function(obj,keyword,scaleToFill) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword || !obj) {
+        reject('Unable to update image cache without keyword and object.');
       }
       else {
-
+        if (scaleToFill === undefined) scaleToFill = true;
+        this.createImageCache(keyword).then(() => {
+          this.readImageCache(keyword).then(data => {
+            if (!data.length || !this.objectInArray(obj,data,['tags','search','copyright'])) {
+              data.push(obj);
+              this.downloadImage(obj,this.cachePath + '/images/' + keyword,scaleToFill).then(msg => {
+                console.log(msg);
+                this.addImageQueue(data,keyword);
+                this.updateImageQueue(keyword).then(() => {
+                  resolve('Finished updating image cache for: ' + keyword);
+                }).catch(err => reject(err));
+              }).catch(err => reject(err));
+            }
+            else {
+              resolve('Item already found in image cache for: ' + keyword);
+            }
+          }).catch(err => reject(err));
+        }).catch(err => reject(err));
       }
     });
   },
 
-  updateImageCacheMultiple: function(obj,keyword,limit,index) {
+  updateImageCacheMultiple: function(obj,keyword,scaleToFill,limit,index) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword || !obj) {
+        reject('Unable to update image cache without keyword and object array.');
       }
       else {
-
+        if (scaleToFill === undefined) scaleToFill = true;
+        if (!limit) limit = 100;
+        if (!index) index = 0;
+        if (obj[0] && index < limit) {
+          this.updateImageCache(obj[0],keyword,scaleToFill).then(data => {
+            console.log(data);
+            obj.shift();
+            index++;
+            this.updateImageCacheMultiple(obj,keyword,scaleToFill,limit,index).then(data => resolve(data)).catch(err => reject(err));
+          }).catch(err => reject(err));
+        }
+        else {
+          resolve(`Finished adding ${index} item(s) to image cache for keyword: ${keyword}`);
+        }
       }
     });
   },
 
   setAssetsPath: function(dir) {
     if (!dir || typeof dir !== 'string') {
-      this.assetsPath = 'assets';
+      this.assetsPath = __dirname + '/assets';
     }
     else {
       this.assetsPath = dir;
@@ -227,7 +330,7 @@ module.exports = {
 
   setCachePath: function(dir) {
     if (!dir || typeof dir !== 'string') {
-      this.cachePath = 'cache';
+      this.cachePath = __dirname + '/cache';
     }
     else {
       this.cachePath = dir;
@@ -1073,7 +1176,6 @@ module.exports = {
   },
 
   webpage: function(url,filterText) {
-    if (this.paused) return;
     return new Promise((resolve,reject) => {
       let options = {
         method: 'GET',
@@ -1204,63 +1306,6 @@ module.exports = {
           this.bingSearch(keyword,minResult,maxResult,googleDomain).then(data => resolve(data)).catch(err => reject(err));
         }
       }
-    });
-  },
-
-  resultsFromKeyword: function(keyword,searchSource,maxResults,searchDomain) {
-    if (this.paused) return;
-    if (!keyword || typeof keyword !== 'string') {
-      console.log('Invalid keyword entered.');
-      return;
-    }
-    let parsedKeyword = keyword.replace(/\s/g,'+');
-    let hasInvalidChars = parsedKeyword.match(/[^0-9a-zA-Z+]/);
-    if (hasInvalidChars) {
-      console.log(`Invalid characters in entered keyword: ${keyword}. Must contain only words and spaces.`);
-      return;
-    }
-    let searchUrl;
-    if (!searchSource || searchSource === 'google') {
-      searchUrl = `https://www.google.${searchDomain || 'com.au'}/search?q=${parsedKeyword}`;
-    }
-    else if (searchSource === 'bing') {
-      searchUrl = `https://www.bing.com/search?q=${parsedKeyword}&cc=${searchDomain || 'au'}`;
-    }
-    return new Promise((resolve,reject) => {
-        let options = {
-          method: 'GET',
-          uri: searchUrl,
-          gzip: true
-        };
-        request(options).then(firstPageResults => {
-          if (maxResults === 0 || maxResults === undefined) {
-            let results = this.getSearchLinks(firstPageResults,searchSource);
-            if (!results.length) reject('No results found for keyword: ' + keyword);
-            resolve(results);
-          }
-          firstPageResults = firstPageResults.replace(/(\n|\r)/g,'');
-          let resultCount;
-          if (firstPageResults.match(/[0-9,]+\sresults/i)) {
-            resultCount = parseInt(firstPageResults.match(/[0-9,]+\sresults/i)[0].replace(/(results|\s|,)/gi,''));
-          }
-          let randomPage = Math.floor(Math.random() * maxResults) + 1;
-          let pageQuery;
-          if (searchSource === 'bing') {
-            pageQuery = '&first=' + (randomPage);
-          }
-          else {
-            pageQuery = '&start=' + (randomPage - 10);
-          }
-          let options = {
-            method: 'GET',
-            uri: searchUrl+pageQuery,
-            gzip: true
-          };
-          request(options).then(randomPageResults => {
-            let results = this.getSearchLinks(randomPageResults,searchSource);
-            resolve(results);
-          }).catch(err => reject('Error accessing random results page for keyword: ' + keyword));
-      }).catch(err => reject('Error accessing first results page for keyword: ' + keyword));
     });
   },
 
@@ -1545,90 +1590,6 @@ module.exports = {
         }
       }
     });
-  },
-
-  makeVideoObject: function(callback,keyword,template,category,minSections,maxSections,maxResults,maxTries,sectionCountStore,dataStore,urlStore) {
-    if (this.paused) return;
-    if (!keyword || typeof keyword !== 'string') {
-      console.log('Invalid keyword to search.');
-      return;
-    }
-    if (!callback || typeof callback !== 'function') {
-      callback = function(data) {
-        if (data) console.log(data);
-      };
-    }
-    if (!template) template = 'tips';
-    if (!category) category = 0;
-    if (!minSections) minSections = 5;
-    if (!maxSections) maxSections = 10;
-    if (!maxResults) maxResults = 100;
-    if (!maxTries) maxTries = 1;
-    if (!sectionCountStore) sectionCountStore = Math.floor(Math.random() * maxSections) + minSections;
-    let title = pos.title(keyword,sectionCountStore,template);
-    if (!dataStore) {
-      dataStore = {
-        title: title,
-        description: '',
-        category: category,
-        privacy: 'Public',
-        clips: []
-      };
-    }
-    if (!urlStore) urlStore = [];
-    let errorHandler = function(error) {
-      console.log(error);
-      if (maxTries > 10) {
-        callback(dataStore);
-        console.log('Exiting...');
-        return true;
-      }
-      console.log('Re-trying...');
-      maxTries++;
-      return false;
-    };
-    if (!urlStore.length) {
-      this.resultsFromKeyword(keyword,rand('bing','google'),maxResults).then(results => {
-        urlStore = results;
-        this.makeVideoObject(callback,keyword,template,category,minSections,maxSections,maxResults,maxTries,sectionCountStore,dataStore,urlStore);
-      }).catch(err => {
-        let exit = errorHandler(err);
-        if (exit) return;
-        this.makeVideoObject(callback,keyword,template,category,minSections,maxSections,maxResults,maxTries,sectionCountStore,dataStore,urlStore);
-      });
-    }
-    else if (!dataStore.clips.length) {
-      let urlIndex = Math.floor(Math.random() * urlStore.length);
-      let url = urlStore[urlIndex];
-      urlStore.splice(urlIndex,1);
-      this.getWebpageObject(url).then(data => {
-        let text = this.firstParagraph(data,keyword,template);
-        if (text) dataStore.clips.push(text);
-        this.makeVideoObject(callback,keyword,template,category,minSections,maxSections,maxResults,maxTries,sectionCountStore,dataStore,urlStore);
-      }).catch(err => {
-        let exit = errorHandler(err);
-        if (exit) return;
-        this.makeVideoObject(callback,keyword,template,category,minSections,maxSections,maxResults,maxTries,sectionCountStore,dataStore,urlStore);
-      });
-    }
-    else if (dataStore.clips.length < sectionCountStore) {
-      let urlIndex = Math.floor(Math.random() * urlStore.length);
-      let url = urlStore[urlIndex];
-      urlStore.splice(urlIndex,1);
-      this.getWebpageObject(url).then(data => {
-        let headers = [];
-        let text = this.randomParagraph(data,keyword,template,headers,10);
-        if (text) dataStore.clips.push(text);
-        this.makeVideoObject(callback,keyword,template,category,minSections,maxSections,maxResults,maxTries,sectionCountStore,dataStore,urlStore);
-      }).catch(err => {
-        let exit = errorHandler(err);
-        if (exit) return;
-        this.makeVideoObject(callback,keyword,template,category,minSections,maxSections,maxResults,maxTries,sectionCountStore,dataStore,urlStore);
-      });
-    }
-    else {
-      callback(dataStore);
-    }
   }
 
 };
