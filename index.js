@@ -355,13 +355,76 @@ module.exports = {
     });
   },
 
-  images: function(keyword,options,tags,crop,cacheOnly,limit) {
+  images: function(keyword,imageParams) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword) {
+        reject('Unable to search for images without keyword.');
       }
       else {
-
+        if (!imageParams) imageParams = {};
+        if (!imageParams.search) imageParams.search = 'google';
+        if (!imageParams.options) imageParams.options = ['large','commercial'];
+        if (!imageParams.tags) imageParams.tags = [];
+        if (imageParams.crop === undefined) imageParams.crop = true;
+        if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
+        if (imageParams.exact === undefined) imageParams.exact = true;
+        if (!imageParams.limit) imageParams.limit = 3;
+        let self = this;
+        let callback = function(data) {
+          self.updateImageCacheMultiple(data,keyword,imageParams.crop,imageParams.limit).then(data => {
+            self.readImageCache(keyword).then(data => {
+              let images = shuffle(JSON.parse(data));
+              let filtered = [];
+              for (let i = 0; i < imageParams.limit; i++) {
+                if (images[i]) filtered.push(images[i]);
+              }
+              resolve(filtered);
+            }).catch(err => reject(err));
+          }).catch(err => reject(err));
+        };
+        if (imageParams.cacheOnly) {
+          this.readImageCache(keyword).then(data => {
+            let images = shuffle(JSON.parse(data));
+            let filtered = [];
+            for (let i = 0; i < imageParams.limit; i++) {
+              if (images[i]) filtered.push(images[i]);
+            }
+            resolve(filtered);
+          }).catch(err => {
+            console.log(err);
+            console.log('No images found. Searching for new images...');
+            if (imageParams.search === 'google') {
+              this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+            }
+            else if (imageParams.search === 'flickr') {
+              this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+            }
+            else {
+              if (rand(true,false) === true) {
+                this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+              }
+              else {
+                this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+              }
+            }
+          });
+        }
+        else {
+          if (imageParams.search === 'google') {
+            this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+          }
+          else if (imageParams.search === 'flickr') {
+            this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+          }
+          else {
+            if (rand(true,false) === true) {
+              this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+            }
+            else {
+              this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+            }
+          }
+        }
       }
     });
   },
@@ -1073,7 +1136,8 @@ module.exports = {
             audio: '',
             image: titleImage,
             template: imageParams.template,
-            keyword: keyword
+            keyword: keyword,
+            url: obj.url
           };
           let titleCredit = this.imageCredit(data[0]);
           if (titleCredit) credits.push(titleCredit);
@@ -1082,7 +1146,7 @@ module.exports = {
             let slideText, slideImage;
             let snippet = pos.prettyPrintSnippet(obj.text[i],false,true,false);
             if (bothActive) {
-              slideImage = data[i+1] ? rand(data[+1],data[+1],data[+1],null) : null;
+              slideImage = data[i+1] ? rand(data[i+1],data[i+1],data[i+1],null) : null;
               slideText = !slideImage ? snippet : rand(snippet,'');
             }
             else if (imageActive) {
@@ -1098,7 +1162,8 @@ module.exports = {
               audio: '',
               image: slideImage,
               template: imageParams.template,
-              keyword: keyword
+              keyword: keyword,
+              url: obj.url
             };
             let slideCredit = this.imageCredit(data[i+1]);
             if (slideCredit) credits.push(slideCredit);
