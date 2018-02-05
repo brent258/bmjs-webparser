@@ -450,11 +450,11 @@ module.exports = {
               data.push(obj);
             }
           }
-          if (data.length) {
-            resolve(data);
+          if (!data.length) {
+            reject(`Unable to find Google images on page ${page} for keyword: ${keyword}`);
           }
           else {
-            reject('No images found for Google Image keyword: ' + keyword);
+            resolve(data);
           }
         }).catch(err => reject(err));
       }
@@ -599,24 +599,44 @@ module.exports = {
               data.push(obj);
             }
           }
-          if (data.length) {
-            resolve(data);
+          if (!data.length) {
+            reject(`Unable to find Flickr images on page ${page} for keyword: ${keyword}`);
           }
           else {
-            reject('No images found for Flickr keyword: ' + keyword);
+            resolve(data);
           }
         }).catch(err => reject(err));
       }
     });
   },
 
-  flickrImageLoop: function(keyword,options,tags,page,store) {
+  flickrImageLoop: function(keyword,imageParams,page,store) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword) {
+        reject('Unable to search for images without keyword.');
       }
       else {
-
+        if (!imageParams) imageParams = {};
+        if (!imageParams.options) imageParams.options = ['large','commercial'];
+        if (!imageParams.tags) imageParams.tags = [];
+        if (imageParams.crop === undefined) imageParams.crop = true;
+        if (imageParams.exact === undefined) imageParams.exact = true;
+        if (!page) page = 1;
+        if (!store) store = [];
+        this.flickrImage(keyword,imageParams,page).then(data => {
+          store = store.concat(data);
+          page++;
+          console.log(`Searching for Flickr images on page ${page} for keyword: ${keyword}`);
+          this.flickrImageLoop(keyword,imageParams,page,store).then(data => resolve(data)).catch(err => reject(err));
+        }).catch(err => {
+          if (store.length) {
+            console.log(err);
+            resolve(store);
+          }
+          else {
+            reject(err);
+          }
+        });
       }
     });
   },
