@@ -1025,13 +1025,14 @@ module.exports = {
     });
   },
 
-  videoSlides: function(count,url,imageParams,store) {
+  videoSlides: function(count,url,imageParams,objectStore,slideStore) {
     return new Promise((resolve,reject) => {
       if (!count || !url || !imageParams || !imageParams.fallback) {
         reject('Unable to create video slides without count, url and fallback keyword.');
       }
       else {
-        if (!imageParams.template) imageParams.template = 'intro';
+        if (!imageParams.type) imageParams.type = 'intro';
+        if (!imageParams.template) imageParams.template = '';
         if (!imageParams.search) imageParams.search = 'google';
         if (!imageParams.options) imageParams.options = ['large','commercial'];
         if (!imageParams.tags) imageParams.tags = [];
@@ -1039,6 +1040,52 @@ module.exports = {
         if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
         if (imageParams.exact === undefined) imageParams.exact = true;
         if (!imageParams.limit) imageParams.limit = 3;
+        if (!objectStore) objectStore = null;
+        if (!slideStore) slideStore = {
+          slides: [],
+          description: [],
+          credits: []
+        };
+        if (imageParams.type === 'intro') {
+          this.website(url).then(data => {
+            this.videoProperties(data,imageParams).then(data => {
+              slideStore.slides = slideStore.slides.concat(data.slides);
+              slideStore.credits = slideStore.credits.concat(data.credits);
+              slideStore.description = slideStore.description.concat(data.description).join('\n');
+              resolve(slideStore);
+            }).catch(err => reject(err));
+          }).catch(err => reject(err));
+        }
+        else if (imageParams.type === 'random') {
+          if (!slideStore.slides.length) {
+            this.website(url).then(data => {
+              objectStore = data;
+              this.videoProperties(objectStore,imageParams).then(data => {
+                slideStore.slides = slideStore.slides.concat(data.slides);
+                slideStore.credits = slideStore.credits.concat(data.credits);
+                slideStore.description = slideStore.description.concat(data.description);
+                objectStore.shift();
+                this.videoSlides(count,url,imageParams,objectStore,slideStore).then(data => resoleve(data)).catch(err => reject(err));
+              }).catch(err => reject(err));
+            }).catch(err => reject(err));
+          }
+          else if (objectStore.length) {
+            this.videoProperties(objectStore,imageParams).then(data => {
+              slideStore.slides = slideStore.slides.concat(data.slides);
+              slideStore.credits = slideStore.credits.concat(data.credits);
+              slideStore.description = slideStore.description.concat(data.description);
+              objectStore.shift();
+              this.videoSlides(count,url,imageParams,objectStore,slideStore).then(data => resoleve(data)).catch(err => reject(err));
+            }).catch(err => reject(err));
+          }
+          else {
+            slideStore.description = slideStore.description.join('\n');
+            resolve(slideStore);
+          }
+        }
+        else {
+          reject('Invalid type argument.');
+        }
       }
     });
   },
@@ -1062,7 +1109,8 @@ module.exports = {
         if (searchParams.exact === undefined) searchParams.exact = true;
         if (!imageParams) imageParams = {};
         if (!imageParams.fallback) imageParams.fallback = keyword;
-        if (!imageParams.template) imageParams.template = 'random';
+        if (!imageParams.type) imageParams.type = 'random';
+        if (!imageParams.template) imageParams.template = '';
         if (!imageParams.search) imageParams.search = 'google';
         if (!imageParams.options) imageParams.options = ['large','commercial'];
         if (!imageParams.tags) imageParams.tags = [];
@@ -1118,7 +1166,7 @@ module.exports = {
         }
         else if (!slideStore.slides.length) {
           let videoParams = imageParams;
-          videoParams.template = 'intro',
+          videoParams.type = 'intro',
           this.videoSlides(urlStore[0],1,videoParams)
           .then(data => {
             slideStore.slides = slideStore.slides.concat(data.slides);
