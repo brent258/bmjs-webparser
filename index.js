@@ -24,8 +24,10 @@ module.exports = {
   lastWebSearch: '',
   imageBlacklist: [],
   textBlacklist: [],
-  imageQueue: [],
-  textQueue: [],
+  imageQueueData: [],
+  textQueueData: [],
+  imageQueueList: [],
+  textQueueList: [],
 
   pause: function() {
     this.paused = true;
@@ -165,11 +167,11 @@ module.exports = {
         reject('Unable to read image cache without keyword.');
       }
       else {
-        if (!fs.existsSync(this.cachePath + 'data/images/' + keyword + '.json')) {
+        if (!fs.existsSync(this.cachePath + '/data/images/' + keyword + '.json')) {
           reject();
         }
         else {
-          fs.readFile(this.cachePath + 'data/images/' + keyword + '.json', (err,data) => {
+          fs.readFile(this.cachePath + '/data/images/' + keyword + '.json', (err,data) => {
             if (err) reject(err);
             resolve(data);
           });
@@ -682,12 +684,12 @@ module.exports = {
     return false;
   },
 
-  findContextFromObject: function(template,obj) {
-    if (!template || typeof template !== 'string' || !obj || typeof obj !== 'object') {
+  findContextFromUrl: function(template,url) {
+    if (!template || typeof template !== 'string' || !url || typeof url !== 'string') {
       return false;
     }
     let regex;
-    let parsedUrl = obj.url.replace(/(http|https)(\:\/\/)(www\.)*([a-z\-]+)([.])+/,'$5').replace(/[^a-z][^a-z]*/gi,'-');
+    let parsedUrl = url.replace(/(http|https)(\:\/\/)(www\.)*([a-z\-]+)([.])+/,'$5').replace(/[^a-z][^a-z]*/gi,'-');
     switch (template) {
       case 'tips':
       regex = /\b(tips|how.to|ideas)\b/i;
@@ -1023,34 +1025,133 @@ module.exports = {
     });
   },
 
-  videoSlides: function(count,url,fallback,options,tags,crop,cacheOnly,limit,store) {
+  videoSlides: function(count,url,imageParams,store) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!count || !url || !imageParams || !imageParams.fallback) {
+        reject('Unable to create video slides without count, url and fallback keyword.');
       }
       else {
-
+        if (!imageParams.template) imageParams.template = 'intro';
+        if (!imageParams.search) imageParams.search = 'google';
+        if (!imageParams.options) imageParams.options = ['large','commercial'];
+        if (!imageParams.tags) imageParams.tags = [];
+        if (imageParams.crop === undefined) imageParams.crop = true;
+        if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
+        if (imageParams.exact === undefined) imageParams.exact = true;
+        if (!imageParams.limit) imageParams.limit = 3;
       }
     });
   },
 
-  video: function(keyword,searchParams,imageParams,sectionCountStore,dataStore,urlStore,slideStore,index) {
+  video: function(keyword,searchParams,imageParams,errorHandler,sectionCountStore,dataStore,urlStore,slideStore,index) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword) {
+        reject('Unable to create video without keyword.');
       }
       else {
-        if (!urlStore.length) {
-
+        if (!searchParams) searchParams = {};
+        if (!searchParams.minResult) searchParams.minResult = 1;
+        if (!searchParams.maxResult) searchParams.maxResult = 1;
+        if (!searchParams.minSections) searchParams.minSections = 5;
+        if (!searchParams.maxSections) searchParams.maxSections = 10;
+        if (!searchParams.maxTries) searchParams.maxTries = 10;
+        if (!searchParams.template) searchParams.template = 'tips';
+        if (!searchParams.count) searchParams.count = 1;
+        if (!searchParams.category) searchParams.category = 0;
+        if (!searchParams.privacy) searchParams.category = 'Public';
+        if (searchParams.exact === undefined) searchParams.exact = true;
+        if (!imageParams) imageParams = {};
+        if (!imageParams.fallback) imageParams.fallback = keyword;
+        if (!imageParams.template) imageParams.template = 'random';
+        if (!imageParams.search) imageParams.search = 'google';
+        if (!imageParams.options) imageParams.options = ['large','commercial'];
+        if (!imageParams.tags) imageParams.tags = [];
+        if (imageParams.crop === undefined) imageParams.crop = true;
+        if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
+        if (imageParams.exact === undefined) imageParams.exact = true;
+        if (!imageParams.limit) imageParams.limit = 3;
+        if (!errorHandler) errorHandler = function(err) {
+          if (searchParams.maxTries > 0) {
+            searchParams.maxTries--;
+            console.log(err);
+            console.log('Retrying...');
+            this.video(keyword,searchParams,imageParams,errorHandler,sectionCountStore,dataStore,urlStore,slideStore,index).then(data => resoleve(data)).catch(err => reject(err));
+          }
+          else {
+            console.log('Exiting...');
+            reject(err);
+          }
+        };
+        if (!sectionCountStore) sectionCountStore = Math.floor(Math.random() * searchParams.maxSections) + searchParams.minSections;
+        if (!dataStore) {
+          let title = pos.title(keyword,sectionCountStore,searchParams.template);
+          dataStore = {
+            title: title,
+            description: '',
+            privacy: searchParams.privacy,
+            category: searchParams.category,
+            clips: []
+          };
         }
-        else if (!slideStore.length) {
-
+        if (!urlStore) urlStore = [];
+        if (!slideStore) slideStore = {
+          slides: [],
+          credits: [],
+          description: []
         }
-        else if (index < sectionCountStore) {
-
+        if (!index) index = 0;
+        if (searchParams.minResult > searchParams.maxResult) {
+          reject('Maximum search results exceeded.');
+        }
+        else if (!urlStore.length) {
+          this.search(keyword,searchParams.minResult,searchParams.maxResult)
+          .then(data => {
+            let self = this;
+            urlStore = data.filter(el => self.findContextFromUrl(searchParams.template,el));
+            if (urlStore.length) urlStore = shuffle(urlStore);
+            searchParams.minResult += 10;
+            this.video(keyword,searchParams,imageParams,errorHandler,sectionCountStore,dataStore,urlStore,slideStore,index).then(data => resoleve(data)).catch(err => reject(err));
+          })
+          .catch(err => {
+            errorHandler(err);
+          });
+        }
+        else if (!slideStore.slides.length) {
+          let videoParams = imageParams;
+          videoParams.template = 'intro',
+          this.videoSlides(urlStore[0],1,videoParams)
+          .then(data => {
+            slideStore.slides = slideStore.slides.concat(data.slides);
+            slideStore.credits = slideStore.credits.concat(data.credits);
+            slideStore.description = slideStore.description.concat(data.description);
+            urlStore.shift();
+            index++;
+            this.video(keyword,searchParams,imageParams,errorHandler,sectionCountStore,dataStore,urlStore,slideStore,index).then(data => resoleve(data)).catch(err => reject(err));
+          })
+          .catch(err => {
+            urlStore.shift();
+            errorHandler(err);
+          })
+        }
+        else if (index < sectionCountStore+1) {
+          this.videoSlides(urlStore[0],searchParams.count,imageParams)
+          .then(data => {
+            slideStore.slides = slideStore.slides.concat(data.slides);
+            slideStore.credits = slideStore.credits.concat(data.credits);
+            slideStore.description = slideStore.description.concat(data.description);
+            urlStore.shift();
+            index++;
+            this.video(keyword,searchParams,imageParams,errorHandler,sectionCountStore,dataStore,urlStore,slideStore,index).then(data => resoleve(data)).catch(err => reject(err));
+          })
+          .catch(err => {
+            urlStore.shift();
+            errorHandler(err);
+          })
         }
         else {
-          resolve();
+          dataStore.slides = slideStore.slides;
+          dataStore.description = slideStore.description.join('\n') + '\nImage Credits\n' + slideStore.credits.join('\n');
+          resolve(dataStore);
         }
       }
     });
