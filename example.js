@@ -3,4 +3,5 @@ const pos = require('bmjs-engpos');
 
 pos.init();
 
-wp.flickrImageLoop('japanese spitz').then(data => console.log(data)).catch(err => console.log(err));
+wp.search('non shedding dogs',11,30).then(data => console.log(data)).catch(err => console.log(err));
+wp.search('non shedding dogs',11,30).then(data => console.log(data)).catch(err => console.log(err));

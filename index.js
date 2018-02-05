@@ -1081,7 +1081,6 @@ module.exports = {
         gzip: true
       };
       request(options).then(html => {
-        html = html.replace(/(\s*\n+\s*|\s*\r+\s*)/g,'');
         let $ = cheerio.load(html);
         let pageObject = {
           title: '',
@@ -1100,51 +1099,112 @@ module.exports = {
   },
 
   resultLinks: function($,searchSource) {
+    let links = [];
     if (searchSource === 'google') {
-
+      $('h3 a').each(function(i,el) {
+        if ($(this).attr('href').match(/(http:|https:)/)) {
+          links.push($(this).attr('href'));
+        }
+      });
     }
     else if (searchSource === 'bing') {
-
+      $('h2 a').each(function(i,el) {
+        if ($(this).attr('href').match(/(http:|https:)/)) {
+          links.push($(this).attr('href'));
+        }
+      });
     }
+    return links;
   },
 
-  googleSearch: function(keyword,domain) {
+  googleSearch: function(keyword,minResult,maxResult,domain) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword) {
+        reject('Unable to search without keyword.');
       }
       else {
-
+        this.lastWebSearch = 'google';
+        if (!minResult) minResult = 1;
+        if (!maxResult) maxResult = 1;
+        if (!domain) domain = 'com.au';
+        let parsedKeyword = keyword.replace(/\s/g,'+');
+        let queryPage = Math.floor(Math.random() * maxResult) + minResult;
+        let url = `https://www.google.${domain}/search?q=${parsedKeyword}`;
+        if (queryPage > 10) url += `&start=${queryPage-1}`;
+        let options = {
+          method: 'GET',
+          uri: url,
+          gzip: true,
+          headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
+        };
+        let proxy = this.googleProxy();
+        if (proxy) {
+          options.proxy = proxy;
+        }
+        else {
+          console.log('WARNING: Proxies currently not set.');
+        }
+        request(options).then(html => {
+          console.log('Searching Google for keyword: ' + keyword);
+          let $ = cheerio.load(html);
+          let results = this.resultLinks($,'google');
+          resolve(results);
+        }).catch(err => reject(err));
       }
     });
   },
 
-  bingSearch: function(keyword,domain) {
+  bingSearch: function(keyword,minResult,maxResult,domain) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword) {
+        reject('Unable to search without keyword.');
       }
       else {
-
+        this.lastWebSearch = 'bing';
+        if (!minResult) minResult = 1;
+        if (!maxResult) maxResult = 1;
+        if (!domain) domain = 'au';
+        let parsedKeyword = keyword.replace(/\s/g,'+');
+        let queryPage = Math.floor(Math.random() * maxResult) + minResult;
+        let url = `https://www.bing.com/search?q=${parsedKeyword}&cc=${domain}`;
+        if (queryPage > 10) url += `&first=${queryPage}`;
+        let options = {
+          method: 'GET',
+          uri: url,
+          gzip: true,
+          headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
+        };
+        let proxy = this.bingProxy();
+        if (proxy) {
+          options.proxy = proxy;
+        }
+        else {
+          console.log('WARNING: Proxies currently not set.');
+        }
+        request(options).then(html => {
+          console.log('Searching Bing for keyword: ' + keyword);
+          let $ = cheerio.load(html);
+          let results = this.resultLinks($,'bing');
+          resolve(results);
+        }).catch(err => reject(err));
       }
     });
   },
 
-  search: function(keyword) {
+  search: function(keyword,minResult,maxResult,googleDomain,bingDomain) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!keyword) {
+        reject('Unable to search without keyword.');
       }
       else {
-
+        if (this.lastWebSearch !== 'google') {
+          this.googleSearch(keyword,minResult,maxResult,googleDomain).then(data => resolve(data)).catch(err => reject(err));
+        }
+        else {
+          this.bingSearch(keyword,minResult,maxResult,googleDomain).then(data => resolve(data)).catch(err => reject(err));
+        }
       }
     });
-    if (this.lastWebSearch !== 'google') {
-
-    }
-    else {
-
-    }
   },
 
   resultsFromKeyword: function(keyword,searchSource,maxResults,searchDomain) {
