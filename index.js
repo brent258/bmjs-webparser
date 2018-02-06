@@ -40,9 +40,11 @@ module.exports = {
   init: function() {
     if (!this.assetsPath) {
       this.setAssetsPath();
+      this.createAssets();
     }
     if (!this.cachePath) {
       this.setCachePath();
+      this.createCache();
     }
   },
 
@@ -316,7 +318,7 @@ module.exports = {
           this.readImageCache(keyword).then(data => {
             if (!data.length || !this.objectInArray(obj,data,['tags','search','copyright'])) {
               data.push(obj);
-              this.downloadImage(obj,this.cachePath + '/images/' + keyword,scaleToFill).then(msg => {
+              this.downloadImage(obj,this.cachePath + '/images/' + keyword + '/' + obj.filename,scaleToFill).then(msg => {
                 console.log(msg);
                 this.addImageQueue(data,keyword);
                 this.updateImageQueue(keyword).then(() => {
@@ -1303,7 +1305,7 @@ module.exports = {
       else {
         this.lastWebSearch = 'google';
         if (!minResult) minResult = 1;
-        if (!maxResult) maxResult = 1;
+        if (!maxResult) maxResult = minResult;
         if (!domain) domain = 'com.au';
         let parsedKeyword = keyword.replace(/\s/g,'+');
         let queryPage = Math.floor(Math.random() * maxResult) + minResult;
@@ -1340,7 +1342,7 @@ module.exports = {
       else {
         this.lastWebSearch = 'bing';
         if (!minResult) minResult = 1;
-        if (!maxResult) maxResult = 1;
+        if (!maxResult) maxResult = minResult;
         if (!domain) domain = 'au';
         let parsedKeyword = keyword.replace(/\s/g,'+');
         let queryPage = Math.floor(Math.random() * maxResult) + minResult;
