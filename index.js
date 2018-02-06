@@ -45,35 +45,85 @@ module.exports = {
   },
 
   addImageBlacklist: function(item) {
-
+    if (typeof item === 'object' && item[0] && typeof item[0] === 'object') {
+      this.imageBlacklist = this.imageBlacklist.concat(item);
+    }
+    else if (typeof item === 'object') {
+      this.imageBlacklist.push(item);
+    }
   },
 
   addTextBlacklist: function(item) {
-
+    if (typeof item === 'object' && item[0] && typeof item[0] === 'object') {
+      this.textBlacklist = this.textBlacklist.concat(item);
+    }
+    else if (typeof item === 'object') {
+      this.textBlacklist.push(item);
+    }
   },
 
   checkImageBlacklist: function(item) {
-
+    if (typeof item !== 'string') return;
+    for (let i = 0; i < this.imageBlacklist.length; i++) {
+      if (item.match(this.imageBlacklist[i])) return true;
+    }
+    return false;
   },
 
   checkTextBlacklist: function(item) {
-
+    if (typeof item !== 'string') return;
+    for (let i = 0; i < this.textBlacklist.length; i++) {
+      if (item.match(this.textBlacklist[i])) return true;
+    }
+    return false;
   },
 
   addProxy: function(proxy) {
-
+    if (typeof proxy === 'object' && proxy[0] && typeof proxy[0] === 'string') {
+      this.proxies = this.proxies.concat(proxy);
+    }
+    else if (typeof proxy === 'string') {
+      this.proxies.push(proxy);
+    }
   },
 
   googleProxy: function() {
-
+    if (!this.lastGoogleProxy) {
+      this.lastGoogleProxy = this.proxies[0] || undefined;
+    }
+    else if (this.proxies.length && this.proxies.indexOf(this.lastGoogleProxy) < this.proxies.length-1) {
+      this.lastGoogleProxy = this.proxies[this.proxies.indexOf(this.lastGoogleProxy)+1];
+    }
+    else {
+      this.lastGoogleProxy = this.proxies[0] || undefined;
+    }
+    return this.lastGoogleProxy;
   },
 
   bingProxy: function() {
-
+    if (!this.lastBingProxy) {
+      this.lastBingProxy = this.proxies[0] || undefined;
+    }
+    else if (this.proxies.length && this.proxies.indexOf(this.lastBingProxy) < this.proxies.length-1) {
+      this.lastBingProxy = this.proxies[this.proxies.indexOf(this.lastBingProxy)+1];
+    }
+    else {
+      this.lastBingProxy = this.proxies[0] || undefined;
+    }
+    return this.lastBingProxy;
   },
 
   flickrProxy: function() {
-
+    if (!this.lastFlickrProxy) {
+      this.lastFlickrProxy = this.proxies[0] || undefined;
+    }
+    else if (this.proxies.length && this.proxies.indexOf(this.lastFlickrProxy) < this.proxies.length-1) {
+      this.lastFlickrProxy = this.proxies[this.proxies.indexOf(this.lastFlickrProxy)+1];
+    }
+    else {
+      this.lastFlickrProxy = this.proxies[0] || undefined;
+    }
+    return this.lastFlickrProxy;
   },
 
   addTextQueue: function(data,keyword) {
