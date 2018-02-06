@@ -461,14 +461,14 @@ module.exports = {
   },
 
   calculateImageCrop: function(width,height) {
-    if ((width * 1.3) < height) {
+    if ((width * 1.5) < height) {
       return {h: 'HORIZONTAL_ALIGN_CENTER', v: 'VERTICAL_ALIGN_TOP'};
     }
-    else if ((height * 1.3) < width) {
-      return {h: 'HORIZONTAL_ALIGN_CENTER', v: 'VERTICAL_ALIGN_MIDDLE'};
+    else if ((height * 1.5) < width) {
+      return {h: 'HORIZONTAL_ALIGN_CENTER', v: 'VERTICAL_ALIGN_BOTTOM'};
     }
     else {
-      return {h: 'HORIZONTAL_ALIGN_CENTER', v: 'VERTICAL_ALIGN_BOTTOM'};
+      return {h: 'HORIZONTAL_ALIGN_CENTER', v: 'VERTICAL_ALIGN_CENTER'};
     }
   },
 
@@ -500,11 +500,11 @@ module.exports = {
   },
 
   selectImageWithKeyword: function(keyword,data,exact) {
-    if (!keyword || !data || !data.title || !data.filename) {
+    if (!keyword || !data || !(data.description || data.filename)) {
       return false;
     }
     if (exact === undefined) exact = true;
-    if (this.findKeywordInSentence(keyword,data.title,exact) || this.findKeywordInSentence(keyword,data.filename,exact)) {
+    if (this.findKeywordInSentence(keyword,data.filename,exact) || this.findKeywordInSentence(keyword,data.description,exact)) {
       return true;
     }
     else {
@@ -513,14 +513,14 @@ module.exports = {
   },
 
   selectImageWithTags: function(keyword,data,tags,exact) {
-    if (!keyword || !data || !data.title || !data.filename) {
+    if (!keyword || !data || !(data.description || data.filename)) {
       return false;
     }
     if (!tags) tags = [];
     if (exact === undefined) exact = true;
-    if (this.findKeywordInSentence(keyword,data.title,exact) || this.findKeywordInSentence(keyword,data.filename,exact)) {
+    if (this.findKeywordInSentence(keyword,data.filename,exact) || this.findKeywordInSentence(keyword,data.description,exact)) {
       for (let i = 0; i < tags.length; i++) {
-        if (this.findKeywordInSentence(tags[i],data.title,exact) || this.findKeywordInSentence(tags[i],data.filename,exact)) {
+        if (this.findKeywordInSentence(tags[i],data.filename,exact) || this.findKeywordInSentence(tags[i],data.description,exact)) {
           return true;
         }
       }
@@ -660,7 +660,7 @@ module.exports = {
             }
           }
           if (!data.length) {
-            reject(`Unable to find Google images on page ${page} for keyword: ${keyword}`);
+            reject(`Unable to find Google images for keyword: ${keyword}`);
           }
           else {
             resolve(data);
@@ -852,7 +852,7 @@ module.exports = {
       else {
         if (!imageParams) imageParams = {};
         if (!imageParams.search) imageParams.search = 'google';
-        if (!imageParams.options) imageParams.options = ['large','commercial'];
+        if (!imageParams.options) imageParams.options = ['medium','commercial'];
         if (!imageParams.tags) imageParams.tags = [];
         if (imageParams.crop === undefined) imageParams.crop = true;
         if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
@@ -1044,23 +1044,25 @@ module.exports = {
     return true;
   },
 
-  findKeywordInSentence: function(keyword,sentence) {
+  findKeywordInSentence: function(keyword,sentence,exact) {
     if (!keyword || typeof keyword !== 'string' || !sentence || typeof sentence !== 'string') {
       return false;
     }
-    if (sentence.includes(keyword)) return true;
+    if (exact === undefined) exact = true;
+    let lowercasedKeyword = keyword.replace(/[^\w]/gi,' ').replace(/\s+/g,' ').trim().toLowerCase();
+    let lowercasedSentence = sentence.toLowerCase();
+    if (lowercasedSentence.includes(lowercasedKeyword)) return true;
     let matches = 0;
-    let lowercasedKeyword = keyword.replace(/[^\w]/gi,' ').replace(/\s+/g,' ').trim().toLowerCase().split(' ');
-    for (let i = 0; i < lowercasedKeyword.length; i++) {
-      if (sentence.includes(lowercasedKeyword[i])) matches++;
-      if (matches > 1) return true;
+    let splitKeyword = lowercasedKeyword.split(' ');
+    for (let i = 0; i < splitKeyword.length; i++) {
+      if (lowercasedSentence.includes(splitKeyword[i])) matches++;
     }
-    let uppercasedKeyword = pos.titlecase(keyword.replace(/[^\w]/gi,' ').replace(/\s+/g,' ').trim()).split(' ');
-    for (let i = 0; i < uppercasedKeyword.length; i++) {
-      if (sentence.includes(uppercasedKeyword[i])) matches++;
-      if (matches > 1) return true;
+    if ((exact && matches === splitKeyword.length) || (!exact && matches > 0)) {
+      return true;
     }
-    return false;
+    else {
+      return false;
+    }
   },
 
   findContextFromUrl: function(template,url) {
@@ -1108,34 +1110,6 @@ module.exports = {
     }
     if (filtered.length) return filtered;
     return [];
-  },
-
-  firstParagraph: function(obj) {
-    if (!obj || typeof obj !== 'object') {
-      return;
-    }
-    let data = obj.body.content;
-    for (let i = 0; i < data.length; i++) {
-      if (data[i].header && this.findKeywordInSentence(data[i].header,data[i].text.join(''))) return {text: data[i].text, header: data[i].header};
-      if (data[i].text.join('').length > 100) return {text: data[i].text, header: obj.body.title};
-    }
-  },
-
-  randomParagraph: function(obj,maxTries) {
-    if (!obj || typeof obj !== 'object') {
-      return;
-    }
-    let maxCount = Math.abs(Object.keys(obj.body.content).length-1);
-    let startCount = Math.floor(Math.random() * maxCount) + 1;
-    let data = obj.body.content;
-    for (let i = startCount; i < data.length; i++) {
-      if (data[i].header && this.findKeywordInSentence(data[i].header,data[i].text.join(''))) return {text: data[i].text, header: data[i].header};
-      if (data[i].text.join('').length > 100) return {text: data[i].text, header: obj.body.title};
-    }
-    if (maxTries && typeof maxTries === 'number') {
-      maxTries--;
-      this.randomParagraph(obj,maxTries);
-    }
   },
 
   extractBodyContent: function($,url,filterText) {
@@ -1284,6 +1258,34 @@ module.exports = {
         resolve(pageObject);
       }).catch(err => reject(err));
     });
+  },
+
+  firstParagraph: function(obj) {
+    if (!obj || typeof obj !== 'object') {
+      return;
+    }
+    let data = obj.body.content;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i].header && this.findKeywordInSentence(data[i].header,data[i].text.join(''))) return {text: data[i].text, header: data[i].header};
+      if (data[i].text.join('').length > 100) return {text: data[i].text, header: obj.body.title};
+    }
+  },
+
+  randomParagraph: function(obj,maxTries) {
+    if (!obj || typeof obj !== 'object') {
+      return;
+    }
+    let maxCount = Math.abs(Object.keys(obj.body.content).length-1);
+    let startCount = Math.floor(Math.random() * maxCount) + 1;
+    let data = obj.body.content;
+    for (let i = startCount; i < data.length; i++) {
+      if (data[i].header && this.findKeywordInSentence(data[i].header,data[i].text.join(''))) return {text: data[i].text, header: data[i].header};
+      if (data[i].text.join('').length > 100) return {text: data[i].text, header: obj.body.title};
+    }
+    if (maxTries && typeof maxTries === 'number') {
+      maxTries--;
+      this.randomParagraph(obj,maxTries);
+    }
   },
 
   resultLinks: function($,searchSource) {
