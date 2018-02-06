@@ -11,13 +11,6 @@ module.exports = {
 
   assetsPath: '',
   cachePath: '',
-  downloadedImageMetadata: [],
-  downloadedImageLinks: [],
-  paragraphTags: ['p','div'],
-  embeddedTags: ['a','span','em','strong','code','b'],
-  headerTags: ['h1','h2','h3','h4','h5','h6'],
-  listTags: ['ul','ol','li'],
-  punctuationMarks: ['.','!','?',':','"'],
   paused: false,
   proxies: [],
   lastGoogleProxy: '',
@@ -212,7 +205,7 @@ module.exports = {
         else {
           fs.readFile(this.cachePath + '/data/text/' + keyword + '.json', (err,data) => {
             if (err) reject(err);
-            resolve(JSON.parse(data));
+            resolve(data);
           });
         }
       }
@@ -227,6 +220,7 @@ module.exports = {
       else {
         this.createTextCache(keyword).then(() => {
           this.readTextCache(keyword).then(data => {
+            data = JSON.parse(data);
             if (!data.length || !this.objectInArray(obj,data)) {
               data.push(obj);
               this.addTextQueue(data,keyword);
@@ -300,7 +294,7 @@ module.exports = {
         else {
           fs.readFile(this.cachePath + '/data/images/' + keyword + '.json', (err,data) => {
             if (err) reject(err);
-            resolve(JSON.parse(data));
+            resolve(data);
           });
         }
       }
@@ -316,6 +310,7 @@ module.exports = {
         if (scaleToFill === undefined) scaleToFill = true;
         this.createImageCache(keyword).then(() => {
           this.readImageCache(keyword).then(data => {
+            data = JSON.parse(data);
             if (!data.length || !this.objectInArray(obj,data,['tags','search','copyright'])) {
               data.push(obj);
               this.downloadImage(obj,this.cachePath + '/images/' + keyword + '/' + obj.filename,scaleToFill).then(msg => {
@@ -373,7 +368,7 @@ module.exports = {
     if (!fs.existsSync(this.assetsPath)) {
       console.log('Assets directory not found. Creating folder...');
       fs.mkdir(this.assetsPath,err => {
-        if (err) console.log(err.message);
+        if (err) console.log(err);
         console.log('Finished creating assets directory.');
       });
     }
@@ -396,7 +391,7 @@ module.exports = {
     if (!fs.existsSync(this.cachePath)) {
       console.log('Cache directory not found. Creating folder...');
       fs.mkdir(this.cachePath,err => {
-        if (err) console.log(err.message);
+        if (err) console.log(err);
         console.log('Finished creating cache directory.');
       });
     }
@@ -406,7 +401,7 @@ module.exports = {
     if (!fs.existsSync(this.cachePath + '/data')) {
       console.log('Data cache directory not found. Creating folder...');
       fs.mkdir(this.cachePath + '/data',err => {
-        if (err) console.log(err.message);
+        if (err) console.log(err);
         console.log('Finished creating data cache directory.');
       });
     }
@@ -416,7 +411,7 @@ module.exports = {
     if (!fs.existsSync(this.cachePath + '/images')) {
       console.log('Image cache directory not found. Creating folder...');
       fs.mkdir(this.cachePath + '/images',err => {
-        if (err) console.log(err.message);
+        if (err) console.log(err);
         console.log('Finished creating image cache directory.');
       });
     }
@@ -426,7 +421,7 @@ module.exports = {
     if (!fs.existsSync(this.cachePath + '/data/text')) {
       console.log('Text data cache directory not found. Creating folder...');
       fs.mkdir(this.cachePath + '/data/text',err => {
-        if (err) console.log(err.message);
+        if (err) console.log(err);
         console.log('Finished creating text data cache directory.');
       });
     }
@@ -436,7 +431,7 @@ module.exports = {
     if (!fs.existsSync(this.cachePath + '/data/images')) {
       console.log('Image data cache directory not found. Creating folder...');
       fs.mkdir(this.cachePath + '/data/images',err => {
-        if (err) console.log(err.message);
+        if (err) console.log(err);
         console.log('Finished creating image data cache directory.');
       });
     }
@@ -449,17 +444,18 @@ module.exports = {
     if (!obj || !arr || typeof obj !== 'object' || typeof arr !== 'object' || !arr[0]) {
       return false;
     }
+    if (!ignoreKeys) ignoreKeys = [];
     let keys = Object.keys(obj);
     if (!keys.length) return false;
     for (let i = 0; i < arr.length; i++) {
       let matches = true;
       for (let j = 0; j < keys.length; j++) {
-        if (!arr[i][keys[j]] || arr[i][keys[j]] !== obj[keys[j]]) {
+        if (!ignoreKeys.includes(keys[j]) && (!arr[i][keys[j]] || arr[i][keys[j]] !== obj[keys[j]])) {
           matches = false;
           break;
         }
-        if (matches) return true;
       }
+      if (matches) return true;
     }
     return false;
   },
@@ -503,6 +499,38 @@ module.exports = {
     });
   },
 
+  selectImageWithKeyword: function(keyword,data,exact) {
+    if (!keyword || !data || !data.title || !data.filename) {
+      return false;
+    }
+    if (exact === undefined) exact = true;
+    if (this.findKeywordInSentence(keyword,data.title,exact) || this.findKeywordInSentence(keyword,data.filename,exact)) {
+      return true;
+    }
+    else {
+      return false;
+    }
+  },
+
+  selectImageWithTags: function(keyword,data,tags,exact) {
+    if (!keyword || !data || !data.title || !data.filename) {
+      return false;
+    }
+    if (!tags) tags = [];
+    if (exact === undefined) exact = true;
+    if (this.findKeywordInSentence(keyword,data.title,exact) || this.findKeywordInSentence(keyword,data.filename,exact)) {
+      for (let i = 0; i < tags.length; i++) {
+        if (this.findKeywordInSentence(tags[i],data.title,exact) || this.findKeywordInSentence(tags[i],data.filename,exact)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    else {
+      return false;
+    }
+  },
+
   googleImage: function(keyword,imageParams,domain) {
     return new Promise((resolve,reject) => {
       if (!keyword) {
@@ -520,79 +548,73 @@ module.exports = {
         if (imageParams.options && imageParams.options.length) {
           let license = '';
           let color = '';
-          let style = '';
+          let size = '';
           for (let i = 0; i < imageParams.options.length; i++) {
             switch (imageParams.options[i]) {
               case 'cc':
-              if (!license) license = '&license=2%2C3%2C4%2C5%2C6%2C9';
+              if (!license) license = 'sur:f';
               break;
               case 'commercial':
-              if (!license) license = '&license=4%2C5%2C6%2C9%2C10';
+              if (!license) license = 'sur:fc';
               break;
               case 'modifications':
-              if (!license) license = '&license=1%2C2%2C9%2C10';
+              if (!license) license = 'sur:fmc';
               break;
               case 'red':
-              if (!color) color = '&color_codes=0';
+              if (!color) color = 'ic:specific,isc:red';
               break;
               case 'brown':
-              if (!color) color = '&color_codes=1';
+              if (!color) color = 'ic:specific,isc:brown';
               break;
               case 'orange':
-              if (!color) color = '&color_codes=2';
-              break;
-              case 'lightpink':
-              if (!color) color = '&color_codes=b';
+              if (!color) color = 'ic:specific,isc:orange';
               break;
               case 'yellow':
-              if (!color) color = '&color_codes=4';
-              break;
-              case 'lightorange':
-              if (!color) color = '&color_codes=3';
-              break;
-              case 'lightgreen':
-              if (!color) color = '&color_codes=5';
+              if (!color) color = 'ic:specific,isc:yellow';
               break;
               case 'green':
-              if (!color) color = '&color_codes=6';
-              break;
-              case 'lightblue':
-              if (!color) color = '&color_codes=7';
+              if (!color) color = 'ic:specific,isc:green';
               break;
               case 'blue':
-              if (!color) color = '&color_codes=8';
+              if (!color) color = rand('ic:specific,isc:teal','ic:specific,isc:blue');
               break;
               case 'purple':
-              if (!color) color = '&color_codes=9';
+              if (!color) color = 'ic:specific,isc:purple';
               break;
               case 'pink':
-              if (!color) color = '&color_codes=a';
+              if (!color) color = 'ic:specific,isc:pink';
               break;
               case 'white':
-              if (!color) color = '&color_codes=c';
+              if (!color) color = 'ic:specific,isc:white';
               break;
               case 'grey':
-              if (!color) color = '&color_codes=d';
+              if (!color) color = 'ic:specific,isc:gray';
               break;
               case 'black':
-              if (!color) color = '&color_codes=e';
+              if (!color) color = 'ic:specific,isc:black';
               break;
               case 'bw':
-              if (!style) style = '&styles=blackandwhite';
+              if (!color) color = 'isc:black,ic:gray';
               break;
-              case 'dof':
-              if (!style) style = '&styles=depthoffield';
+              case 'transparent':
+              case 'clear':
+              case 'alpha':
+              if (!color) color = 'isc:black,ic:trans';
               break;
-              case 'minimal':
-              if (!style) style = '&styles=minimalism';
+              case 'large':
+              if (!size) size = 'isz:l';
               break;
-              case 'pattern':
-              if (!style) style = '&styles=pattern';
+              case 'medium':
+              if (!size) size = 'isz:m';
               break;
               default: break;
             }
           }
-          url += license + color + style;
+          let imageQuery = [];
+          if (license) imageQuery.push(license);
+          if (color) imageQuery.push(color);
+          if (size) imageQuery.push(size);
+          if (imageQuery.length) url += '&tbs=' + imageQuery.join(',');
         }
         let options = {
           method: 'GET',
@@ -625,9 +647,15 @@ module.exports = {
               image: photos[i].ou,
               width: parseInt(photos[i].ow),
               height: parseInt(photos[i].oh),
-              filename: path.basename(photos[i].ou.split('?')[0])
+              filename: path.basename(photos[i].ou.split('?')[0]),
+              search: imageParams.options.join(','),
+              tags: imageParams.tags.join(','),
+              copyright: (!imageParams.options.includes('cc') && !imageParams.options.includes('commercial')) ? true : false
             };
-            if (this.findKeywordInSentence(keyword,obj.title)) {
+            if (!imageParams.tags.length && this.selectImageWithKeyword(keyword,obj,imageParams.exact)) {
+              data.push(obj);
+            }
+            else if (imageParams.tags.length && this.selectImageWithTags(keyword,obj,imageParams.tags,imageParams.exact)) {
               data.push(obj);
             }
           }
@@ -678,34 +706,22 @@ module.exports = {
               if (!color) color = '&color_codes=1';
               break;
               case 'orange':
-              if (!color) color = '&color_codes=2';
-              break;
-              case 'lightpink':
-              if (!color) color = '&color_codes=b';
+              if (!color) color = rand('&color_codes=2','&color_codes=3');
               break;
               case 'yellow':
               if (!color) color = '&color_codes=4';
               break;
-              case 'lightorange':
-              if (!color) color = '&color_codes=3';
-              break;
-              case 'lightgreen':
-              if (!color) color = '&color_codes=5';
-              break;
               case 'green':
-              if (!color) color = '&color_codes=6';
-              break;
-              case 'lightblue':
-              if (!color) color = '&color_codes=7';
+              if (!color) color = rand('&color_codes=6','&color_codes=5');
               break;
               case 'blue':
-              if (!color) color = '&color_codes=8';
+              if (!color) color = rand('&color_codes=8','&color_codes=7');
               break;
               case 'purple':
               if (!color) color = '&color_codes=9';
               break;
               case 'pink':
-              if (!color) color = '&color_codes=a';
+              if (!color) color = rand('&color_codes=a','&color_codes=b');
               break;
               case 'white':
               if (!color) color = '&color_codes=c';
@@ -774,9 +790,15 @@ module.exports = {
               image: 'https:' + photos[i].sizes[size].url,
               width: parseInt(photos[i].sizes[size].width),
               height: parseInt(photos[i].sizes[size].height),
-              filename: path.basename(photos[i].sizes[size].url.split('?')[0])
+              filename: path.basename(photos[i].sizes[size].url.split('?')[0]),
+              search: imageParams.options.join(','),
+              tags: imageParams.tags.join(','),
+              copyright: (!imageParams.options.includes('cc') && !imageParams.options.includes('commercial')) ? true : false
             };
-            if (this.findKeywordInSentence(keyword,obj.title)) {
+            if (!imageParams.tags.length && this.selectImageWithKeyword(keyword,obj,imageParams.exact)) {
+              data.push(obj);
+            }
+            else if (imageParams.tags.length && this.selectImageWithTags(keyword,obj,imageParams.tags,imageParams.exact)) {
               data.push(obj);
             }
           }
@@ -861,77 +883,63 @@ module.exports = {
             console.log(err);
             console.log('No images found. Searching for new images...');
             if (imageParams.search === 'google') {
-              this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+              this.googleImage(keyword,imageParams).then(data => {
+                data = shuffle(data);
+                callback(data);
+              }).catch(err => reject(err));
             }
             else if (imageParams.search === 'flickr') {
-              this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+              this.flickrImageLoop(keyword,imageParams).then(data => {
+                data = shuffle(data);
+                callback(data);
+              }).catch(err => reject(err));
             }
             else {
               if (rand(true,false) === true) {
-                this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+                this.googleImage(keyword,imageParams).then(data => {
+                  data = shuffle(data);
+                  callback(data);
+                }).catch(err => reject(err));
               }
               else {
-                this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+                this.flickrImageLoop(keyword,imageParams).then(data => {
+                  data = shuffle(data);
+                  callback(data);
+                }).catch(err => reject(err));
               }
             }
           });
         }
         else {
           if (imageParams.search === 'google') {
-            this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+            this.googleImage(keyword,imageParams).then(data => {
+              data = shuffle(data);
+              callback(data);
+            }).catch(err => reject(err));
           }
           else if (imageParams.search === 'flickr') {
-            this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+            this.flickrImageLoop(keyword,imageParams).then(data => {
+              data = shuffle(data);
+              callback(data);
+            }).catch(err => reject(err));
           }
           else {
             if (rand(true,false) === true) {
-              this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+              this.googleImage(keyword,imageParams).then(data => {
+                data = shuffle(data);
+                callback(data);
+              }).catch(err => reject(err));
             }
             else {
-              this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+              this.flickrImageLoop(keyword,imageParams).then(data => {
+                data = shuffle(data);
+                callback(data);
+              }).catch(err => reject(err));
             }
           }
         }
       }
     });
-  },
-
-  selectImageWithKeyword: function(keyword,data) {
-
-  },
-
-  selectImageWithTags: function(keyword,data,tags) {
-
-  },
-
-  getSearchLinks: function(html,searchSource) {
-    if (this.paused) return;
-    let results = [];
-    let $ = cheerio.load(html);
-    let links = $('a').get();
-    if (links.length > 0) {
-      for (let i = 0; i < links.length; i++) {
-        if (links[i].attribs.href) {
-          links[i].attribs.href = links[i].attribs.href.replace(/http:\/\/webcache\.googleusercontent\.com.*:http/g,'http');
-          let searchDomain = links[i].attribs.href.match(/(http:\/\/|https:\/\/)[a-z0-9\-\.]+\//g);
-          if (!searchDomain || (results.length > 0 && results[results.length-1].includes(searchDomain))) {
-            continue;
-          }
-          if (links[i].attribs.href.match(/\/url\?q\=/)) {
-            let parsedLink = links[i].attribs.href.replace(/\/url\?q\=/g,'').split('&')[0];
-            if (!results.includes(parsedLink)) {
-              results.push(parsedLink);
-            }
-          }
-          else if (searchSource === 'bing' && links[i].attribs.href.match(/(http:\/\/|https:\/\/)/) && !links[i].attribs.href.match(/(\.microsoft\.|\.bing\.)/)) {
-            if (!results.includes(links[i].attribs.href)) {
-              results.push(links[i].attribs.href);
-            }
-          }
-        }
-      }
-    }
-    return results;
   },
 
   matchUrl: function(paragraph,url) {
