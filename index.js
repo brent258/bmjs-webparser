@@ -2,8 +2,10 @@ const request = require('request-promise');
 const fs = require('fs');
 const path = require('path');
 const cheerio = require('cheerio');
+const jimp = require('jimp');
 const rand = require('bmjs-random');
 const pos = require('bmjs-engpos');
+const shuffle = require('bmjs-shuffle');
 
 module.exports = {
 
@@ -461,16 +463,40 @@ module.exports = {
   },
 
   calculateImageCrop: function(width,height) {
-
+    if ((width * 1.3) < height) {
+      return {h: 'HORIZONTAL_ALIGN_CENTER', v: 'VERTICAL_ALIGN_TOP'};
+    }
+    else if ((height * 1.3) < width) {
+      return {h: 'HORIZONTAL_ALIGN_CENTER', v: 'VERTICAL_ALIGN_MIDDLE'};
+    }
+    else {
+      return {h: 'HORIZONTAL_ALIGN_CENTER', v: 'VERTICAL_ALIGN_BOTTOM'};
+    }
   },
 
-  downloadImage: function(obj,savePath,scaleToFill) {
+  downloadImage: function(obj,savePath,scaleToFill,width,height) {
     return new Promise((resolve,reject) => {
-      if (!obj) {
-        reject();
+      if (!obj || !savePath) {
+        reject('Unable to download image without image object and save path.');
       }
       else {
-
+        if (scaleToFill === undefined) scaleToFill = true;
+        if (!width) width = 1280;
+        if (!height) height = 720;
+        jimp.read(obj.image).then(image => {
+          if (!image) {
+            reject('No image found at: ' + obj.image);
+          }
+          else if (scaleToFill) {
+            let crop = this.calculateImageCrop(obj.width,obj.height);
+            image.cover(width,height,jimp[crop.h]|jimp[crop.v]).write(savePath);
+            resolve('Image saved to: ' + savePath);
+          }
+          else {
+            image.background(0xFFFFFFFF).contain(width,height,jimp.HORIZONTAL_ALIGN_CENTER|jimp.VERTICAL_ALIGN_MIDDLE).write(savePath);
+            resolve('Image saved to: ' + savePath);
+          }
+        }).catch(err => reject(err));
       }
     });
   },

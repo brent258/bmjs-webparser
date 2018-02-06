@@ -26,9 +26,11 @@
     "mocha": "^4.0.1"
   },
   "dependencies": {
-    "bmjs-random": "^1.0.0",
     "bmjs-engpos": "latest",
+    "bmjs-random": "^1.0.0",
+    "bmjs-shuffle": "^1.0.0",
     "cheerio": "^1.0.0-rc.2",
+    "jimp": "^0.2.28",
     "request": "^2.83.0",
     "request-promise": "^4.2.2",
     "unfluff": "^1.1.0"
