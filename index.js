@@ -343,8 +343,12 @@ module.exports = {
           this.updateImageCache(obj[0],keyword,scaleToFill).then(data => {
             console.log(data);
             obj.shift();
-            index++;
-            if (data === 'Item already found in image cache for: ' + keyword) limit++;
+            if (data === 'Item already found in image cache for: ' + keyword) {
+              limit++;
+            }
+            else {
+              index++;
+            }
             this.updateImageCacheMultiple(obj,keyword,scaleToFill,limit,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => reject(err));
         }
@@ -670,7 +674,7 @@ module.exports = {
     });
   },
 
-  flickrImage: function(keyword,imageParams,page) {
+  flickrImage: function(keyword,imageParams) {
     return new Promise((resolve,reject) => {
       if (!keyword) {
         reject('Unable to search for images without keyword.');
@@ -681,9 +685,9 @@ module.exports = {
         if (!imageParams.tags) imageParams.tags = [];
         if (imageParams.crop === undefined) imageParams.crop = true;
         if (imageParams.exact === undefined) imageParams.exact = true;
-        if (!page) page = 1;
+        if (!imageParams.page) imageParams.page = 1;
         let parsedKeyword = keyword.replace(/[^a-zA-Z\s]/g,'').replace(/\s+/g,'%20');
-        let url = `https://www.flickr.com/search/?text=${parsedKeyword}&page=${page}`;
+        let url = `https://www.flickr.com/search/?text=${parsedKeyword}&page=${imageParams.page}`;
         if (imageParams.options && imageParams.options.length) {
           let license = '';
           let color = '';
@@ -773,7 +777,7 @@ module.exports = {
           });
           let photos = JSON.parse(tag.match(/"photos":{"_data":.+,"fetchedStart":/)[0].replace(/null,/g,'').replace(/("photos":{"_data":|,"fetchedStart":)/g,''));
           if (!photos.length) {
-            reject(`Unable to find Flickr images on page ${page} for keyword: ${keyword}`);
+            reject(`Unable to find Flickr images on page ${imageParams.page} for keyword: ${keyword}`);
           }
           let data = [];
           for (let i = 0; i < photos.length; i++) {
@@ -823,13 +827,19 @@ module.exports = {
         if (!imageParams.tags) imageParams.tags = [];
         if (imageParams.crop === undefined) imageParams.crop = true;
         if (imageParams.exact === undefined) imageParams.exact = true;
-        if (!page) page = 1;
+        if (!imageParams.page) imageParams.page = 1;
+        if (!imageParams.limit) imageParams.limit = 3;
         if (!store) store = [];
-        this.flickrImage(keyword,imageParams,page).then(data => {
+        this.flickrImage(keyword,imageParams).then(data => {
           store = store.concat(data);
-          page++;
-          console.log(`Searching for Flickr images on page ${page} for keyword: ${keyword}`);
-          this.flickrImageLoop(keyword,imageParams,page,store).then(data => resolve(data)).catch(err => reject(err));
+          if (store.length > imageParams.limit) {
+            resolve(store);
+          }
+          else {
+            imageParams.page++;
+            console.log(`Searching for Flickr images on page ${imageParams.page} for keyword: ${keyword}`);
+            this.flickrImageLoop(keyword,imageParams,page,store).then(data => resolve(data)).catch(err => reject(err));
+          }
         }).catch(err => {
           if (store.length) {
             resolve(store);
@@ -855,6 +865,7 @@ module.exports = {
         if (imageParams.crop === undefined) imageParams.crop = true;
         if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
         if (imageParams.exact === undefined) imageParams.exact = true;
+        if (!imageParams.page) imageParams.page = 1;
         if (!imageParams.limit) imageParams.limit = 3;
         let self = this;
         let callback = function(data) {
