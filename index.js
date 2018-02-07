@@ -1220,13 +1220,15 @@ module.exports = {
     for (let i = 0; i < count; i++) {
       let data = obj[i].body.content;
       data.shift();
+      data = shuffle(data);
       for (let j = 0; j < data.length; j++) {
         if (data[j].header && this.findKeywordInSentence(data[j].header,data[j].text.join(''),match)) {
-          paragraphs.push({text: data[j].text, header: data[j].header, match: match, url: obj[i].url});
+          let exactMatch = this.findKeywordInSentence(data[j].header,data[j].text.join(''),true);
+          paragraphs.push({text: data[j].text, header: data[j].header, match: exactMatch, url: obj[i].url});
+          if (paragraphs.length === count) return paragraphs;
         }
       }
     }
-    if (paragraphs.length) return paragraphs;
     return null;
   },
 
