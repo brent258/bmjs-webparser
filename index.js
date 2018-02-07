@@ -960,6 +960,7 @@ module.exports = {
     .replace(/^(\n|\s|\r|\t)*/g,'')
     .replace(/(\n|\s|\r|\t)*$/g,'')
     .replace(/(\n|\r|\t|\s+)/g,' ')
+    .replace(/\[\d+\]/g,'')
     .replace(/\!+/g,'!')
     .replace(/\?+/g,'?')
     .replace(/\.+/g,'.')
@@ -972,8 +973,6 @@ module.exports = {
     .replace(/([a-z])(A\s)/g,'$1. $2')
     .replace(/\s+/g,' ')
     .replace(/([\!\?\.])\s*(\w)/g,'$1|||||$2');
-    if (!text.match(/\s[A-Z]/) && text.match(/\b(his|her)\s[a-z]/)) text = text.replace(/\b(his|her)\b/g,'their');
-    if (!text.match(/\s[A-Z]/) && text.match(/\b(him|her[^\s])\b/)) text = text.replace(/\b(him|her)\b/g,'them');
     if (text) return text;
     return '';
   },
@@ -1099,125 +1098,78 @@ module.exports = {
 
   extractBodyContent: function($,url,filterText) {
     let store = [];
-    let obj = {content: [], headers: [], links: []};
-    let lastHeader = '';
-    let lastLink = '';
+    let objs = [];
     let self = this;
-    let title = $('h1').first().text() || $('h2').first().text() || '';
-    $('div').contents()
-    .each(function(i,el) {
-      let content;
-      if (el.name === 'p') {
-        if ($(this).children().length) {
-          $(this).children().each(function(j,subEl) {
-            if (subEl.name === 'h1' || subEl.name === 'h2' || subEl.name === 'h3' || subEl.name === 'h4' || subEl.name === 'b' || subEl.name === 'strong') {
-              content = self.parseHeader($(this).text());
-              if (!store.includes(content) && self.validateHeader(content,url)) {
-                store.push(content);
-                lastHeader = content;
-                obj.headers.push(content);
-              }
-            }
-          });
-        }
-        content = $(this).text();
-        if (lastHeader && content && content.indexOf(lastHeader) === 0) {
-          let index = lastHeader.length;
-          content = content.slice(0,index);
-        }
-        content = self.parseText(content);
-        if (!store.includes(content)) {
-          store.push(content);
-          if (content.match(/^[A-Z].+[\.\?\!]$/)) obj.content.push({text: content, header: lastHeader, link: lastLink});
-        }
-      }
-      else if (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'b' || el.name === 'strong') {
-        content = self.parseHeader($(this).text());
-        if (!store.includes(content) && self.validateHeader(content,url)) {
-          store.push(content);
-          lastHeader = content;
-          obj.headers.push(content);
+    let title = this.parseHeader($('h1').first().text() || $('h2').first().text() || '');
+    let selector = $('section > p').text() ? 'section' : 'div';
+    $(selector).contents().each(function(i,el) {
+      if (el.name === 'p' || el.type === 'text') {
+        let text = self.parseText($(this).text());
+        if (!store.includes(text) && self.validateText(text,url)) {
+          store.push(text);
+          objs.push({content: text, type: 'text'});
         }
       }
       else if (el.name === 'ul' || el.name === 'ol') {
-        let list = [];
         $(this).children().each(function(j,subEl) {
           if (subEl.name === 'li' && !$(this).children().length) {
-            content = self.parseText($(this).text());
-            if (!store.includes(content)) {
-              store.push(content);
-              obj.content.push({text: content, header: lastHeader, link: lastLink});
-              if (content && !content.match(/[\!\?\.]$/)) content += '.';
-              if (content.match(/^[A-Z].+[\.\?\!]$/)) list.push(content);
+            let text = self.parseText($(this).text());
+            if (!store.includes(text) && self.validateText(text,url)) {
+              store.push(text);
+              objs.push({content: text, type: 'text'});
             }
           }
         });
-        if (list.length) obj.content.push({text: list.join(' '), header: lastHeader, link: lastLink});
       }
-      else if (el.type === 'text') {
-        if ($(this).parent().children().length) {
-          $(this).parent().children().each(function(j,subEl) {
-            if (subEl.name === 'h1' || subEl.name === 'h2' || subEl.name === 'h3' || subEl.name === 'h4' || subEl.name === 'b' || subEl.name === 'strong') {
-              content = self.parseHeader($(this).text());
-              if (!store.includes(content) && self.validateHeader(content,url)) {
-                store.push(content);
-                lastHeader = content;
-                obj.headers.push(content);
-              }
-            }
-            else if (subEl.name === 'ul' || subEl.name === 'ol') {
-              let list = [];
-              $(this).children().each(function(k,subSubEl) {
-                if (subSubEl.name === 'li') {
-                  content = self.parseText($(this).text());
-                  if (!store.includes(content)) {
-                    store.push(content);
-                    obj.content.push({text: content, header: lastHeader, link: lastLink});
-                    if (content && !content.match(/[\!\?\.]$/)) content += '.';
-                    if (content.match(/^[A-Z].+[\.\?\!]$/)) list.push(content);
-                  }
-                }
-              });
-              if (list.length) obj.content.push({text: list.join(' '), header: lastHeader, link: lastLink});
-            }
-          });
-        }
-        for (let count = 0; count < el.parent.children.length; count++) {
-          if (el.parent.children[count].type === 'text') {
-            content = self.parseText(el.parent.children[count].data);
-            if (!store.includes(content)) {
-              store.push(content);
-              if (content.match(/^[A-Z].+[\.\?\!]$/)) obj.content.push({text: content, header: lastHeader, link: lastLink});
-            }
-          }
+      else if (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'h5'  || el.name === 'b'  || el.name === 'strong') {
+        let text = self.parseHeader($(this).text());
+        if (!store.includes(text) && self.validateHeader(text,url)) {
+          store.push(text);
+          objs.push({content: text, type: 'header'});
         }
       }
-      else if (el.tagName === 'a') {
-        content = self.parseHeader($(this).text());
-        link = $(this).attr('href') || '';
-        if (!store.includes(content) && self.validateLink(content,url)) {
-          store.push(content);
-          lastLink = content;
-          obj.links.push({text: content, url: link});
+      else if (el.name === 'a') {
+        let text = self.parseHeader($(this).text());
+        let url = $(this).attr('href');
+        let link = {text: text, url: url};
+        if (!store.includes(text) && self.validateText(text,url)) {
+          store.push(text);
+          objs.push({content: link, type: 'link'});
         }
       }
     });
-    let filteredContent = [];
-    for (let i = 0; i < obj.content.length; i++) {
-      let filtered;
-      if (filterText || typeof filterText === 'undefined') {
-        filtered = this.filterBodyContent(obj.content[i].text,url);
+    let content = [];
+    let headers = [];
+    let links = [];
+    let lastLink = null;
+    let lastHeader = '';
+    for (let i = 0; i < objs.length; i++) {
+      if (objs[i].type === 'text') {
+        content.push({text: objs[i].content, header: lastHeader, link: lastLink});
       }
-      else {
-        filtered = obj.content[i].text.split('|||||');
+      else if (objs[i].type === 'header') {
+        headers.push(objs[i].content);
+        lastHeader = objs[i].content;
       }
-      if (filtered.length) {
-        filteredContent.push({text: filtered, header: obj.content[i].header, link: obj.content[i].link});
+      else if (objs[i].type === 'link') {
+        links.push(objs[i].content);
+        lastLink = objs[i].content;
       }
     }
-    obj.content = filteredContent;
-    obj.title = this.parseHeader(title);
-    return obj;
+    let filteredObjs = [];
+    for (let i = 0; i < content.length; i++) {
+      let filtered;
+      if (filterText || typeof filterText === 'undefined') {
+        filtered = this.filterBodyContent(content[i].text,url);
+      }
+      else {
+        filtered = content[i].text.split('|||||');
+      }
+      if (filtered.length) {
+        filteredObjs.push({text: filtered, header: content[i].header, link: content[i].link});
+      }
+    }
+    return {content: filteredObjs, title: title, headers: headers, links: links};
   },
 
   webpage: function(url,filterText) {
@@ -1225,16 +1177,12 @@ module.exports = {
       let options = {
         method: 'GET',
         uri: url,
-        gzip: true
+        gzip: true,
+        headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
       };
       request(options).then(html => {
         let $ = cheerio.load(html);
-        let pageObject = {
-          title: '',
-          description: '',
-          body: '',
-          keywords: '',
-        };
+        let pageObject = {};
         pageObject.title = $('title').text() || '';
         pageObject.description = $('meta[name="description"]').attr('content') || '';
         pageObject.keywords = $('meta[name="keywords"]').attr('content') || '';
@@ -1271,7 +1219,6 @@ module.exports = {
     let paragraphs = [];
     for (let i = 0; i < count; i++) {
       let data = obj[i].body.content;
-      console.log(data);
       data.shift();
       for (let j = 0; j < data.length; j++) {
         if (data[j].header && this.findKeywordInSentence(data[j].header,data[j].text.join(''),match)) {
