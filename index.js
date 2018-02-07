@@ -1251,26 +1251,36 @@ module.exports = {
     }
     let data = obj.body.content;
     for (let i = 0; i < data.length; i++) {
-      if (data[i].header && this.findKeywordInSentence(data[i].header,data[i].text.join(''))) return {text: data[i].text, header: data[i].header};
-      if (data[i].text.join('').length > 100) return {text: data[i].text, header: obj.body.title};
+      let exactMatch = this.findKeywordInSentence(data[i].header,data[i].text.join(''),true);
+      if (data[i].header && this.findKeywordInSentence(data[i].header,data[i].text.join(''),false)) return {text: data[i].text, header: data[i].header, match: exactMatch, url: obj.url};
+      if (data[i].text.join('').length > 100) return {text: data[i].text, header: obj.body.title, match: false, url: obj.url};
     }
+    return null;
   },
 
-  randomParagraph: function(obj,maxTries) {
+  randomParagraph: function(obj,count,match) {
     if (!obj || typeof obj !== 'object') {
       return;
     }
-    let maxCount = Math.abs(Object.keys(obj.body.content).length-1);
-    let startCount = Math.floor(Math.random() * maxCount) + 1;
-    let data = obj.body.content;
-    for (let i = startCount; i < data.length; i++) {
-      if (data[i].header && this.findKeywordInSentence(data[i].header,data[i].text.join(''))) return {text: data[i].text, header: data[i].header};
-      if (data[i].text.join('').length > 100) return {text: data[i].text, header: obj.body.title};
+    if (!obj[0]) {
+      obj = [obj];
     }
-    if (maxTries && typeof maxTries === 'number') {
-      maxTries--;
-      this.randomParagraph(obj,maxTries);
+    obj = shuffle(obj);
+    if (!count) count = 1;
+    if (match === undefined) match = true;
+    let paragraphs = [];
+    for (let i = 0; i < count; i++) {
+      let data = obj[i].body.content;
+      console.log(data);
+      data.shift();
+      for (let j = 0; j < data.length; j++) {
+        if (data[j].header && this.findKeywordInSentence(data[j].header,data[j].text.join(''),match)) {
+          paragraphs.push({text: data[j].text, header: data[j].header, match: match, url: obj[i].url});
+        }
+      }
     }
+    if (paragraphs.length) return paragraphs;
+    return null;
   },
 
   resultLinks: function($,searchSource) {
