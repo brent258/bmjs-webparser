@@ -1206,28 +1206,23 @@ module.exports = {
     return null;
   },
 
-  randomParagraph: function(obj,count,match) {
-    if (!obj || typeof obj !== 'object') {
+  randomParagraph: function(obj,count,match,usedKeywords) {
+    if (!obj || !obj.body.content) {
       return;
     }
-    if (!obj[0]) {
-      obj = [obj];
-    }
-    obj = shuffle(obj);
     if (!count) count = 1;
     if (match === undefined) match = true;
+    if (!usedKeywords) usedKeywords = [];
     let paragraphs = [];
-    for (let i = 0; i < count; i++) {
-      let data = obj[i].body.content;
-      data.shift();
-      data = shuffle(data);
-      for (let j = 0; j < data.length; j++) {
-        if (data[j].header && this.findKeywordInSentence(data[j].header,data[j].text.join(''),match)) {
-          let exactMatch = this.findKeywordInSentence(data[j].header,data[j].text.join(''),true);
-          paragraphs.push({text: data[j].text, header: data[j].header, match: exactMatch, url: obj[i].url});
-          if (paragraphs.length === count) return paragraphs;
-        }
+    let data = obj.body.content;
+    data.shift();
+    data = shuffle(data);
+    for (let i = 0; i < data.length; i++) {
+      if (data[i].header && !usedKeywords.includes(data[i].header.toLowerCase()) && this.findKeywordInSentence(data[i].header,data[i].text.join(''),match)) {
+        let exactMatch = this.findKeywordInSentence(data[i].header,data[i].text.join(''),true);
+        paragraphs.push({text: data[i].text, header: data[i].header, match: exactMatch, url: obj.url});
       }
+      if (paragraphs.length === count) return paragraphs;
     }
     return null;
   },
@@ -1335,7 +1330,7 @@ module.exports = {
           this.googleSearch(keyword,minResult,maxResult,googleDomain).then(data => resolve(data)).catch(err => reject(err));
         }
         else {
-          this.bingSearch(keyword,minResult,maxResult,googleDomain).then(data => resolve(data)).catch(err => reject(err));
+          this.bingSearch(keyword,minResult,maxResult,bingDomain).then(data => resolve(data)).catch(err => reject(err));
         }
       }
     });
@@ -1357,7 +1352,7 @@ module.exports = {
     }
   },
 
-  videoProperties: function(obj,imageParams) {
+  videoProperties: function(obj,imageParams,usedKeywords) {
     return new Promise((resolve,reject) => {
       if (!obj || !imageParams || !imageParams.fallback) {
         reject('Unable to create video properties without obj and fallback keyword.');
@@ -1372,10 +1367,12 @@ module.exports = {
         if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
         if (imageParams.exact === undefined) imageParams.exact = true;
         if (!imageParams.limit) imageParams.limit = 3;
+        if (!usedKeywords) usedKeywords = [];
         let slides = [];
         let credits = [];
-        let keyword = obj.match ? obj.header : imageParams.fallback;
-        let description = imageParams === 'intro' ? pos.prettyPrint(obj.text.join(' '),true,true,false) : keyword + '\n\n' + pos.prettyPrintList(obj.text.join(' '),true,true,true);
+        let keyword = obj.match ? obj.header.toLowerCase() : imageParams.fallback.toLowerCase();
+        usedKeywords.push(keyword);
+        let description = imageParams === 'intro' ? pos.prettyPrint(obj.text.join(' '),true,true,false) : pos.titlecase(keyword) + '\n\n' + pos.prettyPrintList(obj.text.join(' '),true,true,true);
         this.images(keyword,imageParams).then(data => {
           let imageActive = true;
           let textActive = true;
@@ -1385,7 +1382,7 @@ module.exports = {
           let titleText, titleImage;
           if (bothActive) {
             titleImage = data[0] ? rand(data[0],null,null,null) : null;
-            titleText = keyword;
+            titleText = pos.titlecase(keyword);
           }
           else if (imageActive) {
             titleImage = data[0] ? data[0] : null;
@@ -1393,7 +1390,7 @@ module.exports = {
           }
           else if (textActive) {
             titleImage = null;
-            titleText = keyword;
+            titleText = pos.titlecase(keyword);
           }
           let titleObj = {
             text: titleText,
@@ -1403,18 +1400,19 @@ module.exports = {
             keyword: keyword,
             url: obj.url
           };
-          let titleCredit = this.imageCredit(data[0]);
-          if (titleCredit) credits.push(titleCredit);
+          let titleCredit = this.imageCredit(titleObj.image);
+          if (titleCredit && !titleObj.image.copyright) credits.push(titleCredit);
           if (titleObj.text || titleObj.image) slides.push(titleObj);
           for (let i = 0; i < obj.text.length; i++) {
             let slideText, slideImage;
+            let imageIndex = titleObj.image ? i+1 : i;
             let snippet = pos.prettyPrintSnippet(obj.text[i],false,true,false);
             if (bothActive) {
-              slideImage = data[i+1] ? rand(data[i+1],data[i+1],data[i+1],null) : null;
+              slideImage = data[imageIndex] ? rand(data[imageIndex],data[imageIndex],data[imageIndex],null) : null;
               slideText = !slideImage ? snippet : rand(snippet,'');
             }
             else if (imageActive) {
-              slideImage = data[i+1] ? data[i+1] : null;
+              slideImage = data[imageIndex] ? data[imageIndex] : null;
               slideText = '';
             }
             else if (textActive) {
@@ -1429,8 +1427,8 @@ module.exports = {
               keyword: keyword,
               url: obj.url
             };
-            let slideCredit = this.imageCredit(data[i+1]);
-            if (slideCredit) credits.push(slideCredit);
+            let slideCredit = this.imageCredit(slideObj.image);
+            if (slideCredit && !slideObj.image.copyright) credits.push(slideCredit);
             if (slideObj.text || slideObj.image) slides.push(slideObj);
           }
           if (slides.length) {
@@ -1444,13 +1442,15 @@ module.exports = {
     });
   },
 
-  videoSlides: function(count,url,imageParams,objectStore,slideStore) {
+  videoSlides: function(searchParams,imageParams,usedKeywords,objectStore,slideStore) {
     return new Promise((resolve,reject) => {
-      if (!count || !url || !imageParams || !imageParams.fallback) {
-        reject('Unable to create video slides without count, url and fallback keyword.');
+      if (!searchParams || !searchParams.url || !imageParams || !imageParams.fallback) {
+        reject('Unable to create video slides without url and fallback keyword.');
       }
       else {
-        if (!imageParams.type) imageParams.type = 'intro';
+        if (!searchParams.count) searchParams.count = 1;
+        if (searchParams.exact === undefined) searchParams.exact = true;
+        if (!imageParams.type) imageParams.type = 'random';
         if (!imageParams.template) imageParams.template = '';
         if (!imageParams.search) imageParams.search = 'google';
         if (!imageParams.options) imageParams.options = ['large','commercial'];
@@ -1459,15 +1459,18 @@ module.exports = {
         if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
         if (imageParams.exact === undefined) imageParams.exact = true;
         if (!imageParams.limit) imageParams.limit = 3;
-        if (!objectStore) objectStore = null;
+        if (imageParams.match === undefined) imageParams.match = true;
+        if (!usedKeywords) usedKeywords = [];
+        if (!objectStore) objectStore = [];
         if (!slideStore) slideStore = {
           slides: [],
           description: [],
           credits: []
         };
         if (imageParams.type === 'intro') {
-          this.website(url).then(data => {
-            this.videoProperties(data,imageParams).then(data => {
+          this.webpage(searchParams.url).then(data => {
+            let obj = this.firstParagraph(data);
+            this.videoProperties(obj,imageParams,usedKeywords).then(data => {
               slideStore.slides = slideStore.slides.concat(data.slides);
               slideStore.credits = slideStore.credits.concat(data.credits);
               slideStore.description = data.description;
@@ -1477,33 +1480,32 @@ module.exports = {
         }
         else if (imageParams.type === 'random') {
           if (!slideStore.slides.length) {
-            this.website(url).then(data => {
-              objectStore = data;
-              this.videoProperties(objectStore[0],imageParams).then(data => {
+            this.webpage(searchParams.url).then(data => {
+              objectStore = this.randomParagraph(data,searchParams.count,searchParams.exact,usedKeywords);
+              this.videoProperties(objectStore[0],imageParams,usedKeywords).then(data => {
                 slideStore.slides = slideStore.slides.concat(data.slides);
                 slideStore.credits = slideStore.credits.concat(data.credits);
                 slideStore.description.push(data.description);
                 objectStore.shift();
-                this.videoSlides(count,url,imageParams,objectStore,slideStore).then(data => resoleve(data)).catch(err => reject(err));
+                this.videoSlides(searchParams,imageParams,usedKeywords,objectStore,slideStore).then(data => resolve(data)).catch(err => reject(err));
               }).catch(err => reject(err));
             }).catch(err => reject(err));
           }
           else if (objectStore.length) {
-            this.videoProperties(objectStore[0],imageParams).then(data => {
+            this.videoProperties(objectStore[0],imageParams,usedKeywords).then(data => {
               slideStore.slides = slideStore.slides.concat(data.slides);
               slideStore.credits = slideStore.credits.concat(data.credits);
               slideStore.description.push(data.description);
               objectStore.shift();
-              this.videoSlides(count,url,imageParams,objectStore,slideStore).then(data => resoleve(data)).catch(err => reject(err));
+              this.videoSlides(searchParams,imageParams,usedKeywords,objectStore,slideStore).then(data => resolve(data)).catch(err => reject(err));
             }).catch(err => reject(err));
           }
           else {
-            slideStore.description = slideStore.description.join('\n');
             resolve(slideStore);
           }
         }
         else {
-          reject('Invalid type argument.');
+          reject('Invalid video image type argument for: ' + searchParams.url);
         }
       }
     });
