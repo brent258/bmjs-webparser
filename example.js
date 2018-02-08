@@ -7,7 +7,11 @@ let search = {
   count: 2
 };
 let image = {
-  fallback: 'dogs'
+  fallback: 'dogs',
+  match: true,
+  cacheOnly: true,
+  search: 'google',
+  limit: 1
 };
 //wp.webpage(search.url).then(msg => console.log(wp.randomParagraph(msg))).catch(err => console.log(err));
-wp.videoSlides(search,image).then(msg => console.log(msg)).catch(err => console.log(err));
+wp.video('pomeranian',search,image).then(msg => console.log(msg)).catch(err => console.log(err));
