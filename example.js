@@ -3,14 +3,15 @@ const pos = require('bmjs-engpos');
 
 wp.init();
 let search = {
-  count: 2
+  count: 7,
+  template: 'tips'
 };
 let image = {
   match: true,
   cacheOnly: false,
   search: 'google',
   limit: 2,
-  fallback: 'pomeranian'
+  fallback: 'dogs'
 };
-//wp.webpage(search.url).then(msg => console.log(wp.randomParagraph(msg))).catch(err => console.log(err));
-wp.video('pomeranian facts',search,image).then(msg => console.log(msg)).catch(err => console.log(err));
+wp.webpage('http://www.akc.org/content/dog-care/articles/small-dogs-that-dont-shed/').then(msg => console.log(msg.body.content)).catch(err => console.log(err));
+//wp.video('tick prevention for dogs',search,image).then(msg => console.log(msg)).catch(err => console.log(err));

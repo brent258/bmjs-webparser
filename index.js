@@ -338,7 +338,7 @@ module.exports = {
       }
       else {
         if (scaleToFill === undefined) scaleToFill = true;
-        if (!limit) limit = 100;
+        if (!limit) limit = 0;
         if (!index) index = 0;
         if (obj[0] && index < limit) {
           this.updateImageCache(obj[0],keyword,scaleToFill).then(data => {
@@ -475,6 +475,9 @@ module.exports = {
 
   downloadImage: function(obj,savePath,scaleToFill,width,height) {
     return new Promise((resolve,reject) => {
+      setTimeout(() => {
+        resolve('Server request timeout downloading image: ' + obj.image);
+      },10000);
       if (!obj || !savePath) {
         reject('Unable to download image without image object and save path.');
       }
@@ -534,6 +537,9 @@ module.exports = {
 
   googleImage: function(keyword,imageParams,domain) {
     return new Promise((resolve,reject) => {
+      setTimeout(() => {
+        reject('Server request timeout searching for Google image: ' + keyword);
+      },10000);
       if (!keyword || !imageParams.fallback) {
         reject('Unable to search for images without keyword and fallback image keyword.');
       }
@@ -664,9 +670,11 @@ module.exports = {
             }
           }
           if (data.length) {
+            console.log('Resolving Google images: ' + keyword);
             resolve(data);
           }
           else {
+            console.log('Resolving Google images fallback: ' + keyword);
             resolve({fallback: imageParams.fallback});
           }
         }).catch(err => reject(err));
@@ -675,6 +683,9 @@ module.exports = {
   },
 
   flickrImage: function(keyword,imageParams) {
+    setTimeout(() => {
+      reject('Server request timeout searching for Flickr image: ' + keyword);
+    },10000);
     return new Promise((resolve,reject) => {
       if (!keyword || !imageParams.fallback) {
         reject('Unable to search for images without keyword and fallback image keyword.');
@@ -811,9 +822,11 @@ module.exports = {
             }
           }
           if (data.length) {
+            console.log('Resolving Flickr images: ' + keyword);
             resolve(data);
           }
           else {
+            console.log('Resolving Flickr images fallback: ' + keyword);
             resolve({fallback: imageParams.fallback});
           }
         }).catch(err => reject(err));
@@ -847,10 +860,12 @@ module.exports = {
         }).catch(err => {
           if (store.length) {
             console.log(err);
+            console.log('Resolving Flickr image loop: ' + keyword);
             resolve(store);
           }
           else if (data.fallback) {
             console.log(err);
+            console.log('Resolving Flickr image loop: ' + keyword);
             resolve(data);
           }
           else {
@@ -892,6 +907,7 @@ module.exports = {
                 for (let i = 0; i < imageParams.limit; i++) {
                   if (images[i]) filtered.push(images[i]);
                 }
+                console.log('Resolving images: ' + keyword);
                 resolve(filtered);
               }).catch(err => reject(err));
             }).catch(err => reject(err));
@@ -904,39 +920,40 @@ module.exports = {
             for (let i = 0; i < imageParams.limit; i++) {
               if (images[i]) filtered.push(images[i]);
             }
+            console.log('Resolving images: ' + keyword);
             resolve(filtered);
           }).catch(error => {
             console.log(error);
             console.log('No images found. Searching for new images...');
             if (imageParams.search === 'google') {
-              this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => console.log(err));
+              this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
             }
             else if (imageParams.search === 'flickr') {
-              this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => console.log(err));
+              this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
             }
             else {
               if (rand(true,false) === true) {
-                this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => console.log(err));
+                this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
               }
               else {
-                this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => console.log(err));
+                this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
               }
             }
           });
         }
         else {
           if (imageParams.search === 'google') {
-            this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => console.log(err));
+            this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
           }
           else if (imageParams.search === 'flickr') {
-            this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => console.log(err));
+            this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
           }
           else {
             if (rand(true,false) === true) {
-              this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => console.log(err));
+              this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
             }
             else {
-              this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => console.log(err));
+              this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
             }
           }
         }
@@ -1102,7 +1119,6 @@ module.exports = {
     if (!paragraph || !url || typeof paragraph !== 'string' || typeof url !== 'string') {
       return [];
     }
-    if (!pos.validateSentence(paragraph)) return [];
     let splitParagraph = paragraph.split('|||||');
     let filtered = [];
     for (let i = 0; i < splitParagraph.length; i++) {
@@ -1113,63 +1129,49 @@ module.exports = {
   },
 
   extractBodyContent: function($,url,filterText) {
-    let store = [];
     let objs = [];
-    let self = this;
-    let title = this.parseHeader($('h1').first().text() || $('h2').first().text() || '');
-    let selector = $('section > p').text() ? 'section' : 'div';
-    $(selector).contents().each(function(i,el) {
-      if (el.name === 'p' || el.type === 'text') {
-        let text = self.parseText($(this).text());
-        if (!store.includes(text) && self.validateText(text,url)) {
-          store.push(text);
-          objs.push({content: text, type: 'text'});
-        }
-      }
-      else if (el.name === 'ul' || el.name === 'ol') {
-        $(this).children().each(function(j,subEl) {
-          if (subEl.name === 'li' && !$(this).children().length) {
-            let text = self.parseText($(this).text());
-            if (!store.includes(text) && self.validateText(text,url)) {
-              store.push(text);
-              objs.push({content: text, type: 'text'});
-            }
-          }
-        });
-      }
-      else if (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'h5'  || el.name === 'b'  || el.name === 'strong') {
-        let text = self.parseHeader($(this).text());
-        if (!store.includes(text) && self.validateHeader(text,url)) {
-          store.push(text);
-          objs.push({content: text, type: 'header'});
-        }
-      }
-      else if (el.name === 'a') {
-        let text = self.parseHeader($(this).text());
-        let url = $(this).attr('href');
-        let link = {text: text, url: url};
-        if (!store.includes(text) && self.validateText(text,url)) {
-          store.push(text);
-          objs.push({content: link, type: 'link'});
-        }
-      }
-    });
-    let content = [];
+    let title = this.parseHeader($('h1').first().text().trim() || $('h2').first().text().trim() || '');
+    let main = '';
     let headers = [];
-    let links = [];
-    let lastLink = null;
+    $('p').each(function(i,el) {
+      if ($(this).parent().text().trim().length > main.length) main = $(this).parent().text().trim();
+    });
+    console.log(main.split('\n'));
+    $('h1').each(function(i,el) {
+      headers.push($(this).text().trim());
+    });
+    $('h2').each(function(i,el) {
+      headers.push($(this).text().trim());
+    });
+    $('h3').each(function(i,el) {
+      headers.push($(this).text().trim());
+    });
+    $('h4').each(function(i,el) {
+      headers.push($(this).text().trim());
+    });
+    $('h5').each(function(i,el) {
+      headers.push($(this).text().trim());
+    });
+    $('h6').each(function(i,el) {
+      headers.push($(this).text().trim());
+    });
+    let paragraphs = main.split('\n');
+    for (let i = 0; i < paragraphs.length; i++) {
+      if (headers.includes(paragraphs[i])) {
+        objs.push({type: 'header', content: this.parseHeader(paragraphs[i])});
+      }
+      else if (paragraphs[i] && pos.validateSentence(paragraphs[i])) {
+        objs.push({type: 'text', content: this.parseText(paragraphs[i])});
+      }
+    }
+    let content = [];
     let lastHeader = '';
     for (let i = 0; i < objs.length; i++) {
       if (objs[i].type === 'text') {
-        content.push({text: objs[i].content, header: lastHeader, link: lastLink});
+        content.push({text: objs[i].content, header: lastHeader});
       }
       else if (objs[i].type === 'header') {
-        headers.push(objs[i].content);
         lastHeader = objs[i].content;
-      }
-      else if (objs[i].type === 'link') {
-        links.push(objs[i].content);
-        lastLink = objs[i].content;
       }
     }
     let filteredObjs = [];
@@ -1182,14 +1184,17 @@ module.exports = {
         filtered = content[i].text.split('|||||');
       }
       if (filtered.length > 1) {
-        filteredObjs.push({text: filtered, header: content[i].header, link: content[i].link});
+        filteredObjs.push({text: filtered, header: content[i].header});
       }
     }
-    return {content: filteredObjs, title: title, headers: headers, links: links};
+    return {content: filteredObjs, title: title, headers: headers};
   },
 
   webpage: function(url,filterText) {
     return new Promise((resolve,reject) => {
+      setTimeout(() => {
+        reject('Server request timeout loading url: ' + url);
+      },5000);
       let options = {
         method: 'GET',
         uri: url,
@@ -1204,6 +1209,7 @@ module.exports = {
         pageObject.keywords = $('meta[name="keywords"]').attr('content') || '';
         pageObject.url = url;
         pageObject.body = this.extractBodyContent($,url,filterText);
+        console.log('Resolving webpage: ' + url);
         resolve(pageObject);
       }).catch(err => reject(err));
     });
@@ -1268,6 +1274,9 @@ module.exports = {
 
   googleSearch: function(keyword,minResult,maxResult,domain) {
     return new Promise((resolve,reject) => {
+      setTimeout(() => {
+        reject('Server request timeout searching for: ' + keyword);
+      },5000);
       if (!keyword) {
         reject('Unable to search without keyword.');
       }
@@ -1294,9 +1303,10 @@ module.exports = {
           console.log('WARNING: Proxies currently not set.');
         }
         request(options).then(html => {
-          console.log('Searching Google for keyword: ' + keyword);
+          console.log('Searching Google for keyword: ' + keyword + ' - ' + minResult);
           let $ = cheerio.load(html);
           let results = this.resultLinks($,'google');
+          console.log('Resolving Google search: ' + keyword);
           resolve(results);
         }).catch(err => reject(err));
       }
@@ -1305,6 +1315,9 @@ module.exports = {
 
   bingSearch: function(keyword,minResult,maxResult,domain) {
     return new Promise((resolve,reject) => {
+      setTimeout(() => {
+        reject('Server request timeout searching for: ' + keyword);
+      },5000);
       if (!keyword) {
         reject('Unable to search without keyword.');
       }
@@ -1331,9 +1344,10 @@ module.exports = {
           console.log('WARNING: Proxies currently not set.');
         }
         request(options).then(html => {
-          console.log('Searching Bing for keyword: ' + keyword);
+          console.log('Searching Bing for keyword: ' + keyword + ' - ' + minResult);
           let $ = cheerio.load(html);
           let results = this.resultLinks($,'bing');
+          console.log('Resolving Bing search: ' + keyword);
           resolve(results);
         }).catch(err => reject(err));
       }
@@ -1342,6 +1356,9 @@ module.exports = {
 
   search: function(keyword,minResult,maxResult,googleDomain,bingDomain) {
     return new Promise((resolve,reject) => {
+      setTimeout(() => {
+        reject('Server request timeout searching for: ' + keyword);
+      },5000);
       if (!keyword) {
         reject('Unable to search without keyword.');
       }
@@ -1495,6 +1512,7 @@ module.exports = {
             if (slideObj.text || slideObj.image) slides.push(slideObj);
           }
           if (slides.length) {
+            console.log('Resolving video properties: ' + keyword);
             resolve({slides: slides, credits: credits, description: description});
           }
           else {
@@ -1513,7 +1531,7 @@ module.exports = {
       else {
         if (!searchParams.count) searchParams.count = 1;
         if (searchParams.exact === undefined) searchParams.exact = true;
-        if (!searchParams.type) searchParams.type = 'intro';
+        if (!imageParams.type) imageParams.type = 'intro';
         if (!searchParams.timeout) searchParams.timeout = 5000;
         if (!imageParams.template) imageParams.template = '';
         if (!imageParams.search) imageParams.search = 'google';
@@ -1535,7 +1553,7 @@ module.exports = {
         setTimeout(() => {
           reject('Server request timeout out at: ' + searchParams.url);
         },searchParams.timeout);
-        if (searchParams.type === 'intro') {
+        if (imageParams.type === 'intro') {
           this.webpage(searchParams.url).then(data => {
             if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
             let obj = this.firstParagraph(data);
@@ -1547,7 +1565,7 @@ module.exports = {
             }).catch(err => reject(err));
           }).catch(err => reject(err));
         }
-        else if (searchParams.type === 'random') {
+        else if (imageParams.type === 'random') {
           if (!slideStore.slides.length) {
             this.webpage(searchParams.url).then(data => {
               if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
@@ -1567,11 +1585,11 @@ module.exports = {
               slideStore.credits = slideStore.credits.concat(data.credits);
               slideStore.description.push(data.description);
               objectStore.shift();
-              index++;
               this.videoSlides(searchParams,imageParams,fallbackImages,keywordStore,pageStore,objectStore,slideStore).then(data => resolve(data)).catch(err => reject(err));
             }).catch(err => reject(err));
           }
           else {
+            console.log('Resolving video slides: ' + searchParams.url);
             resolve(slideStore);
           }
         }
@@ -1600,9 +1618,9 @@ module.exports = {
         if (!searchParams.category) searchParams.category = 0;
         if (!searchParams.privacy) searchParams.privacy = 'Public';
         if (searchParams.exact === undefined) searchParams.exact = true;
-        if (!searchParams.type) searchParams.type = 'random';
         if (!searchParams.timeout) searchParams.timeout = 5000;
         if (!imageParams) imageParams = {};
+        if (!imageParams.type) imageParams.type = 'random';
         if (!imageParams.fallback) imageParams.fallback = keyword;
         if (!imageParams.template) imageParams.template = '';
         if (!imageParams.search) imageParams.search = 'google';
@@ -1645,7 +1663,7 @@ module.exports = {
         }
         else if (!dataStore.links.length) {
           this.search(keyword,searchParams.minResult,searchParams.maxResult).then(urls => {
-            urls = shuffle(urls).filter(el => this.findContextFromLink(searchParams.template,el));
+            urls = shuffle(urls);
             dataStore.links = dataStore.links.concat(urls);
             this.video(keyword,searchParams,imageParams,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {
@@ -1654,11 +1672,11 @@ module.exports = {
           });
         }
         else if (!dataStore.rawSlides.length) {
-          console.log(dataStore.links);
           let search = searchParams;
           search.url = dataStore.links[0].url;
-          search.type = 'intro';
-          this.videoSlides(search,imageParams,dataStore.fallbackImages,dataStore.keywords,dataStore.pages).then(slides => {
+          let image = imageParams;
+          image.type = 'intro';
+          this.videoSlides(search,image,dataStore.fallbackImages,dataStore.keywords,dataStore.pages).then(slides => {
             dataStore.links.shift();
             dataStore.rawSlides = dataStore.rawSlides.concat(slides.slides);
             dataStore.rawCredits = dataStore.rawCredits.concat(slides.credits);
@@ -1673,9 +1691,12 @@ module.exports = {
           });
         }
         else if (index < dataStore.sections) {
+          if ((index + searchParams.count) > dataStore.sections) searchParams.count = dataStore.sections-index;
           let search = searchParams;
           search.url = dataStore.links[0].url;
-          this.videoSlides(search,imageParams,dataStore.fallbackImages,dataStore.keywords,dataStore.pages).then(slides => {
+          let image = imageParams;
+          image.type = 'random';
+          this.videoSlides(search,image,dataStore.fallbackImages,dataStore.keywords,dataStore.pages).then(slides => {
             dataStore.links.shift();
             dataStore.rawSlides = dataStore.rawSlides.concat(slides.slides);
             dataStore.rawCredits = dataStore.rawCredits.concat(slides.credits);
@@ -1691,10 +1712,9 @@ module.exports = {
           });
         }
         else {
-          console.log(index);
           console.log(dataStore.sections);
-          resolve();
-          /*dataStore.clips = dataStore.rawSlides;
+          console.log(index);
+          dataStore.clips = dataStore.rawSlides;
           if (dataStore.rawCredits.length) {
             dataStore.description = dataStore.rawDescription.join('\n') + '\nImage Credits\n' + dataStore.rawCredits.join('\n');
           }
@@ -1707,7 +1727,8 @@ module.exports = {
           delete dataStore.links;
           delete dataStore.keywords;
           delete dataStore.pages;
-          delete dataStore.fallbackImages;*/
+          delete dataStore.fallbackImages;
+          console.log('Resolving video: ' + keyword);
           resolve(dataStore);
         }
       }
