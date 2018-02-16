@@ -21,6 +21,7 @@ module.exports = {
   textBlacklist: [],
   imageQueue: {list: [], data: []},
   textQueue: {list: [], data: []},
+  keywords: require('./lib/keywords.js'),
 
   pause: function() {
     this.paused = true;
@@ -976,11 +977,14 @@ module.exports = {
       return '';
     }
     text = text
-    .replace(/^(\n|\s|\r|\t)*/g,'')
-    .replace(/(\n|\s|\r|\t)*$/g,'')
+    .replace(/^(\n|\s|\r|\t)+/g,'')
+    .replace(/(\n|\s|\r|\t)+$/g,'')
     .replace(/(\n|\r|\t|\s+)/g,' ')
     .replace(/^[^A-Za-z]*([A-Za-z])/,'$1')
     .replace(/([a-zA-Z])(\:\s.+|\s\(.+|\s\-\s.+|\s\|\s.+|\,\s.+)/,'$1')
+    .replace(/(\u201C|\u201D|\u2033|\u201e)/g,'"')
+    .replace(/(\u2018|\u2019|\u201a|\u2032)/g,'\'')
+    .replace(/(\u2026)/g,'.')
     .replace(/[\.\?\!]$/,'');
     if (text) return pos.titlecase(text);
     return '';
@@ -991,8 +995,8 @@ module.exports = {
       return '';
     }
     text = text
-    .replace(/^(\n|\s|\r|\t)*/g,'')
-    .replace(/(\n|\s|\r|\t)*$/g,'')
+    .replace(/^(\n|\s|\r|\t)+/g,'')
+    .replace(/(\n|\s|\r|\t)+$/g,'')
     .replace(/(\n|\r|\t|\s+)/g,' ')
     .replace(/\[\d+\]/g,'')
     .replace(/\!+/g,'!')
@@ -1006,6 +1010,9 @@ module.exports = {
     .replace(/\.([A-Z]|[a-z])/g,'$1')
     .replace(/([a-z])(A\s)/g,'$1. $2')
     .replace(/\s+/g,' ')
+    .replace(/(\u201C|\u201D|\u2033|\u201e)/g,'"')
+    .replace(/(\u2018|\u2019|\u201a|\u2032)/g,'\'')
+    .replace(/(\u2026)/g,'.')
     .replace(/([\!\?\.])\s*(\w)/g,'$1|||||$2');
     if (text) return text;
     return '';
@@ -1019,10 +1026,8 @@ module.exports = {
     if (sentence.match(/[^a-zA-Z\s\,\/\-0-9]/)) return false;
     if (!sentence.match(/^[A-Z]/)) return false;
     if (this.matchUrl(sentence,url)) return false;
-    if (sentence.match(/\b(we|i|our|ourselves|ourself|my|us|me|myself|he|his|him|himself|she|her|hers|herself)\b/i)) return false;
-    if (sentence.match(/(\d\:\d|19\d\d|20\d\d)/)) return false;
+    if (sentence.match(/\b(we|our|us|ourselves|ourself|i|my|me|myself)\b/i)) return false;
     if (sentence.match(/\b(today|tomorrow|yesterday|last\sweek|last\smonth|last\syear|next\sweek|next\smonth|next\syear|this\sweek|this\smonth|this\syear)\b/i)) return false;
-    if (sentence.match(/\b(January|February|March|April|May|June|July|August|September|November|December)\b/)) return false;
     if (sentence.match(/\b(error|problem|issue|trouble|unable)/i) && sentence.match(/\b(server|request|response|page|web|gateway|data|loading|load|open|opening)\b/i)) return false;
     if (sentence.match(/\b(please|thanks|thankyou|thank\syou|hello|hi|hey|greetings|welcome|goodbye|bye)\b/i)) return false;
     if (sentence.match(/(shit|fuck|dick|piss|cunt|bitch|bastard)/i)) return false;
@@ -1047,26 +1052,25 @@ module.exports = {
     }
     if (sentence.match(/[a-z][A-Z]/)) return false;
     if (sentence.match(/[\.\,\?\!\;\&\/][\.\,\?\!\;\&\/]/)) return false;
-    if (!sentence.match(/[\!\.\?]$/)) return false;
+    if (!sentence.match(/[\!\.\?\"]$/)) return false;
     if (!sentence.match(/^[A-Z\"]/)) return false;
     if (!sentence.match(/\s[a-z]/)) return false;
     if (sentence.match(/[\%\$]/)) return false;
     if (this.matchUrl(sentence,url)) return false;
-    if (sentence.match(/\b(we|i|our|ourselves|ourself|my|us|me|myself|he|his|him|himself|she|her|hers|herself)\b/i)) return false;
-    if (sentence.match(/(\d\:\d|19\d\d|20\d\d)/)) return false;
+    if (sentence.match(/\b(we|our|us|ourselves|ourself|i|my|me|myself)\b/i)) return false;
     if (sentence.match(/\b(today|tomorrow|yesterday|last\sweek|last\smonth|last\syear|next\sweek|next\smonth|next\syear|this\sweek|this\smonth|this\syear)\b/i)) return false;
-    if (sentence.match(/\b(January|February|March|April|May|June|July|August|September|November|December)\b/)) return false;
     if (sentence.match(/\b(error|problem|issue|trouble|unable)/i) && sentence.match(/\b(server|request|response|page|web|gateway|data|loading|load|open|opening)\b/i)) return false;
     if (sentence.match(/\b(please|thanks|thankyou|thank\syou|hello|hi|hey|greetings|welcome|goodbye|bye)\b/i)) return false;
     if (sentence.match(/(shit|fuck|dick|piss|cunt|bitch|bastard)/i)) return false;
     return true;
   },
 
-  findKeywordInSentence: function(keyword,sentence,exact) {
+  findKeywordInSentence: function(keyword,sentence,exact,minCount) {
     if (!keyword || typeof keyword !== 'string' || !sentence || typeof sentence !== 'string') {
       return false;
     }
     if (exact === undefined) exact = true;
+    if (!minCount) minCount = 0;
     let lowercasedKeyword = keyword.replace(/[^\w]/gi,' ').replace(/\s+/g,' ').trim().toLowerCase();
     let lowercasedSentence = sentence.toLowerCase();
     if (lowercasedSentence.includes(lowercasedKeyword)) return true;
@@ -1075,12 +1079,36 @@ module.exports = {
     for (let i = 0; i < splitKeyword.length; i++) {
       if (lowercasedSentence.includes(splitKeyword[i])) matches++;
     }
-    if ((exact && matches === splitKeyword.length) || (!exact && matches > 0)) {
+    if ((exact && matches === splitKeyword.length) || (!exact && matches > minCount)) {
       return true;
     }
     else {
       return false;
     }
+  },
+
+  headerFromKeywordList: function(header,keywordList) {
+    if (!header || typeof header !== 'string' || !keywordList || typeof keywordList !== 'object') {
+      return '';
+    }
+    let lowercasedHeader = header.toLowerCase();
+    let letter = lowercasedHeader[0];
+    if (!keywordList[letter]) return '';
+    let searchKeywords = keywordList[letter];
+    for (let i = 0; i < searchKeywords.length; i++) {
+      if (lowercasedHeader.includes(searchKeywords[i])) return searchKeywords[i];
+    }
+    return '';
+  },
+
+  textFromKeywordList: function(text,keywordList) {
+    if (!text || typeof text !== 'string' || !keywordList || typeof keywordList !== 'object') {
+      return false;
+    }
+    for (let i = 0; i < keywordList.length; i++) {
+      if (this.findKeywordInSentence(keywordList[i],text,true)) return true;
+    }
+    return false;
   },
 
   findContextFromLink: function(template,link) {
@@ -1129,14 +1157,12 @@ module.exports = {
   },
 
   extractBodyContent: function($,url,filterText) {
-    let objs = [];
     let title = this.parseHeader($('h1').first().text().trim() || $('h2').first().text().trim() || '');
     let main = '';
     let headers = [];
     $('p').each(function(i,el) {
       if ($(this).parent().text().trim().length > main.length) main = $(this).parent().text().trim();
     });
-    console.log(main.split('\n'));
     $('h1').each(function(i,el) {
       headers.push($(this).text().trim());
     });
@@ -1155,12 +1181,16 @@ module.exports = {
     $('h6').each(function(i,el) {
       headers.push($(this).text().trim());
     });
+    $('strong').each(function(i,el) {
+      headers.push($(this).text().trim());
+    });
     let paragraphs = main.split('\n');
+    let objs = [];
     for (let i = 0; i < paragraphs.length; i++) {
       if (headers.includes(paragraphs[i])) {
         objs.push({type: 'header', content: this.parseHeader(paragraphs[i])});
       }
-      else if (paragraphs[i] && pos.validateSentence(paragraphs[i])) {
+      else if (paragraphs[i]) {
         objs.push({type: 'text', content: this.parseText(paragraphs[i])});
       }
     }
@@ -1183,7 +1213,7 @@ module.exports = {
       else {
         filtered = content[i].text.split('|||||');
       }
-      if (filtered.length > 1) {
+      if (filtered.length) {
         filteredObjs.push({text: filtered, header: content[i].header});
       }
     }

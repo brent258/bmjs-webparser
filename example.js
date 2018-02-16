@@ -13,5 +13,7 @@ let image = {
   limit: 2,
   fallback: 'dogs'
 };
-wp.webpage('http://www.akc.org/content/dog-care/articles/small-dogs-that-dont-shed/').then(msg => console.log(msg.body.content)).catch(err => console.log(err));
+//wp.webpage('https://www.wikihow.com/Train-a-Dog').then(msg => console.log(msg.body.content)).catch(err => console.log(err));
 //wp.video('tick prevention for dogs',search,image).then(msg => console.log(msg)).catch(err => console.log(err));
+//console.log(wp.parseText('\tFirst, ask your dog to “Sit.”'));
+console.log(wp.keywords.dogs);
