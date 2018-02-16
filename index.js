@@ -1246,37 +1246,89 @@ module.exports = {
   },
 
   firstParagraph: function(obj) {
-    if (!obj || typeof obj !== 'object') {
+    if (!obj || !obj.body.content.length) {
       return;
     }
     let data = obj.body.content;
+    let paragraph = null;
     for (let i = 0; i < data.length; i++) {
-      let exactMatch = this.findKeywordInSentence(data[i].header,data[i].text.join(''),true);
-      if (data[i].header && this.findKeywordInSentence(data[i].header,data[i].text.join(''),false)) return {text: data[i].text, header: data[i].header, match: exactMatch, url: obj.url};
-      if (data[i].text.join('').length > 100) return {text: data[i].text, header: obj.body.title, match: false, url: obj.url};
+      if (!data[i].header) {
+        if (!paragraph && data[i].text.length) {
+          paragraph = {text: data[i].text, header: data[i].header, keyword: false, url: obj.url};
+        }
+        else if (paragraph.text.length && data[i].text.length) {
+          paragraph.text = paragraph.text.concat(data[i].text);
+        }
+      }
+      else {
+        break;
+      }
     }
-    return null;
+    return paragraph;
   },
 
-  randomParagraph: function(obj,count,match,usedKeywords) {
-    if (!obj || !obj.body.content) {
+  randomParagraph: function(obj,count,headerKeywords,textKeywords,usedKeywords) {
+    if (!obj || !obj.body.content.length) {
       return;
     }
     if (!count) count = 1;
-    if (match === undefined) match = true;
+    if (!headerKeywords) headerKeywords = null;
+    if (!textKeywords) textKeywords = [];
     if (!usedKeywords) usedKeywords = [];
     let paragraphs = [];
     let data = obj.body.content;
-    data.shift();
     data = shuffle(data);
     for (let i = 0; i < data.length; i++) {
-      if (data[i].header && !usedKeywords.includes(data[i].header.toLowerCase()) && this.findKeywordInSentence(data[i].header,data[i].text.join(''),match)) {
-        let exactMatch = this.findKeywordInSentence(data[i].header,data[i].text.join(''),true);
-        paragraphs.push({text: data[i].text, header: data[i].header, match: exactMatch, url: obj.url});
+      if (paragraphs.length < count) {
+        if (data[i].header) {
+          if (headerKeywords && textKeywords.length) {
+            let headerMatch = this.headerFromKeywordList(data[i].header,headerKeywords);
+            if (headerMatch && usedKeywords.length && usedKeywords.includes(headerMatch)) continue;
+            let textMatch = this.textFromKeywordList(data[i].text.join(' '),textKeywords);
+            if (!textMatch) continue;
+            let paragraph = {
+              text: data[i].text,
+              header: headerMatch ? pos.titlecase(headerMatch) : data[i].header,
+              keyword: headerMatch ? true : false,
+              url: obj.url
+            };
+            paragraphs.push(paragraph);
+          }
+          else if (headerKeywords) {
+            let headerMatch = this.headerFromKeywordList(data[i].header,headerKeywords);
+            if (headerMatch && usedKeywords.length && usedKeywords.includes(headerMatch)) continue;
+            let paragraph = {
+              text: data[i].text,
+              header: headerMatch ? pos.titlecase(headerMatch) : data[i].header,
+              keyword: headerMatch ? true : false,
+              url: obj.url
+            };
+            paragraphs.push(paragraph);
+          }
+          else if (textKeywords.length) {
+            let textMatch = this.textFromKeywordList(data[i].text.join(' '),textKeywords);
+            if (!textMatch) continue;
+            let paragraph = {
+              text: data[i].text,
+              header: data[i].header,
+              keyword: false,
+              url: obj.url
+            };
+            paragraphs.push(paragraph);
+          }
+          else {
+            paragraphs.push({text: data[i].text, header: data[i].header, keyword: false, url: obj.url});
+          }
+        }
+        else {
+          continue;
+        }
       }
-      if (paragraphs.length === count) return paragraphs;
+      else {
+        break;
+      }
     }
-    return null;
+    return paragraphs;
   },
 
   resultLinks: function($,searchSource) {
