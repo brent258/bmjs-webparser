@@ -1242,6 +1242,7 @@ module.exports = {
         method: 'GET',
         uri: url,
         gzip: true,
+        rejectUnauthorized: false,
         headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
       };
       request(options).then(html => {
@@ -1258,9 +1259,9 @@ module.exports = {
     });
   },
 
-  firstParagraph: function(obj) {
+  firstParagraph: function(obj,keyword) {
     if (!obj || !obj.body.content.length) {
-      return;
+      return null;
     }
     let data = obj.body.content;
     let paragraph = null;
@@ -1277,12 +1278,20 @@ module.exports = {
         break;
       }
     }
-    return paragraph;
+    if (paragraph && paragraph.text && paragraph.text.length && keyword && paragraph.text.join(' ').toLowerCase().includes(keyword.toLowerCase())) {
+      return paragraph;
+    }
+    else if (paragraph && paragraph.text && paragraph.text.length && keyword) {
+      return null;
+    }
+    else {
+      return paragraph;
+    }
   },
 
   randomParagraph: function(obj,count,headerKeywords,textKeywords,usedKeywords) {
     if (!obj || !obj.body.content.length) {
-      return;
+      return [];
     }
     if (!count) count = 1;
     if (!headerKeywords) headerKeywords = null;

@@ -14,6 +14,7 @@ let image = {
   limit: 2,
   fallback: 'pekingese',
 };
-wp.webpage('https://en.wikipedia.org/wiki/Pekingese').then(msg => console.log(wp.firstParagraph(msg,2,null,['coat']))).catch(err => console.log(err));
+wp.webpage('https://plexidors.com/7-fun-facts-about-the-pekingese/').then(msg => console.log(wp.firstParagraph(msg,'pekingese'))).catch(err => console.log(err));
+//wp.webpage('https://plexidors.com/7-fun-facts-about-the-pekingese/').then(msg => console.log(wp.randomParagraph(msg,2,null,['pekingese']))).catch(err => console.log(err));
 
 //console.log(wp.parseText('\tFirst, ask your dog to “Sit.”'));
