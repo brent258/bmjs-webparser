@@ -22,6 +22,8 @@ module.exports = {
   imageQueue: {list: [], data: []},
   textQueue: {list: [], data: []},
   keywords: require('./lib/keywords.js'),
+  timeout: 5000,
+  debug: true,
 
   pause: function() {
     this.paused = true;
@@ -29,6 +31,14 @@ module.exports = {
 
   unpause: function() {
     this.paused = false;
+  },
+
+  setTimeout: function(timeout) {
+    if (typeof timeout === 'number') this.timeout = timeout;
+  },
+
+  setDebug: function(debug) {
+    if (!debug) this.debug = false;
   },
 
   init: function() {
@@ -41,6 +51,18 @@ module.exports = {
       this.setCachePath();
       this.createCache();
     }
+    this.paused = false;
+    this.proxies = [];
+    this.lastGoogleProxy = '';
+    this.lastBingProxy = '';
+    this.lastFlickrProxy = '';
+    this.lastWebSearch = '';
+    this.imageBlacklist = [];
+    this.textBlacklist = [];
+    this.imageQueue = {list: [], data: []};
+    this.textQueue = {list: [], data: []};
+    this.timeout = 5000;
+    this.debug = true;
   },
 
   addImageBlacklist: function(item) {
@@ -248,7 +270,7 @@ module.exports = {
         if (!index) index = 0;
         if (obj[0]) {
           this.updateTextCache(obj[0],keyword).then(data => {
-            console.log(data);
+            if (this.debug) console.log(data);
             obj.shift();
             index++;
             this.updateTextCacheMultiple(obj,keyword,index).then(data => resolve(data)).catch(err => reject(err));
@@ -316,7 +338,7 @@ module.exports = {
             if (!data.length || !this.objectInArray(obj,data,['tags','search','copyright'])) {
               data.push(obj);
               this.downloadImage(obj,this.cachePath + '/images/' + keyword + '/' + obj.filename,scaleToFill).then(msg => {
-                console.log(msg);
+                if (this.debug) console.log(msg);
                 this.addImageQueue(data,keyword);
                 this.updateImageQueue(keyword).then(() => {
                   resolve('Finished updating image cache for: ' + keyword);
@@ -343,7 +365,7 @@ module.exports = {
         if (!index) index = 0;
         if (obj[0] && index < limit) {
           this.updateImageCache(obj[0],keyword,scaleToFill).then(data => {
-            console.log(data);
+            if (this.debug) console.log(data);
             obj.shift();
             index++;
             this.updateImageCacheMultiple(obj,keyword,scaleToFill,limit,index).then(data => resolve(data)).catch(err => reject(err));
@@ -368,14 +390,14 @@ module.exports = {
   createAssets: function() {
     if (!this.assetsPath) this.setAssetsPath();
     if (!fs.existsSync(this.assetsPath)) {
-      console.log('Assets directory not found. Creating folder...');
+      if (this.debug) console.log('Assets directory not found. Creating folder...');
       fs.mkdir(this.assetsPath,err => {
-        if (err) console.log(err);
-        console.log('Finished creating assets directory.');
+        if (err && this.debug) console.log(err);
+        if (this.debug) console.log('Finished creating assets directory.');
       });
     }
     else {
-      console.log('Assets directory already exists.');
+      if (this.debug) console.log('Assets directory already exists.');
     }
   },
 
@@ -391,54 +413,54 @@ module.exports = {
   createCache: function() {
     if (!this.cachePath) this.setCachePath();
     if (!fs.existsSync(this.cachePath)) {
-      console.log('Cache directory not found. Creating folder...');
+      if (this.debug) console.log('Cache directory not found. Creating folder...');
       fs.mkdir(this.cachePath,err => {
-        if (err) console.log(err);
-        console.log('Finished creating cache directory.');
+        if (err && this.debug) console.log(err);
+        if (this.debug) console.log('Finished creating cache directory.');
       });
     }
     else {
-      console.log('Cache directory already exists.');
+      if (this.debug) console.log('Cache directory already exists.');
     }
     if (!fs.existsSync(this.cachePath + '/data')) {
-      console.log('Data cache directory not found. Creating folder...');
+      if (this.debug) console.log('Data cache directory not found. Creating folder...');
       fs.mkdir(this.cachePath + '/data',err => {
-        if (err) console.log(err);
-        console.log('Finished creating data cache directory.');
+        if (err && this.debug) console.log(err);
+        if (this.debug) console.log('Finished creating data cache directory.');
       });
     }
     else {
-      console.log('Data cache directory already exists.');
+      if (this.debug) console.log('Data cache directory already exists.');
     }
     if (!fs.existsSync(this.cachePath + '/images')) {
-      console.log('Image cache directory not found. Creating folder...');
+      if (this.debug) console.log('Image cache directory not found. Creating folder...');
       fs.mkdir(this.cachePath + '/images',err => {
-        if (err) console.log(err);
-        console.log('Finished creating image cache directory.');
+        if (err && this.debug) console.log(err);
+        if (this.debug) console.log('Finished creating image cache directory.');
       });
     }
     else {
-      console.log('Image cache directory already exists.');
+      if (this.debug) console.log('Image cache directory already exists.');
     }
     if (!fs.existsSync(this.cachePath + '/data/text')) {
-      console.log('Text data cache directory not found. Creating folder...');
+      if (this.debug) console.log('Text data cache directory not found. Creating folder...');
       fs.mkdir(this.cachePath + '/data/text',err => {
-        if (err) console.log(err);
-        console.log('Finished creating text data cache directory.');
+        if (err && this.debug) console.log(err);
+        if (this.debug) console.log('Finished creating text data cache directory.');
       });
     }
     else {
-      console.log('Text data cache directory already exists.');
+      if (this.debug) console.log('Text data cache directory already exists.');
     }
     if (!fs.existsSync(this.cachePath + '/data/images')) {
-      console.log('Image data cache directory not found. Creating folder...');
+      if (this.debug) console.log('Image data cache directory not found. Creating folder...');
       fs.mkdir(this.cachePath + '/data/images',err => {
-        if (err) console.log(err);
-        console.log('Finished creating image data cache directory.');
+        if (err && this.debug) console.log(err);
+        if (this.debug) console.log('Finished creating image data cache directory.');
       });
     }
     else {
-      console.log('Image data cache directory already exists.');
+      if (this.debug) console.log('Image data cache directory already exists.');
     }
   },
 
@@ -478,7 +500,7 @@ module.exports = {
     return new Promise((resolve,reject) => {
       setTimeout(() => {
         resolve('Server request timeout downloading image: ' + obj.image);
-      },10000);
+      },this.timeout*2);
       if (!obj || !savePath) {
         reject('Unable to download image without image object and save path.');
       }
@@ -518,7 +540,7 @@ module.exports = {
   },
 
   selectImageWithTags: function(keyword,data,tags,exact) {
-    if (!keyword || !data || !(data.description || data.filename)) {
+    if (!keyword || !data || !(data.description || data.filename || data.title)) {
       return false;
     }
     if (!tags) tags = [];
@@ -540,7 +562,7 @@ module.exports = {
     return new Promise((resolve,reject) => {
       setTimeout(() => {
         reject('Server request timeout searching for Google image: ' + keyword);
-      },10000);
+      },this.timeout*2);
       if (!keyword || !imageParams.fallback) {
         reject('Unable to search for images without keyword and fallback image keyword.');
       }
@@ -635,7 +657,7 @@ module.exports = {
           options.proxy = proxy;
         }
         else {
-          console.log('WARNING: Proxies currently not set.');
+          if (this.debug) console.log('WARNING: Proxies currently not set.');
         }
         request(options).then(html => {
           let $ = cheerio.load(html);
@@ -671,11 +693,11 @@ module.exports = {
             }
           }
           if (data.length) {
-            console.log('Resolving Google images: ' + keyword);
+            if (this.debug) console.log('Resolving Google images: ' + keyword);
             resolve(data);
           }
           else {
-            console.log('Resolving Google images fallback: ' + keyword);
+            if (this.debug) console.log('Resolving Google images fallback: ' + keyword);
             resolve({fallback: imageParams.fallback});
           }
         }).catch(err => reject(err));
@@ -684,10 +706,10 @@ module.exports = {
   },
 
   flickrImage: function(keyword,imageParams) {
-    setTimeout(() => {
-      reject('Server request timeout searching for Flickr image: ' + keyword);
-    },10000);
     return new Promise((resolve,reject) => {
+      setTimeout(() => {
+        reject('Server request timeout searching for Flickr image: ' + keyword);
+      },this.timeout*2);
       if (!keyword || !imageParams.fallback) {
         reject('Unable to search for images without keyword and fallback image keyword.');
       }
@@ -776,7 +798,7 @@ module.exports = {
           options.proxy = proxy;
         }
         else {
-          console.log('WARNING: Proxies currently not set.');
+          if (this.debug) console.log('WARNING: Proxies currently not set.');
         }
         request(options).then(html => {
           html = html.replace(/(\s*\n+\s*|\s*\r+\s*)/g,'');
@@ -823,11 +845,11 @@ module.exports = {
             }
           }
           if (data.length) {
-            console.log('Resolving Flickr images: ' + keyword);
+            if (this.debug) console.log('Resolving Flickr images: ' + keyword);
             resolve(data);
           }
           else {
-            console.log('Resolving Flickr images fallback: ' + keyword);
+            if (this.debug) console.log('Resolving Flickr images fallback: ' + keyword);
             resolve({fallback: imageParams.fallback});
           }
         }).catch(err => reject(err));
@@ -855,18 +877,18 @@ module.exports = {
           }
           else {
             imageParams.page++;
-            console.log(`Searching for Flickr images on page ${imageParams.page} for keyword: ${keyword}`);
+            if (this.debug) console.log(`Searching for Flickr images on page ${imageParams.page} for keyword: ${keyword}`);
             this.flickrImageLoop(keyword,imageParams,store).then(data => resolve(data)).catch(err => reject(err));
           }
         }).catch(err => {
           if (store.length) {
-            console.log(err);
-            console.log('Resolving Flickr image loop: ' + keyword);
+            if (this.debug) console.log(err);
+            if (this.debug) console.log('Resolving Flickr image loop: ' + keyword);
             resolve(store);
           }
           else if (data.fallback) {
-            console.log(err);
-            console.log('Resolving Flickr image loop: ' + keyword);
+            if (this.debug) console.log(err);
+            if (this.debug) console.log('Resolving Flickr image loop: ' + keyword);
             resolve(data);
           }
           else {
@@ -895,20 +917,20 @@ module.exports = {
         let callback = function(inputData) {
           if (inputData.fallback && imageParams.search === 'flickr') imageParams.search === 'google';
           if (inputData.fallback) {
-            console.log('No matching images for: ' + keyword);
-            console.log('Searching for images for fallback: ' + inputData.fallback);
+            if (this.debug) console.log('No matching images for: ' + keyword);
+            if (this.debug) console.log('Searching for images for fallback: ' + inputData.fallback);
             self.images(inputData.fallback,imageParams).then(data => resolve(data)).catch(err => reject(err));
           }
           else {
             self.updateImageCacheMultiple(inputData,keyword,imageParams.crop,imageParams.limit).then(msg => {
-              console.log(msg);
+              if (this.debug) console.log(msg);
               self.readImageCache(keyword).then(outputData => {
                 let images = shuffle(JSON.parse(outputData));
                 let filtered = [];
                 for (let i = 0; i < imageParams.limit; i++) {
                   if (images[i]) filtered.push(images[i]);
                 }
-                console.log('Resolving images: ' + keyword);
+                if (this.debug) console.log('Resolving images: ' + keyword);
                 resolve(filtered);
               }).catch(err => reject(err));
             }).catch(err => reject(err));
@@ -921,11 +943,11 @@ module.exports = {
             for (let i = 0; i < imageParams.limit; i++) {
               if (images[i]) filtered.push(images[i]);
             }
-            console.log('Resolving images: ' + keyword);
+            if (this.debug) console.log('Resolving images: ' + keyword);
             resolve(filtered);
           }).catch(error => {
-            console.log(error);
-            console.log('No images found. Searching for new images...');
+            if (this.debug) console.log(error);
+            if (this.debug) console.log('No images found. Searching for new images...');
             if (imageParams.search === 'google') {
               this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
             }
@@ -1034,15 +1056,6 @@ module.exports = {
     if (sentence.match(/\b(posts|articles|comments|videos|related|reviews|answers|questions|replies|products|pages|items|similar|popular|category|categories|ratings|responses)\b/)) return false;
     if (sentence.match(/\b(post|write|leave|make|send|reply|respond)\b/i) && sentence.match(/\b(comment|reply|message|email|article|post|review)\b/i)) return false;
     if (sentence.match(/\b(subscribe|join|sign\sup|signup|become)\b/i) && sentence.match(/\b(free|newsletter|updates|news|email|membership|course|program|subscriber|member)\b/i)) return false;
-    return true;
-  },
-
-  validateLink: function(sentence,url) {
-    if (!sentence || !url || typeof sentence !== 'string' || typeof url !== 'string') {
-      return false;
-    }
-    if (!this.validateHeader(sentence,url)) return false;
-    if (sentence.match(/\b(next|previous|more|continue|join|member|post|reply|view|click|view|watch|see|request|respond|edit|save|add|open|review|checkout|check\sout|subscribe|sign\sup|signup|read|learn|comment|publish|feedback|newsletter|update|upload|buy|shipping|offer|cart)/i)) return false;
     return true;
   },
 
@@ -1224,7 +1237,7 @@ module.exports = {
     return new Promise((resolve,reject) => {
       setTimeout(() => {
         reject('Server request timeout loading url: ' + url);
-      },5000);
+      },this.timeout);
       let options = {
         method: 'GET',
         uri: url,
@@ -1239,7 +1252,7 @@ module.exports = {
         pageObject.keywords = $('meta[name="keywords"]').attr('content') || '';
         pageObject.url = url;
         pageObject.body = this.extractBodyContent($,url,filterText);
-        console.log('Resolving webpage: ' + url);
+        if (this.debug) console.log('Resolving webpage: ' + url);
         resolve(pageObject);
       }).catch(err => reject(err));
     });
@@ -1358,7 +1371,7 @@ module.exports = {
     return new Promise((resolve,reject) => {
       setTimeout(() => {
         reject('Server request timeout searching for: ' + keyword);
-      },5000);
+      },this.timeout);
       if (!keyword) {
         reject('Unable to search without keyword.');
       }
@@ -1382,13 +1395,13 @@ module.exports = {
           options.proxy = proxy;
         }
         else {
-          console.log('WARNING: Proxies currently not set.');
+          if (this.debug) console.log('WARNING: Proxies currently not set.');
         }
         request(options).then(html => {
-          console.log('Searching Google for keyword: ' + keyword + ' - ' + minResult);
+          if (this.debug) console.log('Searching Google for keyword: ' + keyword + ' - ' + minResult);
           let $ = cheerio.load(html);
           let results = this.resultLinks($,'google');
-          console.log('Resolving Google search: ' + keyword);
+          if (this.debug) console.log('Resolving Google search: ' + keyword);
           resolve(results);
         }).catch(err => reject(err));
       }
@@ -1399,7 +1412,7 @@ module.exports = {
     return new Promise((resolve,reject) => {
       setTimeout(() => {
         reject('Server request timeout searching for: ' + keyword);
-      },5000);
+      },this.timeout);
       if (!keyword) {
         reject('Unable to search without keyword.');
       }
@@ -1423,13 +1436,13 @@ module.exports = {
           options.proxy = proxy;
         }
         else {
-          console.log('WARNING: Proxies currently not set.');
+          if (this.debug) console.log('WARNING: Proxies currently not set.');
         }
         request(options).then(html => {
-          console.log('Searching Bing for keyword: ' + keyword + ' - ' + minResult);
+          if (this.debug) console.log('Searching Bing for keyword: ' + keyword + ' - ' + minResult);
           let $ = cheerio.load(html);
           let results = this.resultLinks($,'bing');
-          console.log('Resolving Bing search: ' + keyword);
+          if (this.debug) console.log('Resolving Bing search: ' + keyword);
           resolve(results);
         }).catch(err => reject(err));
       }
@@ -1440,7 +1453,7 @@ module.exports = {
     return new Promise((resolve,reject) => {
       setTimeout(() => {
         reject('Server request timeout searching for: ' + keyword);
-      },5000);
+      },this.timeout);
       if (!keyword) {
         reject('Unable to search without keyword.');
       }
@@ -1594,7 +1607,7 @@ module.exports = {
             if (slideObj.text || slideObj.image) slides.push(slideObj);
           }
           if (slides.length) {
-            console.log('Resolving video properties: ' + keyword);
+            if (this.debug) console.log('Resolving video properties: ' + keyword);
             resolve({slides: slides, credits: credits, description: description});
           }
           else {
@@ -1617,7 +1630,6 @@ module.exports = {
         if (!searchParams.count) searchParams.count = 1;
         if (searchParams.exact === undefined) searchParams.exact = true;
         if (!imageParams.type) imageParams.type = 'intro';
-        if (!searchParams.timeout) searchParams.timeout = 5000;
         if (!searchParams.headerKeywords) searchParams.headerKeywords = null;
         if (!searchParams.textKeywords) searchParams.textKeywords = [];
         if (!imageParams.template) imageParams.template = '';
@@ -1640,7 +1652,7 @@ module.exports = {
         };
         setTimeout(() => {
           reject('Server request timeout out at: ' + searchParams.url);
-        },searchParams.timeout);
+        },this.timeout);
         if (imageParams.type === 'intro') {
           this.webpage(searchParams.url).then(data => {
             if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
@@ -1682,7 +1694,7 @@ module.exports = {
             }).catch(err => reject(err));
           }
           else {
-            console.log('Resolving video slides: ' + searchParams.url);
+            if (this.debug) console.log('Resolving video slides: ' + searchParams.url);
             slideStore.description = slideStore.description.join('\n');
             resolve(slideStore);
           }
@@ -1712,7 +1724,6 @@ module.exports = {
         if (!searchParams.category) searchParams.category = 0;
         if (!searchParams.privacy) searchParams.privacy = 'Public';
         if (searchParams.exact === undefined) searchParams.exact = true;
-        if (!searchParams.timeout) searchParams.timeout = 5000;
         if (!searchParams.headerKeywords) searchParams.headerKeywords = null;
         if (!searchParams.textKeywords) searchParams.textKeywords = [];
         if (!imageParams) imageParams = {};
@@ -1749,10 +1760,10 @@ module.exports = {
         if (!dataStore.fallbackImages.length) {
           let fallbackImageParams = imageParams;
           fallbackImageParams.limit = 20;
-          console.log('Retrieving images for fallback keyword: ' + imageParams.fallback);
+          if (this.debug) console.log('Retrieving images for fallback keyword: ' + imageParams.fallback);
           this.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
             if (!fallbackImages.length) reject('No images found for fallback keyword: ' + imageParams.fallback);
-            console.log('Finished retrieving images for fallback keyword: ' + imageParams.fallback);
+            if (this.debug) console.log('Finished retrieving images for fallback keyword: ' + imageParams.fallback);
             dataStore.fallbackImages = fallbackImages;
             this.video(keyword,searchParams,imageParams,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => reject(err));
@@ -1780,7 +1791,7 @@ module.exports = {
             if (!dataStore.links.length) searchParams.minResult += 10;
             this.video(keyword,searchParams,imageParams,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {
-            console.log(err);
+            if (this.debug) console.log(err);
             dataStore.links.shift();
             if (!dataStore.links.length) searchParams.minResult += 10;
             this.video(keyword,searchParams,imageParams,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
@@ -1801,15 +1812,14 @@ module.exports = {
             if (!dataStore.links.length) searchParams.minResult += 10;
             this.video(keyword,searchParams,imageParams,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {
-            console.log(err);
+            if (this.debug) console.log(err);
             dataStore.links.shift();
             if (!dataStore.links.length) searchParams.minResult += 10;
             this.video(keyword,searchParams,imageParams,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
           });
         }
         else {
-          console.log(dataStore.sections);
-          console.log(index);
+          if (this.debug) console.log(dataStore.keywords);
           dataStore.clips = dataStore.rawSlides;
           if (dataStore.rawCredits.length) {
             dataStore.description = dataStore.rawDescription.join('\n') + '\nImage Credits\n' + dataStore.rawCredits.join('\n');
@@ -1824,7 +1834,7 @@ module.exports = {
           delete dataStore.keywords;
           delete dataStore.pages;
           delete dataStore.fallbackImages;
-          console.log('Resolving video: ' + keyword);
+          if (this.debug) console.log('Resolving video: ' + keyword);
           resolve(dataStore);
         }
       }
