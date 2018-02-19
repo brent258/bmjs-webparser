@@ -1278,14 +1278,14 @@ module.exports = {
         break;
       }
     }
-    if (paragraph && paragraph.text && paragraph.text.length && keyword && paragraph.text.join(' ').toLowerCase().includes(keyword.toLowerCase())) {
+    if (paragraph && paragraph.text && paragraph.text.length > 1 && keyword && paragraph.text.join(' ').toLowerCase().includes(keyword.toLowerCase())) {
       return paragraph;
     }
-    else if (paragraph && paragraph.text && paragraph.text.length && keyword) {
-      return null;
+    else if (paragraph && paragraph.text && paragraph.text.length > 1 && !keyword) {
+      return paragraph;
     }
     else {
-      return paragraph;
+      return null;
     }
   },
 
@@ -1314,7 +1314,7 @@ module.exports = {
               keyword: headerMatch ? true : false,
               url: obj.url
             };
-            paragraphs.push(paragraph);
+            if (data[i].text.length > 1) paragraphs.push(paragraph);
           }
           else if (headerKeywords) {
             let headerMatch = this.headerFromKeywordList(data[i].header,headerKeywords);
@@ -1325,7 +1325,7 @@ module.exports = {
               keyword: headerMatch ? true : false,
               url: obj.url
             };
-            paragraphs.push(paragraph);
+            if (data[i].text.length > 1) paragraphs.push(paragraph);
           }
           else if (textKeywords.length) {
             let textMatch = this.textFromKeywordList(data[i].text.join(' '),textKeywords);
@@ -1336,10 +1336,10 @@ module.exports = {
               keyword: false,
               url: obj.url
             };
-            paragraphs.push(paragraph);
+            if (data[i].text.length > 1) paragraphs.push(paragraph);
           }
           else {
-            paragraphs.push({text: data[i].text, header: data[i].header, keyword: false, url: obj.url});
+            if (data[i].text.length > 1) paragraphs.push({text: data[i].text, header: data[i].header, keyword: false, url: obj.url});
           }
         }
         else {
