@@ -1654,7 +1654,6 @@ module.exports = {
         if (!pageStore) pageStore = [];
         if (!objectStore) objectStore = [];
         if (!slideStore) slideStore = {
-          count: 0,
           slides: [],
           description: [],
           credits: []
@@ -1664,11 +1663,16 @@ module.exports = {
         },this.timeout);
         if (imageParams.type === 'intro') {
           this.webpage(searchParams.url).then(data => {
+            if (!this.objectInArray(data,pageStore)) {
+              pageStore.push(data);
+            }
+            else {
+              reject('Duplicate content found: ' + searchParams.url);
+            }
             if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
             let obj = this.firstParagraph(data);
             if (!obj.text.length) reject('No text content found at: ' + searchParams.url);
             this.videoProperties(obj,imageParams,fallbackImages,keywordStore,pageStore).then(data => {
-              slideStore.count++;
               slideStore.slides = slideStore.slides.concat(data.slides);
               slideStore.credits = slideStore.credits.concat(data.credits);
               slideStore.description = data.description;
@@ -1681,6 +1685,11 @@ module.exports = {
             this.webpage(searchParams.url).then(data => {
               if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
               objectStore = this.randomParagraph(data,searchParams.count,searchParams.headerKeywords,searchParams.textKeywords,keywordStore);
+              if (!objectStore.length) {
+                if (this.debug) console.log('No sections found, retrieving first paragraph for: ' + searchParams.url);
+                let fallbackParagraph = this.firstParagraph(data,imageParams.fallback);
+                if (fallbackParagraph) objectStore.push(fallbackParagraph);
+              }
               if (!objectStore.length) reject('No text content found at: ' + searchParams.url);
               if (fallbackImages.length && objectStore.length) {
                 this.videoSlides(searchParams,imageParams,fallbackImages,keywordStore,pageStore,objectStore,slideStore).then(data => resolve(data)).catch(err => reject(err));
@@ -1694,7 +1703,6 @@ module.exports = {
           }
           else if (objectStore.length) {
             this.videoProperties(objectStore[0],imageParams,fallbackImages,keywordStore,pageStore).then(data => {
-              slideStore.count++;
               slideStore.slides = slideStore.slides.concat(data.slides);
               slideStore.credits = slideStore.credits.concat(data.credits);
               slideStore.description.push(data.description);

@@ -3,10 +3,10 @@ const pos = require('bmjs-engpos');
 
 wp.init();
 let searchParams = {
-  count: 6,
+  count: 2,
   template: 'facts',
   textKeywords: ['pekingese'],
-  url: 'http://www.akc.org/content/entertainment/articles/9-facts-about-pekingese/'
+  url: 'https://www.hillspet.com/dog-care/dog-breeds/pekingese'
 };
 let imageParams = {
   match: true,
