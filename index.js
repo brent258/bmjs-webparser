@@ -1677,35 +1677,37 @@ module.exports = {
           }).catch(err => reject(err));
         }
         else if (imageParams.type === 'random') {
-          if (!slideStore.slides.length) {
+          if (!objectStore.length) {
             this.webpage(searchParams.url).then(data => {
               if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
               objectStore = this.randomParagraph(data,searchParams.count,searchParams.headerKeywords,searchParams.textKeywords,keywordStore);
               if (!objectStore.length) reject('No text content found at: ' + searchParams.url);
-              this.videoProperties(objectStore[0],imageParams,fallbackImages,keywordStore,pageStore).then(data => {
-                slideStore.count++;
-                slideStore.slides = slideStore.slides.concat(data.slides);
-                slideStore.credits = slideStore.credits.concat(data.credits);
-                slideStore.description.push(data.description);
-                objectStore.shift();
+              if (fallbackImages.length && objectStore.length) {
                 this.videoSlides(searchParams,imageParams,fallbackImages,keywordStore,pageStore,objectStore,slideStore).then(data => resolve(data)).catch(err => reject(err));
-              }).catch(err => reject(err));
+              }
+              else {
+                if (this.debug) console.log('Resolving video slides: ' + searchParams.url);
+                if (slideStore.description.length) slideStore.description = slideStore.description.join('\n');
+                resolve(slideStore);
+              }
             }).catch(err => reject(err));
           }
           else if (objectStore.length) {
-            this.videoProperties(objectStore[0],imageParams,keywordStore,pageStore).then(data => {
+            this.videoProperties(objectStore[0],imageParams,fallbackImages,keywordStore,pageStore).then(data => {
               slideStore.count++;
               slideStore.slides = slideStore.slides.concat(data.slides);
               slideStore.credits = slideStore.credits.concat(data.credits);
               slideStore.description.push(data.description);
               objectStore.shift();
-              this.videoSlides(searchParams,imageParams,fallbackImages,keywordStore,pageStore,objectStore,slideStore).then(data => resolve(data)).catch(err => reject(err));
+              if (fallbackImages.length && objectStore.length) {
+                this.videoSlides(searchParams,imageParams,fallbackImages,keywordStore,pageStore,objectStore,slideStore).then(data => resolve(data)).catch(err => reject(err));
+              }
+              else {
+                if (this.debug) console.log('Resolving video slides: ' + searchParams.url);
+                if (slideStore.description.length) slideStore.description = slideStore.description.join('\n');
+                resolve(slideStore);
+              }
             }).catch(err => reject(err));
-          }
-          else {
-            if (this.debug) console.log('Resolving video slides: ' + searchParams.url);
-            slideStore.description = slideStore.description.join('\n');
-            resolve(slideStore);
           }
         }
         else {
