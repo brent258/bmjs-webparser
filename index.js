@@ -274,7 +274,11 @@ module.exports = {
             obj.shift();
             index++;
             this.updateTextCacheMultiple(obj,keyword,index).then(data => resolve(data)).catch(err => reject(err));
-          }).catch(err => reject(err));
+          }).catch(err => {
+            if (this.debug) console.log(err);
+            obj.shift();
+            this.updateTextCacheMultiple(obj,keyword,index).then(data => resolve(data)).catch(err => reject(err));
+          });
         }
         else {
           resolve(`Finished adding ${index} item(s) to text cache for keyword: ${keyword}`);
@@ -354,22 +358,25 @@ module.exports = {
     });
   },
 
-  updateImageCacheMultiple: function(obj,keyword,scaleToFill,limit,index) {
+  updateImageCacheMultiple: function(obj,keyword,scaleToFill,index) {
     return new Promise((resolve,reject) => {
       if (!keyword || !obj) {
         reject('Unable to update image cache without keyword and object array.');
       }
       else {
         if (scaleToFill === undefined) scaleToFill = true;
-        if (!limit) limit = 0;
         if (!index) index = 0;
-        if (obj[0] && index < limit) {
+        if (obj[0]) {
           this.updateImageCache(obj[0],keyword,scaleToFill).then(data => {
             if (this.debug) console.log(data);
             obj.shift();
             index++;
-            this.updateImageCacheMultiple(obj,keyword,scaleToFill,limit,index).then(data => resolve(data)).catch(err => reject(err));
-          }).catch(err => reject(err));
+            this.updateImageCacheMultiple(obj,keyword,scaleToFill,index).then(data => resolve(data)).catch(err => reject(err));
+          }).catch(err => {
+            if (this.debug) console.log(err);
+            obj.shift();
+            this.updateImageCacheMultiple(obj,keyword,scaleToFill,index).then(data => resolve(data)).catch(err => reject(err));
+          });
         }
         else {
           resolve(`Finished adding ${index} item(s) to image cache for keyword: ${keyword}`);
@@ -563,8 +570,8 @@ module.exports = {
       setTimeout(() => {
         reject('Server request timeout searching for Google image: ' + keyword);
       },this.timeout*2);
-      if (!keyword || !imageParams.fallback) {
-        reject('Unable to search for images without keyword and fallback image keyword.');
+      if (!keyword) {
+        reject('Unable to search for images without keyword.');
       }
       else {
         if (!imageParams) imageParams = {};
@@ -697,8 +704,7 @@ module.exports = {
             resolve(data);
           }
           else {
-            if (this.debug) console.log('Resolving Google images fallback: ' + keyword);
-            resolve({fallback: imageParams.fallback});
+            reject('No Google images found: ' + keyword);
           }
         }).catch(err => reject(err));
       }
@@ -710,8 +716,8 @@ module.exports = {
       setTimeout(() => {
         reject('Server request timeout searching for Flickr image: ' + keyword);
       },this.timeout*2);
-      if (!keyword || !imageParams.fallback) {
-        reject('Unable to search for images without keyword and fallback image keyword.');
+      if (!keyword) {
+        reject('Unable to search for images without keyword.');
       }
       else {
         if (!imageParams) imageParams = {};
@@ -849,8 +855,7 @@ module.exports = {
             resolve(data);
           }
           else {
-            if (this.debug) console.log('Resolving Flickr images fallback: ' + keyword);
-            resolve({fallback: imageParams.fallback});
+            reject('No Flickr images found: ' + keyword);
           }
         }).catch(err => reject(err));
       }
@@ -871,25 +876,15 @@ module.exports = {
         if (!imageParams.limit) imageParams.limit = 1;
         if (!store) store = [];
         this.flickrImage(keyword,imageParams).then(data => {
-          if (!data.fallback) store = store.concat(data);
-          if (store.length > imageParams.limit) {
-            resolve(store);
-          }
-          else {
-            imageParams.page++;
-            if (this.debug) console.log(`Searching for Flickr images on page ${imageParams.page} for keyword: ${keyword}`);
-            this.flickrImageLoop(keyword,imageParams,store).then(data => resolve(data)).catch(err => reject(err));
-          }
+          store = store.concat(data);
+          imageParams.page++;
+          if (this.debug) console.log(`Searching for Flickr images on page ${imageParams.page} for keyword: ${keyword}`);
+          this.flickrImageLoop(keyword,imageParams,store).then(data => resolve(data)).catch(err => reject(err));
         }).catch(err => {
           if (store.length) {
             if (this.debug) console.log(err);
             if (this.debug) console.log('Resolving Flickr image loop: ' + keyword);
             resolve(store);
-          }
-          else if (data.fallback) {
-            if (this.debug) console.log(err);
-            if (this.debug) console.log('Resolving Flickr image loop: ' + keyword);
-            resolve(data);
           }
           else {
             reject(err);
@@ -922,7 +917,7 @@ module.exports = {
             self.images(inputData.fallback,imageParams).then(data => resolve(data)).catch(err => reject(err));
           }
           else {
-            self.updateImageCacheMultiple(inputData,keyword,imageParams.crop,imageParams.limit).then(msg => {
+            self.updateImageCacheMultiple(inputData,keyword,imageParams.crop).then(msg => {
               if (this.debug) console.log(msg);
               self.readImageCache(keyword).then(outputData => {
                 let images = shuffle(JSON.parse(outputData));
@@ -1104,7 +1099,7 @@ module.exports = {
     if (!header || typeof header !== 'string' || !keywordList || typeof keywordList !== 'object') {
       return '';
     }
-    let lowercasedHeader = header.toLowerCase();
+    let lowercasedHeader = header.replace(/[^\w]/gi,' ').replace(/\s+/g,' ').trim().toLowerCase();
     let letter = lowercasedHeader[0];
     if (!keywordList[letter]) return '';
     let searchKeywords = keywordList[letter];
@@ -1562,6 +1557,7 @@ module.exports = {
         if (imageParams.template !== 'imageOnly') description = searchParams.type === 'intro' ? pos.prettyPrint(obj.text.join(' '),true,true,false) : obj.header + '\n\n' + pos.prettyPrintList(obj.text.join(' '),true,true,true);
         if (useFallback) imageParams.cacheOnly = true;
         this.images(keyword,imageParams).then(data => {
+          console.log(imageParams);
           let imageActive = true;
           let textActive = true;
           if (imageParams.template === 'imageOnly' || imageParams.template === 'imageAudio') textActive = false;
