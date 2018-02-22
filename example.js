@@ -14,7 +14,7 @@ let searchParams = {
 let imageParams = {
   match: true,
   cacheOnly: false,
-  search: '',
+  search: 'flickr',
   limit: 2,
   fallback: 'dogs',
   template: ''
