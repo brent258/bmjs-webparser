@@ -22,7 +22,7 @@ module.exports = {
   imageQueue: {list: [], data: []},
   textQueue: {list: [], data: []},
   keywords: require('./lib/keywords.js'),
-  timeout: 5000,
+  timeout: 10000,
   debug: true,
 
   pause: function() {
@@ -507,7 +507,7 @@ module.exports = {
     return new Promise((resolve,reject) => {
       setTimeout(() => {
         resolve('Server request timeout downloading image: ' + obj.image);
-      },this.timeout*2);
+      },this.timeout);
       if (!obj || !savePath) {
         reject('Unable to download image without image object and save path.');
       }
@@ -569,7 +569,7 @@ module.exports = {
     return new Promise((resolve,reject) => {
       setTimeout(() => {
         reject('Server request timeout searching for Google image: ' + keyword);
-      },this.timeout*2);
+      },this.timeout);
       if (!keyword) {
         reject('Unable to search for images without keyword.');
       }
@@ -715,7 +715,7 @@ module.exports = {
     return new Promise((resolve,reject) => {
       setTimeout(() => {
         reject('Server request timeout searching for Flickr image: ' + keyword);
-      },this.timeout*2);
+      },this.timeout);
       if (!keyword) {
         reject('Unable to search for images without keyword.');
       }
@@ -855,7 +855,7 @@ module.exports = {
             resolve(data);
           }
           else {
-            reject('No Flickr images found: ' + keyword);
+            reject(`Unable to find Flickr images on page ${imageParams.page} for keyword: ${keyword}`);
           }
         }).catch(err => reject(err));
       }
@@ -908,70 +908,86 @@ module.exports = {
         if (imageParams.exact === undefined) imageParams.exact = true;
         if (!imageParams.page) imageParams.page = 1;
         if (!imageParams.limit) imageParams.limit = 1;
-        let self = this;
-        let callback = function(inputData) {
-          if (inputData.fallback && imageParams.search === 'flickr') imageParams.search === 'google';
-          if (inputData.fallback) {
-            if (this.debug) console.log('No matching images for: ' + keyword);
-            if (this.debug) console.log('Searching for images for fallback: ' + inputData.fallback);
-            self.images(inputData.fallback,imageParams).then(data => resolve(data)).catch(err => reject(err));
-          }
-          else {
-            self.updateImageCacheMultiple(inputData,keyword,imageParams.crop).then(msg => {
-              if (this.debug) console.log(msg);
-              self.readImageCache(keyword).then(outputData => {
-                let images = shuffle(JSON.parse(outputData));
-                let filtered = [];
-                for (let i = 0; i < imageParams.limit; i++) {
-                  if (images[i]) filtered.push(images[i]);
-                }
-                if (this.debug) console.log('Resolving images: ' + keyword);
-                resolve(filtered);
-              }).catch(err => reject(err));
-            }).catch(err => reject(err));
-          }
-        };
         if (imageParams.cacheOnly) {
-          this.readImageCache(keyword).then(data => {
-            let images = shuffle(JSON.parse(data));
+          this.readImageCache(keyword).then(imgs => {
+            let images = shuffle(JSON.parse(imgs));
             let filtered = [];
             for (let i = 0; i < imageParams.limit; i++) {
               if (images[i]) filtered.push(images[i]);
             }
             if (this.debug) console.log('Resolving images: ' + keyword);
             resolve(filtered);
-          }).catch(error => {
-            if (this.debug) console.log(error);
-            if (this.debug) console.log('No images found. Searching for new images...');
-            if (imageParams.search === 'google') {
-              this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
-            }
-            else if (imageParams.search === 'flickr') {
-              this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
-            }
-            else {
-              if (rand(true,false) === true) {
-                this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
-              }
-              else {
-                this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
-              }
-            }
-          });
+          }).catch(error => reject(err));
         }
         else {
           if (imageParams.search === 'google') {
-            this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+            this.googleImage(keyword,imageParams).then(data => {
+              data = data.slice(0,imageParams.limit);
+              this.updateImageCacheMultiple(data,keyword,imageParams.crop).then(msg => {
+                if (this.debug) console.log(msg);
+                this.readImageCache(keyword).then(imgs => {
+                  let images = shuffle(JSON.parse(imgs));
+                  let filtered = [];
+                  for (let i = 0; i < imageParams.limit; i++) {
+                    if (images[i]) filtered.push(images[i]);
+                  }
+                  if (this.debug) console.log('Resolving images: ' + keyword);
+                  resolve(filtered);
+                }).catch(err => reject(err));
+              }).catch(err => reject(err));
+            }).catch(err => reject(err));
           }
           else if (imageParams.search === 'flickr') {
-            this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+            this.flickrImageLoop(keyword,imageParams).then(data => {
+              data = data.slice(0,imageParams.limit);
+              this.updateImageCacheMultiple(data,keyword,imageParams.crop).then(msg => {
+                if (this.debug) console.log(msg);
+                this.readImageCache(keyword).then(imgs => {
+                  let images = shuffle(JSON.parse(imgs));
+                  let filtered = [];
+                  for (let i = 0; i < imageParams.limit; i++) {
+                    if (images[i]) filtered.push(images[i]);
+                  }
+                  if (this.debug) console.log('Resolving images: ' + keyword);
+                  resolve(filtered);
+                }).catch(err => reject(err));
+              }).catch(err => reject(err));
+            }).catch(err => reject(err));
           }
           else {
             if (rand(true,false) === true) {
-              this.googleImage(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+              this.googleImage(keyword,imageParams).then(data => {
+                data = data.slice(0,imageParams.limit);
+                this.updateImageCacheMultiple(data,keyword,imageParams.crop).then(msg => {
+                  if (this.debug) console.log(msg);
+                  this.readImageCache(keyword).then(imgs => {
+                    let images = shuffle(JSON.parse(imgs));
+                    let filtered = [];
+                    for (let i = 0; i < imageParams.limit; i++) {
+                      if (images[i]) filtered.push(images[i]);
+                    }
+                    if (this.debug) console.log('Resolving images: ' + keyword);
+                    resolve(filtered);
+                  }).catch(err => reject(err));
+                }).catch(err => reject(err));
+              }).catch(err => reject(err));
             }
             else {
-              this.flickrImageLoop(keyword,imageParams).then(data => callback(data)).catch(err => reject(err));
+              this.flickrImageLoop(keyword,imageParams).then(data => {
+                data = data.slice(0,imageParams.limit);
+                this.updateImageCacheMultiple(data,keyword,imageParams.crop).then(msg => {
+                  if (this.debug) console.log(msg);
+                  this.readImageCache(keyword).then(imgs => {
+                    let images = shuffle(JSON.parse(imgs));
+                    let filtered = [];
+                    for (let i = 0; i < imageParams.limit; i++) {
+                      if (images[i]) filtered.push(images[i]);
+                    }
+                    if (this.debug) console.log('Resolving images: ' + keyword);
+                    resolve(filtered);
+                  }).catch(err => reject(err));
+                }).catch(err => reject(err));
+              }).catch(err => reject(err));
             }
           }
         }
@@ -1557,7 +1573,6 @@ module.exports = {
         if (imageParams.template !== 'imageOnly') description = searchParams.type === 'intro' ? pos.prettyPrint(obj.text.join(' '),true,true,false) : obj.header + '\n\n' + pos.prettyPrintList(obj.text.join(' '),true,true,true);
         if (useFallback) imageParams.cacheOnly = true;
         this.images(keyword,imageParams).then(data => {
-          console.log(imageParams);
           let imageActive = true;
           let textActive = true;
           if (imageParams.template === 'imageOnly' || imageParams.template === 'imageAudio') textActive = false;
@@ -1659,7 +1674,7 @@ module.exports = {
     });
   },
 
-  videoSlides: function(searchParams,imageParams,fallbackImages,keywordStore,pageStore,objectStore,slideStore) {
+  videoSlides: function(searchParams,imageParams,fallbackImages,keywordStore,pageStore,objectStore,slideStore,webpageStore) {
     return new Promise((resolve,reject) => {
       if (!searchParams || !searchParams.keyword || !searchParams.url || !imageParams || !imageParams.fallback) {
         reject('Unable to create video properties without page object and fallback image keyword.');
@@ -1713,7 +1728,7 @@ module.exports = {
           }).catch(err => reject(err));
         }
         else if (searchParams.type === 'random') {
-          if (!objectStore.length) {
+          if (!webpageStore) {
             this.webpage(searchParams.url).then(data => {
               if (!pageStore.includes(data.url)) {
                 pageStore.push(data.url);
@@ -1721,6 +1736,7 @@ module.exports = {
               else {
                 reject('Duplicate content found: ' + data.url);
               }
+              webpageStore = data;
               if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
               objectStore = this.randomParagraph(data,searchParams.count,searchParams.headerKeywords,searchParams.textKeywords,keywordStore);
               if (!objectStore.length) {
@@ -1731,7 +1747,7 @@ module.exports = {
               let index = objectStore.length > searchParams.count ? searchParams.count : objectStore.length;
               objectStore = objectStore.slice(0,index);
               if (fallbackImages.length && objectStore.length) {
-                this.videoSlides(searchParams,imageParams,fallbackImages,keywordStore,pageStore,objectStore,slideStore).then(data => resolve(data)).catch(err => reject(err));
+                this.videoSlides(searchParams,imageParams,fallbackImages,keywordStore,pageStore,objectStore,slideStore,webpageStore).then(data => resolve(data)).catch(err => reject(err));
               }
               else {
                 if (this.debug) console.log('Resolving video slides: ' + searchParams.url);
@@ -1747,7 +1763,7 @@ module.exports = {
               slideStore.description.push(data.description);
               objectStore.shift();
               if (fallbackImages.length && objectStore.length) {
-                this.videoSlides(searchParams,imageParams,fallbackImages,keywordStore,pageStore,objectStore,slideStore).then(data => resolve(data)).catch(err => reject(err));
+                this.videoSlides(searchParams,imageParams,fallbackImages,keywordStore,pageStore,objectStore,slideStore,webpageStore).then(data => resolve(data)).catch(err => reject(err));
               }
               else {
                 if (this.debug) console.log('Resolving video slides: ' + searchParams.url);

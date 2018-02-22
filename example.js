@@ -3,9 +3,9 @@ const pos = require('bmjs-engpos');
 
 wp.init();
 let searchParams = {
-  count: 1,
+  count: 3,
   template: 'facts',
-  textKeywords: ['maltese'],
+  textKeywords: ['shedding'],
   headerKeywords: wp.keywords.dogs,
   type: 'random',
   url: 'https://www.homesalive.ca/blog/dogs-that-dont-shed-23-hypoallergenic-dog-breeds/',
@@ -14,7 +14,7 @@ let searchParams = {
 let imageParams = {
   match: true,
   cacheOnly: false,
-  search: 'google',
+  search: '',
   limit: 2,
   fallback: 'dogs',
   template: ''
@@ -23,7 +23,7 @@ let imageParams = {
 let keywordStore = [];
 let pageStore = [];
 let fallbackImageParams = Object.assign({},imageParams);
-/*fallbackImageParams.limit = 20;
+fallbackImageParams.limit = 5;
 if (wp.debug) console.log('Retrieving images for fallback keyword: ' + imageParams.fallback);
 wp.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
   if (!fallbackImages.length) console.log('No images found for fallback keyword: ' + imageParams.fallback);
@@ -32,14 +32,5 @@ wp.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
     console.log(keywordStore);
     console.log(pageStore);
     console.log(data);
-  }).catch(err => console.log(err));
-}).catch(err => console.log(err));*/
-//console.log(wp.parseText('\tFirst, ask your dog to “Sit.”'));
-wp.flickrImageLoop('dogs',imageParams).then(data => {
-  wp.updateImageCacheMultiple(data,'dogs',imageParams.crop).then(msg => {
-    console.log(msg);
-    wp.readImageCache('dogs').then(msg => {
-      console.log(JSON.parse(msg));
-    }).catch(err => console.log(err));
   }).catch(err => console.log(err));
 }).catch(err => console.log(err));
