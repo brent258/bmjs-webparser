@@ -1806,34 +1806,19 @@ module.exports = {
     return searchParams;
   },
 
-  video: function(keyword,searchParams,imageParams,dataStore,index) {
+  video: function(keyword,searchArgs,imageArgs,dataStore,sections,index) {
     return new Promise((resolve,reject) => {
       if (!keyword) {
         reject('Unable to create video without keyword.');
       }
       else {
-        if (!searchParams) searchParams = {};
-        if (!searchParams.minResult) searchParams.minResult = 1;
-        if (!searchParams.maxResult) searchParams.maxResult = 1;
-        if (searchParams.maxResult < searchParams.minResult) searchParams.maxResult = searchParams.minResult;
-        if (!searchParams.minSections) searchParams.minSections = 5;
-        if (!searchParams.maxSections) searchParams.maxSections = 10;
-        if (!searchParams.maxTries) searchParams.maxTries = 10;
-        if (!searchParams.template) searchParams.template = 'facts';
-        if (!searchParams.count) searchParams.count = 1;
-        if (!searchParams.category) searchParams.category = 0;
-        if (!searchParams.privacy) searchParams.privacy = 'Public';
-        if (searchParams.exact === undefined) searchParams.exact = true;
-        if (!searchParams.headerKeywords) searchParams.headerKeywords = null;
-        if (!searchParams.textKeywords) searchParams.textKeywords = [];
-        if (!imageParams) imageParams = {};
-
+        let searchParams = this.setSearchParams(searchArgs);
+        searchParams.keyword = keyword;
+        let imageParams = this.setImageParams(imageArgs);
         if (!dataStore) {
-          let sections = Math.floor(Math.random() * searchParams.maxSections) + searchParams.minSections;
-          let title = pos.title(keyword,sections,searchParams.template);
+          sections = Math.floor(Math.random() * searchParams.maxSections) + searchParams.minSections;
           dataStore = {
-            title: title,
-            sections: sections,
+            title: '',
             description: '',
             privacy: searchParams.privacy,
             category: searchParams.category,
@@ -1847,70 +1832,70 @@ module.exports = {
             fallbackImages: []
           };
         }
+        if (!sections) sections = Math.floor(Math.random() * searchParams.maxSections) + searchParams.minSections;
         if (!index) index = 0;
         if (!dataStore.fallbackImages.length) {
-          let fallbackImageParams = imageParams;
+          let fallbackImageParams = this.setImageParams(imageArgs);
           fallbackImageParams.limit = 20;
           if (this.debug) console.log('Retrieving images for fallback keyword: ' + imageParams.fallback);
           this.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
             if (!fallbackImages.length) reject('No images found for fallback keyword: ' + imageParams.fallback);
             if (this.debug) console.log('Finished retrieving images for fallback keyword: ' + imageParams.fallback);
             dataStore.fallbackImages = fallbackImages;
-            this.video(keyword,searchParams,imageParams,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+            this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => reject(err));
         }
         else if (!dataStore.links.length) {
           this.search(keyword,searchParams.minResult,searchParams.maxResult).then(urls => {
             urls = shuffle(urls);
-            dataStore.links = dataStore.links.concat(urls);
-            this.video(keyword,searchParams,imageParams,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+            dataStore.links = urls;
+            console.log(urls);
+            this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {
+            if (this.debug) console.log(err);
             searchParams.minResult += 10;
-            this.video(keyword,searchParams,imageParams,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+            this.video(kkeyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
           });
         }
         else if (!dataStore.rawSlides.length) {
-          let search = searchParams;
-          search.url = dataStore.links[0].url;
-          let image = imageParams;
-          image.type = 'intro';
-          this.videoSlides(search,image,dataStore.fallbackImages,dataStore.keywords,dataStore.pages).then(slides => {
+          let introSearchParams = this.setSearchParams(searchArgs);
+          introSearchParams.url = dataStore.links[0].url;
+          introSearchParams.type = 'intro';
+          this.videoSlides(introSearchParams,imageParams,dataStore.fallbackImages,dataStore.keywords,dataStore.pages).then(slides => {
             dataStore.links.shift();
             dataStore.rawSlides = dataStore.rawSlides.concat(slides.slides);
             dataStore.rawCredits = dataStore.rawCredits.concat(slides.credits);
             dataStore.rawDescription.push(slides.description);
             if (!dataStore.links.length) searchParams.minResult += 10;
-            this.video(keyword,searchParams,imageParams,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+            this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {
             if (this.debug) console.log(err);
             dataStore.links.shift();
             if (!dataStore.links.length) searchParams.minResult += 10;
-            this.video(keyword,searchParams,imageParams,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+            this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
           });
         }
-        else if (index < dataStore.sections) {
-          if ((index + searchParams.count) > dataStore.sections) searchParams.count = dataStore.sections-index;
-          let search = searchParams;
-          search.url = dataStore.links[0].url;
-          let image = imageParams;
-          image.type = 'random';
-          this.videoSlides(search,image,dataStore.fallbackImages,dataStore.keywords,dataStore.pages).then(slides => {
+        else if (index < sections) {
+          let bodySearchParams = this.setSearchParams(searchArgs);
+          bodySearchParams.url = dataStore.links[0].url;
+          bodySearchParams.type = searchParams.type;
+          this.videoSlides(bodySearchParams,imageParams,dataStore.fallbackImages,dataStore.keywords,dataStore.pages).then(slides => {
             dataStore.links.shift();
             dataStore.rawSlides = dataStore.rawSlides.concat(slides.slides);
             dataStore.rawCredits = dataStore.rawCredits.concat(slides.credits);
             dataStore.rawDescription.push(slides.description);
-            index += slides.count;
+            index = dataStore.rawSlides.length;
             if (!dataStore.links.length) searchParams.minResult += 10;
-            this.video(keyword,searchParams,imageParams,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+            this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {
             if (this.debug) console.log(err);
             dataStore.links.shift();
             if (!dataStore.links.length) searchParams.minResult += 10;
-            this.video(keyword,searchParams,imageParams,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+            this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
           });
         }
         else {
-          if (this.debug) console.log(dataStore.keywords);
+          dataStore.title = pos.title(keyword,dataStore.keywords.length,searchParams.template);
           dataStore.clips = dataStore.rawSlides;
           if (dataStore.rawCredits.length) {
             dataStore.description = dataStore.rawDescription.join('\n') + '\nImage Credits\n' + dataStore.rawCredits.join('\n');
