@@ -565,7 +565,7 @@ module.exports = {
     }
   },
 
-  googleImage: function(keyword,imageParams,domain) {
+  googleImage: function(keyword,imageArgs) {
     return new Promise((resolve,reject) => {
       setTimeout(() => {
         reject('Server request timeout searching for Google image: ' + keyword);
@@ -574,14 +574,9 @@ module.exports = {
         reject('Unable to search for images without keyword.');
       }
       else {
-        if (!imageParams) imageParams = {};
-        if (!imageParams.options) imageParams.options = ['medium','commercial'];
-        if (!imageParams.tags) imageParams.tags = [];
-        if (imageParams.crop === undefined) imageParams.crop = true;
-        if (imageParams.exact === undefined) imageParams.exact = true;
-        if (!domain) domain = 'com.au';
+        let imageParams = this.setImageParams(imageArgs);
         let parsedKeyword = keyword.replace(/[^a-zA-Z\s]/g,'').replace(/\s+/g,'+');
-        let url = `https://www.google.${domain}/search?q=${parsedKeyword}&tbm=isch`;
+        let url = `https://www.google.${imageParams.googleDomain}/search?q=${parsedKeyword}&tbm=isch`;
         if (imageParams.options && imageParams.options.length) {
           let license = '';
           let color = '';
@@ -711,7 +706,7 @@ module.exports = {
     });
   },
 
-  flickrImage: function(keyword,imageParams) {
+  flickrImage: function(keyword,imageArgs) {
     return new Promise((resolve,reject) => {
       setTimeout(() => {
         reject('Server request timeout searching for Flickr image: ' + keyword);
@@ -720,12 +715,7 @@ module.exports = {
         reject('Unable to search for images without keyword.');
       }
       else {
-        if (!imageParams) imageParams = {};
-        if (!imageParams.options) imageParams.options = ['medium','commercial'];
-        if (!imageParams.tags) imageParams.tags = [];
-        if (imageParams.crop === undefined) imageParams.crop = true;
-        if (imageParams.exact === undefined) imageParams.exact = true;
-        if (!imageParams.page) imageParams.page = 1;
+        let imageParams = this.setImageParams(imageArgs);
         let parsedKeyword = keyword.replace(/[^a-zA-Z\s]/g,'').replace(/\s+/g,'%20');
         let url = `https://www.flickr.com/search/?text=${parsedKeyword}&page=${imageParams.page}`;
         if (imageParams.options && imageParams.options.length) {
@@ -862,31 +852,25 @@ module.exports = {
     });
   },
 
-  flickrImageLoop: function(keyword,imageParams,maxTries,store) {
+  flickrImageLoop: function(keyword,imageArgs,store) {
     return new Promise((resolve,reject) => {
-      if (!keyword || !imageParams.fallback) {
-        reject('Unable to search for images without keyword and fallback image keyword.');
+      if (!keyword) {
+        reject('Unable to search for images without keyword.');
       }
       else {
-        if (!imageParams.options) imageParams.options = ['medium','commercial'];
-        if (!imageParams.tags) imageParams.tags = [];
-        if (imageParams.crop === undefined) imageParams.crop = true;
-        if (imageParams.exact === undefined) imageParams.exact = true;
-        if (!imageParams.page) imageParams.page = 1;
-        if (!imageParams.limit) imageParams.limit = 1;
-        if (!maxTries) maxTries = 5;
+        let imageParams = this.setImageParams(imageArgs);
         if (!store) store = [];
         this.flickrImage(keyword,imageParams).then(data => {
           store = store.concat(data);
           imageParams.page++;
           if (this.debug) console.log(`Searching for Flickr images on page ${imageParams.page} for keyword: ${keyword}`);
-          this.flickrImageLoop(keyword,imageParams,maxTries,store).then(data => resolve(data)).catch(err => reject(err));
+          this.flickrImageLoop(keyword,imageParams,store).then(data => resolve(data)).catch(err => reject(err));
         }).catch(err => {
-          if (maxTries > 1) {
+          if (imageParams.maxTries > 1) {
             imageParams.page++;
-            maxTries--;
+            imageParams.maxTries--;
             if (this.debug) console.log(`Searching for Flickr images on page ${imageParams.page} for keyword: ${keyword}`);
-            this.flickrImageLoop(keyword,imageParams,maxTries,store).then(data => resolve(data)).catch(err => reject(err));
+            this.flickrImageLoop(keyword,imageParams,store).then(data => resolve(data)).catch(err => reject(err));
           }
           else if (store.length) {
             if (this.debug) console.log(err);
@@ -901,20 +885,13 @@ module.exports = {
     });
   },
 
-  images: function(keyword,imageParams) {
+  images: function(keyword,imageArgs) {
     return new Promise((resolve,reject) => {
-      if (!keyword || !imageParams.fallback) {
-        reject('Unable to search for images without keyword and fallback image keyword.');
+      if (!keyword) {
+        reject('Unable to search for images without keyword.');
       }
       else {
-        if (!imageParams.search) imageParams.search = 'any';
-        if (!imageParams.options) imageParams.options = ['medium','commercial'];
-        if (!imageParams.tags) imageParams.tags = [];
-        if (imageParams.crop === undefined) imageParams.crop = true;
-        if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
-        if (imageParams.exact === undefined) imageParams.exact = true;
-        if (!imageParams.page) imageParams.page = 1;
-        if (!imageParams.limit) imageParams.limit = 1;
+        let imageParams = this.setImageParams(imageArgs);
         if (imageParams.cacheOnly) {
           this.readImageCache(keyword).then(imgs => {
             let images = shuffle(JSON.parse(imgs));
@@ -1336,14 +1313,13 @@ module.exports = {
     return paragraph;
   },
 
-  randomParagraph: function(obj,count,headerKeywords,textKeywords,usedKeywords) {
+  randomParagraph: function(obj,count,headerKeywords,textKeywords) {
     if (!obj || !obj.body.content.length) {
       return [];
     }
     if (!count) count = 1;
     if (!headerKeywords) headerKeywords = null;
     if (!textKeywords) textKeywords = [];
-    if (!usedKeywords) usedKeywords = [];
     let paragraphs = [];
     let data = obj.body.content;
     data = shuffle(data);
@@ -1352,7 +1328,6 @@ module.exports = {
         if (data[i].header) {
           if (headerKeywords && textKeywords.length) {
             let headerMatch = this.headerFromKeywordList(data[i].header,headerKeywords);
-            if (headerMatch && usedKeywords.length && usedKeywords.includes(headerMatch)) continue;
             let textMatch = this.textFromKeywordList(data[i].text.join(' '),textKeywords);
             if (!textMatch) continue;
             let paragraph = {
@@ -1540,25 +1515,14 @@ module.exports = {
     }
   },
 
-  videoProperties: function(obj,searchParams,imageParams,fallbackImages,keywordStore,pageStore) {
+  videoProperties: function(obj,searchArgs,imageArgs,fallbackImages,keywordStore,pageStore) {
     return new Promise((resolve,reject) => {
-      if (!obj || !searchParams || !searchParams.keyword || !imageParams || !imageParams.fallback || !fallbackImages.length) {
+      if (!obj || !searchArgs || !searchArgs.keyword || !imageArgs || !imageArgs.fallback || !fallbackImages.length) {
         reject('Unable to create video properties without page object and fallback image data.');
       }
       else {
-        if (!searchParams.count) searchParams.count = 1;
-        if (searchParams.exact === undefined) searchParams.exact = true;
-        if (!searchParams.type) searchParams.type = 'intro';
-        if (!searchParams.headerKeywords) searchParams.headerKeywords = null;
-        if (!searchParams.textKeywords) searchParams.textKeywords = [];
-        if (!imageParams.template) imageParams.template = '';
-        if (!imageParams.search) imageParams.search = 'google';
-        if (!imageParams.options) imageParams.options = ['medium','commercial'];
-        if (!imageParams.tags) imageParams.tags = [];
-        if (imageParams.crop === undefined) imageParams.crop = true;
-        if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
-        if (imageParams.exact === undefined) imageParams.exact = true;
-        if (!imageParams.limit) imageParams.limit = 1;
+        let searchParams = this.setSearchParams(searchArgs);
+        let imageParams = this.setImageParams(imageArgs);
         if (!keywordStore) keywordStore = [];
         if (!pageStore) pageStore = [];
         let slides = [];
@@ -1681,33 +1645,25 @@ module.exports = {
             resolve({slides: slides, credits: credits, description: description});
           }
           else {
+            if (keywordStore.length && keywordStore[keywordStore.length-1] === keyword) keywordStore.pop();
             reject('No video properties found from: ' + obj.url);
           }
-        }).catch(err => reject(err));
+        }).catch(err => {
+          if (keywordStore.length && keywordStore[keywordStore.length-1] === keyword) keywordStore.pop();
+          reject(err);
+        });
       }
     });
   },
 
-  videoPropertiesMultiple: function(objs,searchParams,imageParams,fallbackImages,keywordStore,pageStore,slideStore,index) {
+  videoPropertiesMultiple: function(objs,searchArgs,imageArgs,fallbackImages,keywordStore,pageStore,slideStore,index) {
     return new Promise((resolve,reject) => {
-      if (!objs || !objs[0] || !searchParams || !searchParams.keyword || !imageParams || !imageParams.fallback || !fallbackImages.length) {
+      if (!objs || !objs[0] || !searchArgs || !searchArgs.keyword || !imageArgs || !imageArgs.fallback || !fallbackImages.length) {
         reject('Unable to create multiple video properties without page object array and fallback image data.');
       }
       else {
-        if (!searchParams.count) searchParams.count = 1;
-        if (searchParams.exact === undefined) searchParams.exact = true;
-        if (!searchParams.type) searchParams.type = 'intro';
-        if (!searchParams.headerKeywords) searchParams.headerKeywords = null;
-        if (!searchParams.textKeywords) searchParams.textKeywords = [];
-        if (!imageParams.template) imageParams.template = '';
-        if (!imageParams.search) imageParams.search = 'google';
-        if (!imageParams.options) imageParams.options = ['medium','commercial'];
-        if (!imageParams.tags) imageParams.tags = [];
-        if (imageParams.crop === undefined) imageParams.crop = true;
-        if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = false;
-        if (imageParams.exact === undefined) imageParams.exact = true;
-        if (!imageParams.limit) imageParams.limit = 1;
-        if (imageParams.match === undefined) imageParams.match = true;
+        let searchParams = this.setSearchParams(searchArgs);
+        let imageParams = this.setImageParams(imageArgs);
         if (!keywordStore) keywordStore = [];
         if (!pageStore) pageStore = [];
         if (!slideStore) slideStore = {
@@ -1723,7 +1679,11 @@ module.exports = {
             slideStore.description.push(data.description);
             index++;
             this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,pageStore,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
-          }).catch(err => reject(err));
+          }).catch(err => {
+            if (this.debug) console.log(err);
+            index++;
+            this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,pageStore,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
+          });
         }
         else if (slideStore.slides.length) {
           if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.url);
@@ -1737,29 +1697,17 @@ module.exports = {
     });
   },
 
-  videoSlides: function(searchParams,imageParams,fallbackImages,keywordStore,pageStore,slideStore) {
+  videoSlides: function(searchArgs,imageArgs,fallbackImages,keywordStore,pageStore,slideStore) {
     return new Promise((resolve,reject) => {
-      if (!searchParams || !searchParams.keyword || !searchParams.url || !imageParams || !imageParams.fallback) {
+      if (!searchArgs || !searchArgs.keyword || !searchArgs.url || !imageArgs || !imageArgs.fallback) {
         reject('Unable to create video properties without page object and fallback image keyword.');
       }
       else if (!fallbackImages || !fallbackImages.length) {
         reject('No fallback images found.');
       }
       else {
-        if (!searchParams.count) searchParams.count = 1;
-        if (searchParams.exact === undefined) searchParams.exact = true;
-        if (!searchParams.type) searchParams.type = 'intro';
-        if (!searchParams.headerKeywords) searchParams.headerKeywords = null;
-        if (!searchParams.textKeywords) searchParams.textKeywords = [];
-        if (!imageParams.template) imageParams.template = '';
-        if (!imageParams.search) imageParams.search = 'google';
-        if (!imageParams.options) imageParams.options = ['medium','commercial'];
-        if (!imageParams.tags) imageParams.tags = [];
-        if (imageParams.crop === undefined) imageParams.crop = true;
-        if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = false;
-        if (imageParams.exact === undefined) imageParams.exact = true;
-        if (!imageParams.limit) imageParams.limit = 1;
-        if (imageParams.match === undefined) imageParams.match = true;
+        let searchParams = this.setSearchParams(searchArgs);
+        let imageParams = this.setImageParams(imageArgs);
         if (!keywordStore) keywordStore = [];
         if (!pageStore) pageStore = [];
         if (!slideStore) slideStore = {
@@ -1798,7 +1746,7 @@ module.exports = {
               reject('Duplicate content found: ' + data.url);
             }
             if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
-            let objs = this.randomParagraph(data,searchParams.count,searchParams.headerKeywords,searchParams.textKeywords,keywordStore);
+            let objs = this.randomParagraph(data,searchParams.count,searchParams.headerKeywords,searchParams.textKeywords);
             if (!objs.length) {
               if (this.debug) console.log('No sections found, retrieving filtered paragraphs for: ' + searchParams.url);
               objs = this.filteredParagraph(data,imageParams.fallback);
@@ -1819,6 +1767,43 @@ module.exports = {
         }
       }
     });
+  },
+
+  setImageParams: function(imageArgs) {
+    if (!imageArgs) imageArgs = {};
+    let imageParams = Object.assign({},imageArgs);
+    if (!imageParams.fallback) imageParams.fallback = '';
+    if (!imageParams.template) imageParams.template = '';
+    if (!imageParams.search) imageParams.search = 'google';
+    if (!imageParams.options) imageParams.options = ['medium','commercial'];
+    if (!imageParams.tags) imageParams.tags = [];
+    if (imageParams.crop === undefined) imageParams.crop = true;
+    if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
+    if (imageParams.exact === undefined) imageParams.exact = true;
+    if (!imageParams.limit) imageParams.limit = 1;
+    if (!imageParams.page) imageParams.page = 1;
+    if (!imageParams.maxTries) imageParams.maxTries = 5;
+    if (!imageParams.googleDomain) imageParams.googleDomain = 'com.au';
+    return imageParams;
+  },
+
+  setSearchParams: function(searchArgs) {
+    if (!searchArgs) searchArgs = {};
+    let searchParams = Object.assign({},searchArgs);
+    if (!searchParams.minResult) searchParams.minResult = 1;
+    if (!searchParams.maxResult) searchParams.maxResult = 1;
+    if (searchParams.maxResult < searchParams.minResult) searchParams.maxResult = searchParams.minResult;
+    if (!searchParams.minSections) searchParams.minSections = 5;
+    if (!searchParams.maxSections) searchParams.maxSections = 10;
+    if (!searchParams.maxTries) searchParams.maxTries = 10;
+    if (!searchParams.template) searchParams.template = 'facts';
+    if (!searchParams.count) searchParams.count = 1;
+    if (!searchParams.category) searchParams.category = 0;
+    if (!searchParams.privacy) searchParams.privacy = 'Public';
+    if (searchParams.exact === undefined) searchParams.exact = true;
+    if (!searchParams.headerKeywords) searchParams.headerKeywords = null;
+    if (!searchParams.textKeywords) searchParams.textKeywords = [];
+    return searchParams;
   },
 
   video: function(keyword,searchParams,imageParams,dataStore,index) {
@@ -1842,16 +1827,7 @@ module.exports = {
         if (!searchParams.headerKeywords) searchParams.headerKeywords = null;
         if (!searchParams.textKeywords) searchParams.textKeywords = [];
         if (!imageParams) imageParams = {};
-        if (!imageParams.type) imageParams.type = 'random';
-        if (!imageParams.fallback) imageParams.fallback = keyword;
-        if (!imageParams.template) imageParams.template = '';
-        if (!imageParams.search) imageParams.search = 'google';
-        if (!imageParams.options) imageParams.options = ['medium','commercial'];
-        if (!imageParams.tags) imageParams.tags = [];
-        if (imageParams.crop === undefined) imageParams.crop = true;
-        if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
-        if (imageParams.exact === undefined) imageParams.exact = true;
-        if (!imageParams.limit) imageParams.limit = 1;
+
         if (!dataStore) {
           let sections = Math.floor(Math.random() * searchParams.maxSections) + searchParams.minSections;
           let title = pos.title(keyword,sections,searchParams.template);
