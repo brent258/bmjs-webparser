@@ -1079,9 +1079,10 @@ module.exports = {
     }
     if (exact === undefined) exact = true;
     if (!minCount) minCount = 0;
-    let lowercasedKeyword = keyword.replace(/[^\w]/gi,' ').replace(/\s+/g,' ').trim().toLowerCase();
+    let lowercasedKeyword = keyword.replace(/[^\w]/gi,' ').replace(/\s+/g,' ').toLowerCase();
     let lowercasedSentence = sentence.toLowerCase();
     if (lowercasedSentence.includes(lowercasedKeyword)) return true;
+    if (lowercasedKeyword.match(/^\s|\s$/)) return false;
     let matches = 0;
     let splitKeyword = lowercasedKeyword.split(' ');
     for (let i = 0; i < splitKeyword.length; i++) {
@@ -1127,25 +1128,25 @@ module.exports = {
     switch (template) {
       case 'tips':
       regex = /\b(tips|how.to|ideas)\b/i;
-      if (link.url.match(regex) || link.text.match(regex)) return true;
+      if (link.url.match(regex)) return true;
       return false;
       case 'facts':
       regex = /\b(facts|info|information)\b/i;
-      if (link.url.match(regex) || link.text.match(regex)) return true;
+      if (link.url.match(regex)) return true;
       case 'myths':
       regex = /\b(myths|misconceptions)\b/i;
-      if (link.url.match(regex) || link.text.match(regex)) return true;
+      if (link.url.match(regex)) return true;
       case 'list':
       regex = /\b(list|best|top|\d\s\w|\d-\w)\b/i;
-      if (link.url.match(regex) || link.text.match(regex)) return true;
+      if (link.url.match(regex)) return true;
       return false;
       case 'product':
       regex = /\b(\d\d)\b/i;
-      if (link.url.match(regex) || link.text.match(regex)) return true;
+      if (link.url.match(regex)) return true;
       return false;
       case 'review':
       regex = /\b(review)\b/i;
-      if (link.url.match(regex) || link.text.match(regex)) return true;
+      if (link.url.match(regex)) return true;
       return false;
       default: return false;
     }
@@ -1187,8 +1188,13 @@ module.exports = {
       else if (el.name === 'ul' || el.type === 'ol') {
         let list = [];
         for (let i = 0; i < el.children.length; i++) {
-          if (el.children[i].type === 'text') {
-            list.push(el.children[i].data.trim());
+          if (el.children[i].name === 'li') {
+            for (let j = 0; j < el.children[i].children.length; j++) {
+              if (j === 0 && el.children[i].children[j].type === 'text') {
+                let text = el.children[i].children[j].data.trim();
+                if (text) list.push(text);
+              }
+            }
           }
         }
         if (list.length) objs.push({type: 'text', content: self.parseText(list.join(' '))});
@@ -1234,7 +1240,7 @@ module.exports = {
       };
       if (this.debug) console.log('Requesting webpage: ' + url);
       request(options).then(html => {
-        if (this.debug) console.log('Loading webpage: ' + url);
+        if (this.debug) console.log('Parsing webpage: ' + url);
         let $ = cheerio.load(html);
         let pageObject = {
           title: $('title').text() || '',
@@ -1254,53 +1260,32 @@ module.exports = {
     });
   },
 
-  firstParagraph: function(obj,keyword) {
+  firstParagraph: function(obj,textKeywords) {
     if (!obj || !obj.body.content.length) {
       return null;
     }
     let data = obj.body.content;
-    let paragraph = null;
+    let paragraph;
     for (let i = 0; i < data.length; i++) {
-      if (!data[i].header) {
-        if (!paragraph && data[i].text.length) {
-          paragraph = {text: data[i].text, header: data[i].header, keyword: false, url: obj.url};
-        }
-        else if (paragraph.text.length && data[i].text.length) {
-          paragraph.text = paragraph.text.concat(data[i].text);
-        }
-      }
-      else {
-        break;
+      if (data[i].text.length > 1 && (!textKeywords && data[i].text.join(' ').match(/\./) || textKeywords && this.textFromKeywordList(data[i].text.join(' '),textKeywords))) {
+        return {text: data[i].text, header: data[i].header, keyword: false, url: obj.url};
       }
     }
-    if (paragraph && paragraph.text && paragraph.text.length > 1 && keyword && paragraph.text.join(' ').toLowerCase().includes(keyword.toLowerCase())) {
-      return paragraph;
-    }
-    else if (paragraph && paragraph.text && paragraph.text.length > 1 && !keyword) {
-      return paragraph;
-    }
-    else {
-      return null;
-    }
+    return null;
   },
 
-  filteredParagraph: function(obj,keyword) {
+  filteredParagraph: function(obj,textKeywords) {
     if (!obj || !obj.body.content.length) {
       return [];
     }
     let data = obj.body.content;
     let paragraph = [];
     for (let i = 0; i < data.length; i++) {
-      if (!data[i].header) {
-        if (data[i] && data[i].text && data[i].text.length > 1 && keyword && data[i].text.join(' ').toLowerCase().includes(keyword.toLowerCase())) {
-          paragraph.push({text: data[i].text, header: data[i].header, keyword: false, url: obj.url});
-        }
-        else if (data[i] && data[i].text && data[i].text.length > 1 && !keyword) {
-          paragraph.push({text: data[i].text, header: data[i].header, keyword: false, url: obj.url});
-        }
+      if (data[i].text.length > 1 && textKeywords && this.textFromKeywordList(data[i].text.join(' '),textKeywords)) {
+        paragraph.push({text: data[i].text, header: data[i].header, keyword: false, url: obj.url});
       }
-      else {
-        break;
+      else if (data[i].text.length > 1 && !textKeywords) {
+        paragraph.push({text: data[i].text, header: data[i].header, keyword: false, url: obj.url});
       }
     }
     return paragraph;
@@ -1315,10 +1300,11 @@ module.exports = {
     if (!textKeywords) textKeywords = [];
     let paragraphs = [];
     let data = obj.body.content;
+    let firstHeader = this.firstParagraph(obj) ? this.firstParagraph(obj).header : '';
     data = shuffle(data);
     for (let i = 0; i < data.length; i++) {
       if (paragraphs.length < count) {
-        if (data[i].header) {
+        if (data[i].header !== firstHeader) {
           if (headerKeywords && textKeywords.length) {
             let headerMatch = this.headerFromKeywordList(data[i].header,headerKeywords);
             let textMatch = this.textFromKeywordList(data[i].text.join(' '),textKeywords);
@@ -1529,6 +1515,7 @@ module.exports = {
         else {
           keywordStore.push(titleFallback);
         }
+        if (!obj.keyword && searchParams.type === 'random' && searchParams.matchSections) reject('Non-matching header for random video properties: ' + obj.header);
         if (!useFallback && keywordStore.includes(keyword)) reject('Duplicate keyword found: ' + keyword);
         if (!obj.keyword) {
           let headerMatch = this.headerFromKeywordList(imageParams.fallback,searchParams.headerKeywords);
@@ -1718,8 +1705,8 @@ module.exports = {
               reject('Duplicate content found: ' + data.url);
             }
             if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
-            let obj = this.firstParagraph(data);
-            if (!obj.text.length) reject('No text content found at: ' + searchParams.url);
+            let obj = this.firstParagraph(data,searchParams.textKeywords);
+            if (!obj || !obj.text.length) reject('No text content found at: ' + searchParams.url);
             this.videoProperties(obj,searchParams,imageParams,fallbackImages,keywordStore,pageStore).then(data => {
               slideStore.slides = slideStore.slides.concat(data.slides);
               slideStore.credits = slideStore.credits.concat(data.credits);
@@ -1739,10 +1726,12 @@ module.exports = {
               reject('Duplicate content found: ' + data.url);
             }
             if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
-            let objs = this.randomParagraph(data,searchParams.count,searchParams.headerKeywords,searchParams.textKeywords);
-            if (!objs.length && !searchParams.subSections) {
-              if (this.debug) console.log('No sections found, retrieving filtered paragraphs for: ' + searchParams.url);
-              objs = this.filteredParagraph(data,imageParams.fallback);
+            let objs;
+            if (searchParams.matchSections) {
+              objs = this.randomParagraph(data,searchParams.count,searchParams.headerKeywords,searchParams.textKeywords);
+            }
+            else {
+              objs = this.filteredParagraph(data,searchParams.textKeywords);
             }
             if (objs.length) {
               this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,pageStore).then(data => {
@@ -1795,6 +1784,7 @@ module.exports = {
     if (!searchParams.privacy) searchParams.privacy = 'Public';
     if (searchParams.exact === undefined) searchParams.exact = true;
     if (searchParams.subSections === undefined) searchParams.subSections = true;
+    if (searchParams.matchSections === undefined) searchParams.matchSections = true;
     if (!searchParams.headerKeywords) searchParams.headerKeywords = null;
     if (!searchParams.textKeywords) searchParams.textKeywords = [];
     return searchParams;
@@ -1808,6 +1798,7 @@ module.exports = {
       else {
         let searchParams = this.setSearchParams(searchArgs);
         searchParams.keyword = keyword;
+        if (!searchParams.textKeywords.length) searchParams.textKeywords = keyword.split(' ').map(el => ' ' + el + ' ');
         let imageParams = this.setImageParams(imageArgs);
         if (!dataStore) {
           sections = Math.floor(Math.random() * searchParams.maxSections) + searchParams.minSections;
@@ -1841,9 +1832,9 @@ module.exports = {
         }
         else if (!dataStore.links.length) {
           this.search(keyword,searchParams.minResult,searchParams.maxResult).then(urls => {
-            urls = shuffle(urls);
-            dataStore.links = urls;
+            urls = urls.filter(el => this.findContextFromLink(searchParams.template,el));
             console.log(urls);
+            dataStore.links = urls;
             this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {
             if (this.debug) console.log(err);

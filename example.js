@@ -4,10 +4,10 @@ const pos = require('bmjs-engpos');
 wp.init();
 let searchParams = {
   count: 3,
-  template: 'list',
-  textKeywords: ['shedding'],
+  template: 'tips',
   headerKeywords: wp.keywords.dogs,
   type: 'random',
+  matchSections: false
 };
 let imageParams = {
   match: true,
@@ -17,5 +17,5 @@ let imageParams = {
   fallback: 'dogs',
   template: ''
 };
-wp.webpage('https://www.wikihow.com/Train-a-Dog').then(msg => console.log(msg.body.content)).catch(err => console.log(err));
-//wp.video('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
+//wp.webpage('https://www.wikihow.com/Train-a-Dog').then(msg => console.log(wp.randomParagraph(msg,2,null,['dog training']))).catch(err => console.log(err));
+wp.video('dog training tips',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
