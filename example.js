@@ -17,5 +17,5 @@ let imageParams = {
   fallback: 'dogs',
   template: ''
 };
-//wp.webpage('http://www.akc.org/content/entertainment/articles/9-facts-about-pekingese/').then(msg => console.log(wp.firstParagraph(msg,'pekingese'))).catch(err => console.log(err));
-wp.video('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
+wp.webpage('https://www.wikihow.com/Train-a-Dog').then(msg => console.log(msg.body.content)).catch(err => console.log(err));
+//wp.video('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));

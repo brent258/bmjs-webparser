@@ -1166,42 +1166,34 @@ module.exports = {
 
   extractBodyContent: function($,url,filterText) {
     let title = this.parseHeader($('h1').first().text().trim() || $('h2').first().text().trim() || '');
-    let main = '';
-    let headers = [];
-    $('p').each(function(i,el) {
-      if ($(this).parent().text().trim().length > main.length) main = $(this).parent().text().trim();
-    });
-    $('h1').each(function(i,el) {
-      headers.push($(this).text().trim());
-    });
-    $('h2').each(function(i,el) {
-      headers.push($(this).text().trim());
-    });
-    $('h3').each(function(i,el) {
-      headers.push($(this).text().trim());
-    });
-    $('h4').each(function(i,el) {
-      headers.push($(this).text().trim());
-    });
-    $('h5').each(function(i,el) {
-      headers.push($(this).text().trim());
-    });
-    $('h6').each(function(i,el) {
-      headers.push($(this).text().trim());
-    });
-    $('strong').each(function(i,el) {
-      headers.push($(this).text().trim());
-    });
-    let paragraphs = main.split('\n');
     let objs = [];
-    for (let i = 0; i < paragraphs.length; i++) {
-      if (headers.includes(paragraphs[i])) {
-        objs.push({type: 'header', content: this.parseHeader(paragraphs[i])});
+    let self = this;
+    $('div').contents().each(function(i,el) {
+      if (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'h5' || el.name === 'h6' || el.name === 'strong' || el.name === 'b') {
+        objs.push({type: 'header', content: self.parseHeader($(this).text().trim())});
       }
-      else if (paragraphs[i]) {
-        objs.push({type: 'text', content: this.parseText(paragraphs[i])});
+      else if (el.name === 'p' || el.type === 'text') {
+        if (el.firstChild && (el.firstChild.name === 'strong' || el.firstChild.name === 'em' || el.firstChild.name === 'b' || el.firstChild.name === 'i')) {
+          if (el.firstChild.children && el.firstChild.children.length === 1 && el.firstChild.children[0].type === 'text') {
+            objs.push({type: 'header', content: self.parseHeader(el.firstChild.children[0].data)});
+            let text = $(this).text().replace(el.firstChild.children[0].data,'').trim();
+            objs.push({type: 'text', content: self.parseText(text)});
+          }
+        }
+        else if (!el.firstChild || (el.firstChild && el.firstChild.type && el.firstChild.type === 'text')) {
+          objs.push({type: 'text', content: self.parseText($(this).text().trim())});
+        }
       }
-    }
+      else if (el.name === 'ul' || el.type === 'ol') {
+        let list = [];
+        for (let i = 0; i < el.children.length; i++) {
+          if (el.children[i].type === 'text') {
+            list.push(el.children[i].data.trim());
+          }
+        }
+        if (list.length) objs.push({type: 'text', content: self.parseText(list.join(' '))});
+      }
+    });
     let content = [];
     let lastHeader = '';
     for (let i = 0; i < objs.length; i++) {
@@ -1225,7 +1217,7 @@ module.exports = {
         filteredObjs.push({text: filtered, header: content[i].header});
       }
     }
-    return {content: filteredObjs, title: title, headers: headers};
+    return {content: filteredObjs, title: title};
   },
 
   webpage: function(url,filterText) {
@@ -1242,6 +1234,7 @@ module.exports = {
       };
       if (this.debug) console.log('Requesting webpage: ' + url);
       request(options).then(html => {
+        if (this.debug) console.log('Loading webpage: ' + url);
         let $ = cheerio.load(html);
         let pageObject = {
           title: $('title').text() || '',
@@ -1747,7 +1740,7 @@ module.exports = {
             }
             if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
             let objs = this.randomParagraph(data,searchParams.count,searchParams.headerKeywords,searchParams.textKeywords);
-            if (!objs.length) {
+            if (!objs.length && !searchParams.subSections) {
               if (this.debug) console.log('No sections found, retrieving filtered paragraphs for: ' + searchParams.url);
               objs = this.filteredParagraph(data,imageParams.fallback);
             }
@@ -1801,6 +1794,7 @@ module.exports = {
     if (!searchParams.category) searchParams.category = 0;
     if (!searchParams.privacy) searchParams.privacy = 'Public';
     if (searchParams.exact === undefined) searchParams.exact = true;
+    if (searchParams.subSections === undefined) searchParams.subSections = true;
     if (!searchParams.headerKeywords) searchParams.headerKeywords = null;
     if (!searchParams.textKeywords) searchParams.textKeywords = [];
     return searchParams;
