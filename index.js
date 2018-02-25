@@ -1035,6 +1035,17 @@ module.exports = {
     return '';
   },
 
+  validateParagraph: function(paragraph) {
+    if (!paragraph || typeof paragraph !== 'string') {
+      return false;
+    }
+    if (paragraph.match(/\b(we|our|us|ourselves|ourself|i|my|me|myself)\b/i)) return false;
+    if (paragraph.match(/\b(today|tomorrow|yesterday|last\sweek|last\smonth|last\syear|next\sweek|next\smonth|next\syear|this\sweek|this\smonth|this\syear)\b/i)) return false;
+    if (paragraph.match(/\b(please|thanks|thankyou|thank\syou|hello|hi|hey|greetings|welcome|goodbye|bye)\b/i)) return false;
+    if (paragraph.match(/\b(shit|fuck|dick|piss|cunt|bitch|bastard)\b/i)) return false;
+    return true;
+  },
+
   validateHeader: function(sentence,url) {
     if (!sentence || !url || typeof sentence !== 'string' || typeof url !== 'string') {
       return false;
@@ -1043,14 +1054,6 @@ module.exports = {
     if (sentence.match(/[^a-zA-Z\s\,\/\-0-9]/)) return false;
     if (!sentence.match(/^[A-Z]/)) return false;
     if (this.matchUrl(sentence,url)) return false;
-    if (sentence.match(/\b(we|our|us|ourselves|ourself|i|my|me|myself)\b/i)) return false;
-    if (sentence.match(/\b(today|tomorrow|yesterday|last\sweek|last\smonth|last\syear|next\sweek|next\smonth|next\syear|this\sweek|this\smonth|this\syear)\b/i)) return false;
-    if (sentence.match(/\b(error|problem|issue|trouble|unable)/i) && sentence.match(/\b(server|request|response|page|web|gateway|data|loading|load|open|opening)\b/i)) return false;
-    if (sentence.match(/\b(please|thanks|thankyou|thank\syou|hello|hi|hey|greetings|welcome|goodbye|bye)\b/i)) return false;
-    if (sentence.match(/(shit|fuck|dick|piss|cunt|bitch|bastard)/i)) return false;
-    if (sentence.match(/\b(posts|articles|comments|videos|related|reviews|answers|questions|replies|products|pages|items|similar|popular|category|categories|ratings|responses)\b/)) return false;
-    if (sentence.match(/\b(post|write|leave|make|send|reply|respond)\b/i) && sentence.match(/\b(comment|reply|message|email|article|post|review)\b/i)) return false;
-    if (sentence.match(/\b(subscribe|join|sign\sup|signup|become)\b/i) && sentence.match(/\b(free|newsletter|updates|news|email|membership|course|program|subscriber|member)\b/i)) return false;
     return true;
   },
 
@@ -1064,12 +1067,8 @@ module.exports = {
     if (!sentence.match(/^[A-Z\"]/)) return false;
     if (!sentence.match(/\s[a-z]/)) return false;
     if (sentence.match(/[\%\$]/)) return false;
+    if (sentence.match(/\b(the|these|this)\s+(below|following)\b/i)) return false;
     if (this.matchUrl(sentence,url)) return false;
-    if (sentence.match(/\b(we|our|us|ourselves|ourself|i|my|me|myself)\b/i)) return false;
-    if (sentence.match(/\b(today|tomorrow|yesterday|last\sweek|last\smonth|last\syear|next\sweek|next\smonth|next\syear|this\sweek|this\smonth|this\syear)\b/i)) return false;
-    if (sentence.match(/\b(error|problem|issue|trouble|unable)/i) && sentence.match(/\b(server|request|response|page|web|gateway|data|loading|load|open|opening)\b/i)) return false;
-    if (sentence.match(/\b(please|thanks|thankyou|thank\syou|hello|hi|hey|greetings|welcome|goodbye|bye)\b/i)) return false;
-    if (sentence.match(/(shit|fuck|dick|piss|cunt|bitch|bastard)/i)) return false;
     return true;
   },
 
@@ -1115,7 +1114,7 @@ module.exports = {
       return false;
     }
     for (let i = 0; i < keywordList.length; i++) {
-      if (this.findKeywordInSentence(keywordList[i],text,true)) return true;
+      if (text.toLowerCase().includes(keywordList[i].toLowerCase())) return true;
     }
     return false;
   },
@@ -1157,6 +1156,7 @@ module.exports = {
       return [];
     }
     let splitParagraph = paragraph.split('|||||');
+    if (!this.validateParagraph(splitParagraph.join(' '))) return [];
     let filtered = [];
     for (let i = 0; i < splitParagraph.length; i++) {
       if (this.validateText(splitParagraph[i],url)) filtered.push(splitParagraph[i]);
@@ -1267,7 +1267,8 @@ module.exports = {
     let data = obj.body.content;
     let paragraph;
     for (let i = 0; i < data.length; i++) {
-      if (data[i].text.length > 1 && (!textKeywords && data[i].text.join(' ').match(/\./) || textKeywords && this.textFromKeywordList(data[i].text.join(' '),textKeywords))) {
+      if (i > 0) break;
+      if (data[i].text.length > 1 && ((!textKeywords && data[i].text.join(' ').match(/\./)) || (textKeywords && this.textFromKeywordList(data[i].text.join(' '),textKeywords)))) {
         return {text: data[i].text, header: data[i].header, keyword: false, url: obj.url};
       }
     }
@@ -1521,6 +1522,7 @@ module.exports = {
           let headerMatch = this.headerFromKeywordList(imageParams.fallback,searchParams.headerKeywords);
           if (headerMatch) {
             keyword = headerMatch.toLowerCase();
+            obj.keyword = true;
             if (!keywordStore.includes(keyword)) keywordStore.push(keyword);
           }
         }
@@ -1536,45 +1538,47 @@ module.exports = {
           if (imageParams.template === 'imageOnly' || imageParams.template === 'imageAudio') textActive = false;
           if (imageParams.template === 'textOnly') imageActive = false;
           let bothActive = imageActive && textActive ? true : false;
-          let titleText, titleImage;
-          if (bothActive) {
-            if (useFallback) {
-              titleImage = fallbackImages[0] ? rand(fallbackImages[0],null,null,null) : null;
-              if (titleImage) fallbackImages.shift();
+          if (obj.keyword) {
+            let titleText, titleImage;
+            if (bothActive) {
+              if (useFallback) {
+                titleImage = fallbackImages[0] ? rand(fallbackImages[0],null,null,null) : null;
+                if (titleImage) fallbackImages.shift();
+              }
+              else {
+                titleImage = data[0] ? rand(data[0],null,null,null) : null;
+                if (titleImage) data.shift();
+              }
+              titleText = obj.header ? obj.header : titleFallback;
             }
-            else {
-              titleImage = data[0] ? rand(data[0],null,null,null) : null;
-              if (titleImage) data.shift();
+            else if (imageActive) {
+              if (useFallback) {
+                titleImage = fallbackImages[0] ? fallbackImages[0] : null;
+                if (titleImage) fallbackImages.shift();
+              }
+              else {
+                titleImage = data[0] ? data[0] : null;
+                if (titleImage) data.shift();
+              }
+              titleText = '';
             }
-            titleText = obj.header ? obj.header : titleFallback;
-          }
-          else if (imageActive) {
-            if (useFallback) {
-              titleImage = fallbackImages[0] ? fallbackImages[0] : null;
-              if (titleImage) fallbackImages.shift();
+            else if (textActive) {
+              titleImage = null;
+              titleText = obj.header ? obj.header : titleFallback;
             }
-            else {
-              titleImage = data[0] ? data[0] : null;
-              if (titleImage) data.shift();
+            let titleObj = {
+              text: titleText,
+              audio: '',
+              image: titleImage,
+              template: imageParams.template,
+              keyword: keyword,
+              url: obj.url
+            };
+            if (titleObj.text) {
+              let titleCredit = this.imageCredit(titleObj.image);
+              if (titleCredit && !titleObj.image.copyright) credits.push(titleCredit);
+              slides.push(titleObj);
             }
-            titleText = '';
-          }
-          else if (textActive) {
-            titleImage = null;
-            titleText = obj.header ? obj.header : titleFallback;
-          }
-          let titleObj = {
-            text: titleText,
-            audio: '',
-            image: titleImage,
-            template: imageParams.template,
-            keyword: keyword,
-            url: obj.url
-          };
-          if (titleObj.text) {
-            let titleCredit = this.imageCredit(titleObj.image);
-            if (titleCredit && !titleObj.image.copyright) credits.push(titleCredit);
-            slides.push(titleObj);
           }
           for (let i = 0; i < obj.text.length; i++) {
             if (!obj.text[i]) continue;
@@ -1705,7 +1709,7 @@ module.exports = {
               reject('Duplicate content found: ' + data.url);
             }
             if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
-            let obj = this.firstParagraph(data,searchParams.textKeywords);
+            let obj = this.firstParagraph(data,searchParams.keyword.split(' '));
             if (!obj || !obj.text.length) reject('No text content found at: ' + searchParams.url);
             this.videoProperties(obj,searchParams,imageParams,fallbackImages,keywordStore,pageStore).then(data => {
               slideStore.slides = slideStore.slides.concat(data.slides);
@@ -1775,8 +1779,8 @@ module.exports = {
     if (!searchParams.minResult) searchParams.minResult = 1;
     if (!searchParams.maxResult) searchParams.maxResult = 1;
     if (searchParams.maxResult < searchParams.minResult) searchParams.maxResult = searchParams.minResult;
-    if (!searchParams.minSections) searchParams.minSections = 5;
-    if (!searchParams.maxSections) searchParams.maxSections = 10;
+    if (!searchParams.minSections) searchParams.minSections = 15;
+    if (!searchParams.maxSections) searchParams.maxSections = 20;
     if (!searchParams.maxTries) searchParams.maxTries = 10;
     if (!searchParams.template) searchParams.template = 'facts';
     if (!searchParams.count) searchParams.count = 1;
@@ -1797,9 +1801,9 @@ module.exports = {
       }
       else {
         let searchParams = this.setSearchParams(searchArgs);
-        searchParams.keyword = keyword;
-        if (!searchParams.textKeywords.length) searchParams.textKeywords = keyword.split(' ').map(el => ' ' + el + ' ');
         let imageParams = this.setImageParams(imageArgs);
+        searchParams.keyword = keyword;
+        if (!searchParams.textKeywords.length && imageParams.fallback) searchParams.textKeywords = [imageParams.fallback];
         if (!dataStore) {
           sections = Math.floor(Math.random() * searchParams.maxSections) + searchParams.minSections;
           dataStore = {
@@ -1832,9 +1836,7 @@ module.exports = {
         }
         else if (!dataStore.links.length) {
           this.search(keyword,searchParams.minResult,searchParams.maxResult).then(urls => {
-            urls = urls.filter(el => this.findContextFromLink(searchParams.template,el));
-            console.log(urls);
-            dataStore.links = urls;
+            dataStore.links = shuffle(urls);
             this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {
             if (this.debug) console.log(err);
@@ -1851,7 +1853,8 @@ module.exports = {
             dataStore.rawSlides = dataStore.rawSlides.concat(slides.slides);
             dataStore.rawCredits = dataStore.rawCredits.concat(slides.credits);
             dataStore.rawDescription.push(slides.description);
-            if (!dataStore.links.length) searchParams.minResult += 10;
+            searchParams.minResult = this.setSearchParams(searchArgs).minResult || 1;
+            searchParams.maxResult = this.setSearchParams(searchArgs).maxResult || 1;
             this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {
             if (this.debug) console.log(err);
@@ -1869,7 +1872,7 @@ module.exports = {
             dataStore.rawSlides = dataStore.rawSlides.concat(slides.slides);
             dataStore.rawCredits = dataStore.rawCredits.concat(slides.credits);
             dataStore.rawDescription.push(slides.description);
-            index = dataStore.rawSlides.length;
+            index += slides.slides.length;
             if (!dataStore.links.length) searchParams.minResult += 10;
             this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {

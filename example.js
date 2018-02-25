@@ -7,6 +7,7 @@ let searchParams = {
   template: 'tips',
   headerKeywords: wp.keywords.dogs,
   type: 'random',
+  textKeywords: [],
   matchSections: false
 };
 let imageParams = {
@@ -17,5 +18,5 @@ let imageParams = {
   fallback: 'dogs',
   template: ''
 };
-//wp.webpage('https://www.wikihow.com/Train-a-Dog').then(msg => console.log(wp.randomParagraph(msg,2,null,['dog training']))).catch(err => console.log(err));
+//wp.webpage('https://iheartdogs.com/top-10-senior-dog-training-tips').then(msg => console.log(msg.body.content)).catch(err => console.log(err));
 wp.video('dog training tips',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
