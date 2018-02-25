@@ -8,7 +8,9 @@ let searchParams = {
   headerKeywords: wp.keywords.dogs,
   type: 'random',
   textKeywords: [],
-  matchSections: false
+  matchSections: false,
+  minResult: 1,
+  maxResult: 100
 };
 let imageParams = {
   match: true,
@@ -18,5 +20,5 @@ let imageParams = {
   fallback: 'dogs',
   template: ''
 };
-//wp.webpage('https://iheartdogs.com/top-10-senior-dog-training-tips').then(msg => console.log(msg.body.content)).catch(err => console.log(err));
-wp.video('dog training tips',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
+//wp.webpage('https://designerdoginfo.wordpress.com/tag/dog-training-tips/').then(msg => console.log(msg.body.content)).catch(err => console.log(err));
+wp.video('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));

@@ -1166,64 +1166,69 @@ module.exports = {
   },
 
   extractBodyContent: function($,url,filterText) {
-    let title = this.parseHeader($('h1').first().text().trim() || $('h2').first().text().trim() || '');
-    let objs = [];
-    let self = this;
-    $('div').contents().each(function(i,el) {
-      if (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'h5' || el.name === 'h6' || el.name === 'strong' || el.name === 'b') {
-        objs.push({type: 'header', content: self.parseHeader($(this).text().trim())});
-      }
-      else if (el.name === 'p' || el.type === 'text') {
-        if (el.firstChild && (el.firstChild.name === 'strong' || el.firstChild.name === 'em' || el.firstChild.name === 'b' || el.firstChild.name === 'i')) {
-          if (el.firstChild.children && el.firstChild.children.length === 1 && el.firstChild.children[0].type === 'text') {
-            objs.push({type: 'header', content: self.parseHeader(el.firstChild.children[0].data)});
-            let text = $(this).text().replace(el.firstChild.children[0].data,'').trim();
-            objs.push({type: 'text', content: self.parseText(text)});
+    return new Promise((resolve,reject) => {
+      setTimeout(() => {
+        reject('Server request timeout out parsing webpage: ' + url);
+      },this.timeout);
+      let title = this.parseHeader($('h1').first().text().trim() || $('h2').first().text().trim() || '');
+      let objs = [];
+      let self = this;
+      $('div').contents().each(function(i,el) {
+        if (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'h5' || el.name === 'h6' || el.name === 'strong' || el.name === 'b') {
+          objs.push({type: 'header', content: self.parseHeader($(this).text().trim())});
+        }
+        else if (el.name === 'p' || el.type === 'text') {
+          if (el.firstChild && (el.firstChild.name === 'strong' || el.firstChild.name === 'em' || el.firstChild.name === 'b' || el.firstChild.name === 'i')) {
+            if (el.firstChild.children && el.firstChild.children.length === 1 && el.firstChild.children[0].type === 'text') {
+              objs.push({type: 'header', content: self.parseHeader(el.firstChild.children[0].data)});
+              let text = $(this).text().replace(el.firstChild.children[0].data,'').trim();
+              objs.push({type: 'text', content: self.parseText(text)});
+            }
+          }
+          else if (!el.firstChild || (el.firstChild && el.firstChild.type && el.firstChild.type === 'text')) {
+            objs.push({type: 'text', content: self.parseText($(this).text().trim())});
           }
         }
-        else if (!el.firstChild || (el.firstChild && el.firstChild.type && el.firstChild.type === 'text')) {
-          objs.push({type: 'text', content: self.parseText($(this).text().trim())});
-        }
-      }
-      else if (el.name === 'ul' || el.type === 'ol') {
-        let list = [];
-        for (let i = 0; i < el.children.length; i++) {
-          if (el.children[i].name === 'li') {
-            for (let j = 0; j < el.children[i].children.length; j++) {
-              if (j === 0 && el.children[i].children[j].type === 'text') {
-                let text = el.children[i].children[j].data.trim();
-                if (text) list.push(text);
+        else if (el.name === 'ul' || el.type === 'ol') {
+          let list = [];
+          for (let i = 0; i < el.children.length; i++) {
+            if (el.children[i].name === 'li') {
+              for (let j = 0; j < el.children[i].children.length; j++) {
+                if (j === 0 && el.children[i].children[j].type === 'text') {
+                  let text = el.children[i].children[j].data.trim();
+                  if (text) list.push(text);
+                }
               }
             }
           }
+          if (list.length) objs.push({type: 'text', content: self.parseText(list.join(' '))});
         }
-        if (list.length) objs.push({type: 'text', content: self.parseText(list.join(' '))});
+      });
+      let content = [];
+      let lastHeader = '';
+      for (let i = 0; i < objs.length; i++) {
+        if (objs[i].type === 'text') {
+          content.push({text: objs[i].content, header: lastHeader});
+        }
+        else if (objs[i].type === 'header') {
+          lastHeader = objs[i].content;
+        }
       }
+      let filteredObjs = [];
+      for (let i = 0; i < content.length; i++) {
+        let filtered;
+        if (filterText || typeof filterText === 'undefined') {
+          filtered = this.filterBodyContent(content[i].text,url);
+        }
+        else {
+          filtered = content[i].text.split('|||||');
+        }
+        if (filtered.length) {
+          filteredObjs.push({text: filtered, header: content[i].header});
+        }
+      }
+      resolve({content: filteredObjs, title: title});
     });
-    let content = [];
-    let lastHeader = '';
-    for (let i = 0; i < objs.length; i++) {
-      if (objs[i].type === 'text') {
-        content.push({text: objs[i].content, header: lastHeader});
-      }
-      else if (objs[i].type === 'header') {
-        lastHeader = objs[i].content;
-      }
-    }
-    let filteredObjs = [];
-    for (let i = 0; i < content.length; i++) {
-      let filtered;
-      if (filterText || typeof filterText === 'undefined') {
-        filtered = this.filterBodyContent(content[i].text,url);
-      }
-      else {
-        filtered = content[i].text.split('|||||');
-      }
-      if (filtered.length) {
-        filteredObjs.push({text: filtered, header: content[i].header});
-      }
-    }
-    return {content: filteredObjs, title: title};
   },
 
   webpage: function(url,filterText) {
@@ -1242,20 +1247,22 @@ module.exports = {
       request(options).then(html => {
         if (this.debug) console.log('Parsing webpage: ' + url);
         let $ = cheerio.load(html);
-        let pageObject = {
-          title: $('title').text() || '',
-          description: $('meta[name="description"]').attr('content') || '',
-          keywords: $('meta[name="keywords"]').attr('content') || '',
-          url: url,
-          body: this.extractBodyContent($,url,filterText)
-        };
-        if (pageObject.body) {
-          if (this.debug) console.log('Resolving webpage: ' + url);
-          resolve(pageObject);
-        }
-        else {
-          reject('No webpage content found: ' + url);
-        }
+        this.extractBodyContent($,url,filterText).then(data => {
+          let pageObject = {
+            title: $('title').text() || '',
+            description: $('meta[name="description"]').attr('content') || '',
+            keywords: $('meta[name="keywords"]').attr('content') || '',
+            url: url,
+            body: data
+          };
+          if (pageObject.body) {
+            if (this.debug) console.log('Resolving webpage: ' + url);
+            resolve(pageObject);
+          }
+          else {
+            reject('No webpage content found: ' + url);
+          }
+        }).catch(err => reject(err));
       }).catch(err => reject(err));
     });
   },
@@ -1538,7 +1545,7 @@ module.exports = {
           if (imageParams.template === 'imageOnly' || imageParams.template === 'imageAudio') textActive = false;
           if (imageParams.template === 'textOnly') imageActive = false;
           let bothActive = imageActive && textActive ? true : false;
-          if (obj.keyword) {
+          if (obj.keyword || this.validateHeader(obj.header)) {
             let titleText, titleImage;
             if (bothActive) {
               if (useFallback) {
@@ -1730,13 +1737,29 @@ module.exports = {
               reject('Duplicate content found: ' + data.url);
             }
             if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
-            let objs;
-            if (searchParams.matchSections) {
-              objs = this.randomParagraph(data,searchParams.count,searchParams.headerKeywords,searchParams.textKeywords);
+            let objs = this.randomParagraph(data,searchParams.count,searchParams.headerKeywords,searchParams.textKeywords);
+            if (objs.length) {
+              this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,pageStore).then(data => {
+                if (this.debug) console.log('Resolving video slides: ' + searchParams.url);
+                resolve(data);
+              }).catch(err => reject(err));
             }
             else {
-              objs = this.filteredParagraph(data,searchParams.textKeywords);
+              reject('No text content found at: ' + searchParams.url);
             }
+          }).catch(err => reject(err));
+        }
+        else if (searchParams.type === 'filtered') {
+          if (this.debug) console.log('Request filtered video slides url: ' + searchParams.url);
+          this.webpage(searchParams.url).then(data => {
+            if (!pageStore.includes(data.url)) {
+              pageStore.push(data.url);
+            }
+            else {
+              reject('Duplicate content found: ' + data.url);
+            }
+            if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
+            let objs = this.filteredParagraph(data,searchParams.textKeywords);
             if (objs.length) {
               this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,pageStore).then(data => {
                 if (this.debug) console.log('Resolving video slides: ' + searchParams.url);
@@ -1855,6 +1878,7 @@ module.exports = {
             dataStore.rawDescription.push(slides.description);
             searchParams.minResult = this.setSearchParams(searchArgs).minResult || 1;
             searchParams.maxResult = this.setSearchParams(searchArgs).maxResult || 1;
+            index = dataStore.rawSlides.length;
             this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {
             if (this.debug) console.log(err);
@@ -1872,7 +1896,7 @@ module.exports = {
             dataStore.rawSlides = dataStore.rawSlides.concat(slides.slides);
             dataStore.rawCredits = dataStore.rawCredits.concat(slides.credits);
             dataStore.rawDescription.push(slides.description);
-            index += slides.slides.length;
+            index = dataStore.rawSlides.length;
             if (!dataStore.links.length) searchParams.minResult += 10;
             this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {
