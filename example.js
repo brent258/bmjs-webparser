@@ -21,10 +21,4 @@ let imageParams = {
   fallback: 'dogs',
   template: 'imageOnly'
 };
-wp.webpage('https://designerdoginfo.wordpress.com/tag/dog-training-tips/').then(msg => {
-  let fallbackImageParams = wp.setImageParams(imageParams);
-  fallbackImageParams.limit = 20;
-  wp.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
-    wp.videoPropertiesMultiple(msg.body.content,searchParams,imageParams,fallbackImages).then(data => console.log(data)).catch(err => console.log(err));
-  }).catch(err => console.log(err));
-}).catch(err => console.log(err));
+wp.video('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));

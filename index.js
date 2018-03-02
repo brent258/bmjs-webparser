@@ -1362,6 +1362,10 @@ module.exports = {
     return paragraphs;
   },
 
+  pageParagraphs: function(obj,headerKeywords,count) {
+
+  },
+
   resultLinks: function($,searchSource) {
     let links = [];
     if (searchSource === 'google') {
@@ -1504,7 +1508,7 @@ module.exports = {
 
   videoProperties: function(obj,searchArgs,imageArgs,fallbackImages,keywordStore,firstSlide) {
     return new Promise((resolve,reject) => {
-      if (!obj || !searchArgs || !searchArgs.keyword || !imageArgs || !imageArgs.fallback) {
+      if (!obj || !searchArgs || !searchArgs.keyword || !imageArgs || !imageArgs.fallback || !fallbackImages.length) {
         reject('Unable to create video properties without page object and fallback image data.');
       }
       else {
@@ -1516,7 +1520,6 @@ module.exports = {
         let useFallback = obj.keyword ? false : true;
         let keyword = useFallback ? imageParams.fallback : obj.header.toLowerCase();
         let titleFallback = pos.titlecase(searchParams.keyword);
-        console.log(titleFallback);
         if (!obj.keyword) {
           let headerMatch = this.headerFromKeywordList(imageParams.fallback,searchParams.headerKeywords);
           if (headerMatch) {
@@ -1637,7 +1640,7 @@ module.exports = {
 
   videoPropertiesMultiple: function(objs,searchArgs,imageArgs,fallbackImages,keywordStore,slideStore,index) {
     return new Promise((resolve,reject) => {
-      if (!objs || !objs[0] || !searchArgs || !searchArgs.keyword || !imageArgs || !imageArgs.fallback) {
+      if (!objs || !objs[0] || !searchArgs || !searchArgs.keyword || !imageArgs || !imageArgs.fallback || !fallbackImages.length) {
         reject('Unable to create multiple video properties without page object array and fallback image data.');
       }
       else {
@@ -1686,6 +1689,7 @@ module.exports = {
     if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
     if (imageParams.exact === undefined) imageParams.exact = true;
     if (!imageParams.limit) imageParams.limit = 1;
+    if (!imageParams.fallbackLimit) imageParams.fallbackLimit = 20;
     if (!imageParams.page) imageParams.page = 1;
     if (!imageParams.maxTries) imageParams.maxTries = 5;
     if (!imageParams.googleDomain) imageParams.googleDomain = 'com.au';
@@ -1710,10 +1714,16 @@ module.exports = {
     if (searchParams.matchSections === undefined) searchParams.matchSections = true;
     if (!searchParams.headerKeywords) searchParams.headerKeywords = null;
     if (!searchParams.textKeywords) searchParams.textKeywords = [];
+    if (!searchParams.keywordType) searchParams.keywordType = 'PLURAL';
+    if (searchParams.keywordPlural === undefined) searchParams.keywordPlural = true;
+    if (!searchParams.keywordDeterminer) searchParams.keywordDeterminer = '';
+    if (!searchParams.keywordNoun) searchParams.keywordNoun = '';
+    if (!searchParams.keywordList) searchParams.keywordList = [];
+    if (!searchParams.link) searchParams.link = '';
     return searchParams;
   },
 
-  video: function(keyword,searchArgs,imageArgs,dataStore,sections,index) {
+  video: function(keyword,searchArgs,imageArgs,dataStore) {
     return new Promise((resolve,reject) => {
       if (!keyword) {
         reject('Unable to create video without keyword.');
@@ -1722,104 +1732,47 @@ module.exports = {
         let searchParams = this.setSearchParams(searchArgs);
         let imageParams = this.setImageParams(imageArgs);
         searchParams.keyword = keyword;
-        if (!searchParams.textKeywords.length && imageParams.fallback) searchParams.textKeywords = [imageParams.fallback];
-        if (!dataStore) {
-          sections = Math.floor(Math.random() * searchParams.maxSections) + searchParams.minSections;
-          dataStore = {
-            title: '',
-            description: '',
-            privacy: searchParams.privacy,
-            category: searchParams.category,
-            clips: [],
-            rawSlides: [],
-            rawCredits: [],
-            rawDescription: [],
-            links: [],
-            keywords: [],
-            pages: [],
-            fallbackImages: []
-          };
-        }
-        if (!sections) sections = Math.floor(Math.random() * searchParams.maxSections) + searchParams.minSections;
-        if (!index) index = 0;
-        if (!dataStore.fallbackImages.length) {
-          let fallbackImageParams = this.setImageParams(imageArgs);
-          fallbackImageParams.limit = 20;
-          if (this.debug) console.log('Retrieving images for fallback keyword: ' + imageParams.fallback);
-          this.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
-            if (!fallbackImages.length) reject('No images found for fallback keyword: ' + imageParams.fallback);
-            if (this.debug) console.log('Finished retrieving images for fallback keyword: ' + imageParams.fallback);
-            dataStore.fallbackImages = fallbackImages;
-            this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
-          }).catch(err => reject(err));
-        }
-        else if (!dataStore.links.length) {
-          this.search(keyword,searchParams.minResult,searchParams.maxResult).then(urls => {
-            dataStore.links = shuffle(urls);
-            this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
-          }).catch(err => {
-            if (this.debug) console.log(err);
-            searchParams.minResult += 10;
-            this.video(kkeyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
-          });
-        }
-        else if (!dataStore.rawSlides.length) {
-          let introSearchParams = this.setSearchParams(searchArgs);
-          introSearchParams.url = dataStore.links[0].url;
-          introSearchParams.type = 'intro';
-          this.videoSlides(introSearchParams,imageParams,dataStore.fallbackImages,dataStore.keywords,dataStore.pages).then(slides => {
-            dataStore.links.shift();
-            dataStore.rawSlides = dataStore.rawSlides.concat(slides.slides);
-            dataStore.rawCredits = dataStore.rawCredits.concat(slides.credits);
-            dataStore.rawDescription.push(slides.description);
-            searchParams.minResult = this.setSearchParams(searchArgs).minResult || 1;
-            searchParams.maxResult = this.setSearchParams(searchArgs).maxResult || 1;
-            index = dataStore.rawSlides.length;
-            this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
-          }).catch(err => {
-            if (this.debug) console.log(err);
-            dataStore.links.shift();
-            if (!dataStore.links.length) searchParams.minResult += 10;
-            this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
-          });
-        }
-        else if (index < sections) {
-          let bodySearchParams = this.setSearchParams(searchArgs);
-          bodySearchParams.url = dataStore.links[0].url;
-          bodySearchParams.type = searchParams.type;
-          this.videoSlides(bodySearchParams,imageParams,dataStore.fallbackImages,dataStore.keywords,dataStore.pages).then(slides => {
-            dataStore.links.shift();
-            dataStore.rawSlides = dataStore.rawSlides.concat(slides.slides);
-            dataStore.rawCredits = dataStore.rawCredits.concat(slides.credits);
-            dataStore.rawDescription.push(slides.description);
-            index = dataStore.rawSlides.length;
-            if (!dataStore.links.length) searchParams.minResult += 10;
-            this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
-          }).catch(err => {
-            if (this.debug) console.log(err);
-            dataStore.links.shift();
-            if (!dataStore.links.length) searchParams.minResult += 10;
-            this.video(keyword,searchParams,imageParams,dataStore,sections,index).then(data => resolve(data)).catch(err => reject(err));
-          });
+        if (dataStore) {
+
         }
         else {
-          dataStore.title = pos.title(keyword,dataStore.keywords.length,searchParams.template);
-          dataStore.clips = dataStore.rawSlides;
-          if (dataStore.rawCredits.length) {
-            dataStore.description = dataStore.rawDescription.join('\n') + '\nImage Credits\n' + dataStore.rawCredits.join('\n');
-          }
-          else {
-            dataStore.description = dataStore.rawDescription.join('\n');
-          }
-          delete dataStore.rawSlides;
-          delete dataStore.rawCredits;
-          delete dataStore.rawDescription;
-          delete dataStore.links;
-          delete dataStore.keywords;
-          delete dataStore.pages;
-          delete dataStore.fallbackImages;
-          if (this.debug) console.log('Resolving video: ' + keyword);
-          resolve(dataStore);
+          this.readTextCache(keyword).then(data => {
+            if (data.length) data = shuffle(data);
+            let obj = data.length ? rand(...data) : null;
+            let text = this.pageParagraphs(obj,searchParams.headerKeywords,searchParams.count);
+            if (text.length) {
+              let fallbackImageParams = this.setImageParams(imageParams);
+              fallbackImageParams.limit = imageParams.fallbackLimit;
+              this.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
+                this.videoPropertiesMultiple(text,searchParams,imageParams,fallbackImages).then(data => {
+                  let slides = {
+                    title: pos.title(keyword,searchParams.keywordType,searchParams.template,data.count),
+                    category: searchParams.category,
+                    privacy: searchParams.privacy,
+                    clips: data.slides,
+                    tags: pos.tags(searchParams.keywordList)
+                  };
+                  let intro = pos.intro(searchParams.template,searchParams.keywordList,searchParams.keywordPlural,searchParams.keywordDeterminer,searchParams.keywordNoun);
+                  let promo = pos.promo(searchParams.keyword,searchParams.link,searchParams.keywordDeterminer);
+                  let license = pos.license(!data.credits.length);
+                  let description = [];
+                  if (promo) description.push(promo);
+                  if (intro) description.push(intro);
+                  if (license) description.push(license);
+                  if (data.credits.length) {
+                    description.push('IMAGE CREDITS');
+                    description.push(data.credits.join('\n'));
+                  }
+                  slides.description = description.join('\n\n');
+                  if (this.debug) console.log('Resolving slides for video: ' + slides.title);
+                  resolve(slides);
+                }).catch(err => reject(err));
+              }).catch(err => reject(err));
+            }
+            else {
+              reject('No text object found for video keyword: ' + keyword);
+            }
+          }).catch(err => reject(err));
         }
       }
     });
