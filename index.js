@@ -1502,29 +1502,21 @@ module.exports = {
     }
   },
 
-  videoProperties: function(obj,searchArgs,imageArgs,fallbackImages,keywordStore,pageStore) {
+  videoProperties: function(obj,searchArgs,imageArgs,fallbackImages,keywordStore,firstSlide) {
     return new Promise((resolve,reject) => {
-      if (!obj || !searchArgs || !searchArgs.keyword || !imageArgs || !imageArgs.fallback || !fallbackImages.length) {
+      if (!obj || !searchArgs || !searchArgs.keyword || !imageArgs || !imageArgs.fallback) {
         reject('Unable to create video properties without page object and fallback image data.');
       }
       else {
         let searchParams = this.setSearchParams(searchArgs);
         let imageParams = this.setImageParams(imageArgs);
         if (!keywordStore) keywordStore = [];
-        if (!pageStore) pageStore = [];
         let slides = [];
         let credits = [];
         let useFallback = obj.keyword ? false : true;
         let keyword = useFallback ? imageParams.fallback : obj.header.toLowerCase();
         let titleFallback = pos.titlecase(searchParams.keyword);
-        if (keywordStore.includes(titleFallback)) {
-          titleFallback = '';
-        }
-        else {
-          keywordStore.push(titleFallback);
-        }
-        if (!obj.keyword && searchParams.type === 'random' && searchParams.matchSections) reject('Non-matching header for random video properties: ' + obj.header);
-        if (!useFallback && keywordStore.includes(keyword)) reject('Duplicate keyword found: ' + keyword);
+        console.log(titleFallback);
         if (!obj.keyword) {
           let headerMatch = this.headerFromKeywordList(imageParams.fallback,searchParams.headerKeywords);
           if (headerMatch) {
@@ -1536,16 +1528,14 @@ module.exports = {
         else {
           if (!keywordStore.includes(keyword)) keywordStore.push(keyword);
         }
-        let description = '';
-        if (imageParams.template !== 'imageOnly') description = searchParams.type === 'intro' ? pos.prettyPrint(obj.text.join(' '),true,true,false) : obj.header + '\n\n' + pos.prettyPrintList(obj.text.join(' '),true,true,true);
         if (useFallback) imageParams.cacheOnly = true;
         this.images(keyword,imageParams).then(data => {
           let imageActive = true;
           let textActive = true;
-          if (imageParams.template === 'imageOnly' || imageParams.template === 'imageAudio') textActive = false;
-          if (imageParams.template === 'textOnly') imageActive = false;
+          if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageAudio')) textActive = false;
+          if (imageParams.template.includes('textOnly')) imageActive = false;
           let bothActive = imageActive && textActive ? true : false;
-          if (obj.keyword || this.validateHeader(obj.header)) {
+          if (obj.keyword || firstSlide) {
             let titleText, titleImage;
             if (bothActive) {
               if (useFallback) {
@@ -1556,7 +1546,7 @@ module.exports = {
                 titleImage = data[0] ? rand(data[0],null,null,null) : null;
                 if (titleImage) data.shift();
               }
-              titleText = obj.header ? obj.header : titleFallback;
+              titleText = !firstSlide ? obj.header : titleFallback;
             }
             else if (imageActive) {
               if (useFallback) {
@@ -1571,7 +1561,7 @@ module.exports = {
             }
             else if (textActive) {
               titleImage = null;
-              titleText = obj.header ? obj.header : titleFallback;
+              titleText = !firstSlide ? obj.header : titleFallback;
             }
             let titleObj = {
               text: titleText,
@@ -1590,7 +1580,7 @@ module.exports = {
           for (let i = 0; i < obj.text.length; i++) {
             if (!obj.text[i]) continue;
             let slideText, slideImage;
-            let snippet = pos.prettyPrintSnippet(obj.text[i],false,true,false);
+            let snippet = pos.snippet(obj.text[i]);
             if (bothActive) {
               if (useFallback) {
                 slideImage = fallbackImages[0] ? rand(fallbackImages[0],null) : null;
@@ -1619,7 +1609,7 @@ module.exports = {
             }
             let slideObj = {
               text: slideText,
-              audio: (textActive || imageParams.template === 'imageAudio') ? obj.text[i] : '',
+              audio: (textActive || imageParams.template.includes('imageAudio')) ? obj.text[i] : '',
               image: slideImage,
               template: imageParams.template,
               keyword: keyword,
@@ -1633,146 +1623,52 @@ module.exports = {
           }
           if (slides.length) {
             if (this.debug) console.log('Resolving video properties: ' + keyword);
-            resolve({slides: slides, credits: credits, description: description});
+            resolve({slides: slides, credits: credits});
           }
           else {
-            if (keywordStore.length && keywordStore[keywordStore.length-1] === keyword) keywordStore.pop();
             reject('No video properties found from: ' + obj.url);
           }
         }).catch(err => {
-          if (keywordStore.length && keywordStore[keywordStore.length-1] === keyword) keywordStore.pop();
           reject(err);
         });
       }
     });
   },
 
-  videoPropertiesMultiple: function(objs,searchArgs,imageArgs,fallbackImages,keywordStore,pageStore,slideStore,index) {
+  videoPropertiesMultiple: function(objs,searchArgs,imageArgs,fallbackImages,keywordStore,slideStore,index) {
     return new Promise((resolve,reject) => {
-      if (!objs || !objs[0] || !searchArgs || !searchArgs.keyword || !imageArgs || !imageArgs.fallback || !fallbackImages.length) {
+      if (!objs || !objs[0] || !searchArgs || !searchArgs.keyword || !imageArgs || !imageArgs.fallback) {
         reject('Unable to create multiple video properties without page object array and fallback image data.');
       }
       else {
         let searchParams = this.setSearchParams(searchArgs);
         let imageParams = this.setImageParams(imageArgs);
         if (!keywordStore) keywordStore = [];
-        if (!pageStore) pageStore = [];
         if (!slideStore) slideStore = {
           slides: [],
-          description: [],
           credits: []
         };
         if (!index) index = 0;
-        if (index < searchParams.count && index < objs.length) {
-          this.videoProperties(objs[index],searchParams,imageParams,fallbackImages,keywordStore,pageStore).then(data => {
+        let firstSlide = false;
+        if (!slideStore.slides.length) firstSlide = true;
+        if (index < objs.length) {
+          this.videoProperties(objs[index],searchParams,imageParams,fallbackImages,keywordStore,firstSlide).then(data => {
             slideStore.slides = slideStore.slides.concat(data.slides);
             slideStore.credits = slideStore.credits.concat(data.credits);
-            slideStore.description.push(data.description);
             index++;
-            this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,pageStore,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
+            this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {
             if (this.debug) console.log(err);
             index++;
-            this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,pageStore,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
+            this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
           });
         }
         else if (slideStore.slides.length) {
           if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.url);
-          if (slideStore.description.length) slideStore.description = slideStore.description.join('\n');
           resolve(slideStore);
         }
         else {
           reject('No video properties found from: ' + searchParams.url);
-        }
-      }
-    });
-  },
-
-  videoSlides: function(searchArgs,imageArgs,fallbackImages,keywordStore,pageStore,slideStore) {
-    return new Promise((resolve,reject) => {
-      if (!searchArgs || !searchArgs.keyword || !searchArgs.url || !imageArgs || !imageArgs.fallback) {
-        reject('Unable to create video properties without page object and fallback image keyword.');
-      }
-      else if (!fallbackImages || !fallbackImages.length) {
-        reject('No fallback images found.');
-      }
-      else {
-        let searchParams = this.setSearchParams(searchArgs);
-        let imageParams = this.setImageParams(imageArgs);
-        if (!keywordStore) keywordStore = [];
-        if (!pageStore) pageStore = [];
-        if (!slideStore) slideStore = {
-          slides: [],
-          description: [],
-          credits: []
-        };
-        if (searchParams.type === 'intro') {
-          if (this.debug) console.log('Request intro video slides url: ' + searchParams.url);
-          this.webpage(searchParams.url).then(data => {
-            if (!pageStore.includes(data.url)) {
-              pageStore.push(data.url);
-            }
-            else {
-              reject('Duplicate content found: ' + data.url);
-            }
-            if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
-            let obj = this.firstParagraph(data,searchParams.keyword.split(' '));
-            if (!obj || !obj.text.length) reject('No text content found at: ' + searchParams.url);
-            this.videoProperties(obj,searchParams,imageParams,fallbackImages,keywordStore,pageStore).then(data => {
-              slideStore.slides = slideStore.slides.concat(data.slides);
-              slideStore.credits = slideStore.credits.concat(data.credits);
-              slideStore.description = data.description;
-              if (this.debug) console.log('Resolving video slides: ' + searchParams.url);
-              resolve(slideStore);
-            }).catch(err => reject(err));
-          }).catch(err => reject(err));
-        }
-        else if (searchParams.type === 'random') {
-          if (this.debug) console.log('Request random video slides url: ' + searchParams.url);
-          this.webpage(searchParams.url).then(data => {
-            if (!pageStore.includes(data.url)) {
-              pageStore.push(data.url);
-            }
-            else {
-              reject('Duplicate content found: ' + data.url);
-            }
-            if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
-            let objs = this.randomParagraph(data,searchParams.count,searchParams.headerKeywords,searchParams.textKeywords);
-            if (objs.length) {
-              this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,pageStore).then(data => {
-                if (this.debug) console.log('Resolving video slides: ' + searchParams.url);
-                resolve(data);
-              }).catch(err => reject(err));
-            }
-            else {
-              reject('No text content found at: ' + searchParams.url);
-            }
-          }).catch(err => reject(err));
-        }
-        else if (searchParams.type === 'filtered') {
-          if (this.debug) console.log('Request filtered video slides url: ' + searchParams.url);
-          this.webpage(searchParams.url).then(data => {
-            if (!pageStore.includes(data.url)) {
-              pageStore.push(data.url);
-            }
-            else {
-              reject('Duplicate content found: ' + data.url);
-            }
-            if (!data.body.content.length) reject('No text content found at: ' + searchParams.url);
-            let objs = this.filteredParagraph(data,searchParams.textKeywords);
-            if (objs.length) {
-              this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,pageStore).then(data => {
-                if (this.debug) console.log('Resolving video slides: ' + searchParams.url);
-                resolve(data);
-              }).catch(err => reject(err));
-            }
-            else {
-              reject('No text content found at: ' + searchParams.url);
-            }
-          }).catch(err => reject(err));
-        }
-        else {
-          reject('Invalid video image type argument for: ' + searchParams.url);
         }
       }
     });
