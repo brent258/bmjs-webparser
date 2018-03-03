@@ -21,6 +21,7 @@ module.exports = {
   textBlacklist: [],
   imageQueue: {list: [], data: []},
   textQueue: {list: [], data: []},
+  blacklistQueue: {list: [], data: []},
   keywords: require('./lib/keywords.js'),
   timeout: 10000,
   debug: true,
@@ -61,6 +62,7 @@ module.exports = {
     this.textBlacklist = [];
     this.imageQueue = {list: [], data: []};
     this.textQueue = {list: [], data: []};
+    this.blacklistQueue = {list: [], data: []};
     this.timeout = 5000;
     this.debug = true;
   },
@@ -157,6 +159,11 @@ module.exports = {
     this.imageQueue.list.push(keyword);
   },
 
+  addBlacklistQueue: function(data,keyword) {
+    this.blacklistQueue.data.push({data: data, keyword: keyword});
+    this.blacklistQueue.list.push(keyword);
+  },
+
   updateTextQueue: function(keyword) {
     return new Promise((resolve,reject) => {
       if (!keyword) {
@@ -192,6 +199,116 @@ module.exports = {
         }
         else {
           resolve();
+        }
+      }
+    });
+  },
+
+  updateBlacklistQueue: function(keyword) {
+    return new Promise((resolve,reject) => {
+      if (!keyword) {
+        reject('Unable to update blacklist queue without keyword.');
+      }
+      else {
+        if (this.blacklistQueue.list.includes(keyword) && this.blacklistQueue.data.length) {
+          fs.writeFile(this.cachePath + '/data/blacklist/' + this.blacklistQueue.data[0].keyword + '.json', JSON.stringify(this.blacklistQueue.data[0].data), err => {
+            this.blacklistQueue.list.shift();
+            this.blacklistQueue.data.shift();
+            this.updateBlacklistQueue(keyword).then(() => resolve()).catch(err => reject(err));
+          });
+        }
+        else {
+          resolve();
+        }
+      }
+    });
+  },
+
+  createBlacklistCache: function(keyword) {
+    return new Promise((resolve,reject) => {
+      if (!keyword) {
+        reject('Unable to create blacklist cache without keyword.');
+      }
+      else {
+        if (fs.existsSync(this.cachePath + '/data/blacklist/' + keyword + '.json')) {
+          resolve('Blacklist cache already exists for: ' + keyword);
+        }
+        else {
+          let data = [];
+          fs.writeFile(this.cachePath + '/data/blacklist/' + keyword + '.json', JSON.stringify(data), err => {
+            if (err) reject(err);
+            resolve('Blacklist cache created for: ' + keyword);
+          });
+        }
+      }
+    });
+  },
+
+  readBlacklistCache: function(keyword) {
+    return new Promise((resolve,reject) => {
+      if (!keyword) {
+        reject('Unable to read blacklist cache without keyword.');
+      }
+      else {
+        if (!fs.existsSync(this.cachePath + '/data/blacklist/' + keyword + '.json')) {
+          reject('Blacklist cache not found for: ' + keyword);
+        }
+        else {
+          fs.readFile(this.cachePath + '/data/blacklist/' + keyword + '.json', (err,data) => {
+            if (err) reject(err);
+            resolve(data);
+          });
+        }
+      }
+    });
+  },
+
+  updateBlacklistCache: function(url,keyword) {
+    return new Promise((resolve,reject) => {
+      if (!keyword || !url) {
+        reject('Unable to update blacklist cache without keyword and url.');
+      }
+      else {
+        this.createBlacklistCache(keyword).then(() => {
+          this.readBlacklistCache(keyword).then(data => {
+            data = JSON.parse(data);
+            if (!data.length || !data.includes(url)) {
+              data.push(url);
+              this.addBlacklistQueue(data,keyword);
+              this.updateBlacklistQueue(keyword).then(() => {
+                resolve('Finished updating blacklist cache for: ' + keyword);
+              }).catch(err => reject(err));
+            }
+            else {
+              resolve('Item already found in blacklist cache for: ' + keyword);
+            }
+          }).catch(err => reject(err));
+        }).catch(err => reject(err));
+      }
+    });
+  },
+
+  updateBlacklistCacheMultiple: function(obj,keyword,index) {
+    return new Promise((resolve,reject) => {
+      if (!keyword || !obj) {
+        reject('Unable to update blacklist cache without keyword and object array.');
+      }
+      else {
+        if (!index) index = 0;
+        if (obj[0]) {
+          this.updateBlacklistCache(obj[0],keyword).then(data => {
+            if (this.debug) console.log(data);
+            obj.shift();
+            index++;
+            this.updateBlacklistCacheMultiple(obj,keyword,index).then(data => resolve(data)).catch(err => reject(err));
+          }).catch(err => {
+            if (this.debug) console.log(err);
+            obj.shift();
+            this.updateBlacklistCacheMultiple(obj,keyword,index).then(data => resolve(data)).catch(err => reject(err));
+          });
+        }
+        else {
+          resolve(`Finished adding ${index} item(s) to blacklist cache for keyword: ${keyword}`);
         }
       }
     });
@@ -244,20 +361,64 @@ module.exports = {
       else {
         this.createTextCache(keyword).then(() => {
           this.readTextCache(keyword).then(data => {
-            data = JSON.parse(data);
-            if (!data.length || !this.objectInArray(obj,data,['body'])) {
-              data.push(obj);
-              this.addTextQueue(data,keyword);
-              this.updateTextQueue(keyword).then(() => {
-                resolve('Finished updating text cache for: ' + keyword);
+            this.createBlacklistCache(keyword).then(() => {
+              this.readBlacklistCache(keyword).then(blacklist => {
+                data = JSON.parse(data);
+                blacklist = JSON.parse(blacklist);
+                if (blacklist.includes(obj.url)) {
+                  resolve('Item already found in blacklist cache for: ' + keyword);
+                }
+                else if (!data.length || !this.objectPropertyInArray('url',obj,data)) {
+                  data.push(obj);
+                  this.addTextQueue(data,keyword);
+                  this.updateTextQueue(keyword).then(() => {
+                    resolve('Finished updating text cache for: ' + keyword);
+                  }).catch(err => reject(err));
+                }
+                else {
+                  resolve('Item already found in text cache for: ' + keyword);
+                }
               }).catch(err => reject(err));
-            }
-            else {
-              resolve('Item already found in text cache for: ' + keyword);
-            }
+            }).catch(err => reject(err));
           }).catch(err => reject(err));
         }).catch(err => reject(err));
       }
+    });
+  },
+
+  deleteTextCache: function(keyword,property,value) {
+    return new Promise((resolve,reject) => {
+      if (!keyword || !property || !value) {
+        reject('Unable to delete from text cache without keyword and object property and value.');
+      }
+      this.createTextCache(keyword).then(() => {
+        this.readTextCache(keyword).then(data => {
+          data = JSON.parse(data);
+          let indexes = this.objectsWithPropertyAndValue(data,property,value);
+          if (!indexes) {
+            resolve('No objects found to delete for: ' + keyword);
+          }
+          else {
+            let urls = [];
+            for (let i = 0; i < indexes.length; i++) {
+              if (data[indexes[i]].url) urls.push(data[indexes[i]].url);
+              data.splice(indexes[i],1);
+            }
+            this.addTextQueue(data,keyword);
+            this.updateTextQueue(keyword).then(() => {
+              if (urls.length) {
+                this.updateBlacklistCacheMultiple(urls,keyword).then(msg => {
+                  if (this.debug) console.log(msg);
+                  resolve(`Finished removing indexes ${indexes.join(', ')} from text cache: ${keyword}`);
+                }).catch(err => reject(err));
+              }
+              else {
+                resolve(`Finished removing indexes ${indexes.join(', ')} from text cache: ${keyword}`);
+              }
+            }).catch(err => reject(err));
+          }
+        }).catch(err => reject(err));
+      }).catch(err => reject(err));
     });
   },
 
@@ -338,20 +499,28 @@ module.exports = {
         if (scaleToFill === undefined) scaleToFill = true;
         this.createImageCache(keyword).then(() => {
           this.readImageCache(keyword).then(data => {
-            data = JSON.parse(data);
-            if (!data.length || !this.objectInArray(obj,data,['tags','search','copyright'])) {
-              data.push(obj);
-              this.downloadImage(obj,this.cachePath + '/images/' + keyword + '/' + obj.filename,scaleToFill).then(msg => {
-                if (this.debug) console.log(msg);
-                this.addImageQueue(data,keyword);
-                this.updateImageQueue(keyword).then(() => {
-                  resolve('Finished updating image cache for: ' + keyword);
-                }).catch(err => reject(err));
+            this.createBlacklistCache(keyword).then(() => {
+              this.readBlacklistCache(keyword).then(blacklist => {
+                data = JSON.parse(data);
+                blacklist = JSON.parse(blacklist);
+                if (blacklist.includes(obj.url)) {
+                  resolve('Item already found in blacklist cache for: ' + keyword);
+                }
+                else if (!data.length || !this.objectPropertyInArray('url',obj,data)) {
+                  data.push(obj);
+                  this.downloadImage(obj,this.cachePath + '/images/' + keyword + '/' + obj.filename,scaleToFill).then(msg => {
+                    if (this.debug) console.log(msg);
+                    this.addImageQueue(data,keyword);
+                    this.updateImageQueue(keyword).then(() => {
+                      resolve('Finished updating image cache for: ' + keyword);
+                    }).catch(err => reject(err));
+                  }).catch(err => reject(err));
+                }
+                else {
+                  resolve('Item already found in image cache for: ' + keyword);
+                }
               }).catch(err => reject(err));
-            }
-            else {
-              resolve('Item already found in image cache for: ' + keyword);
-            }
+            }).catch(err => reject(err));
           }).catch(err => reject(err));
         }).catch(err => reject(err));
       }
@@ -469,6 +638,16 @@ module.exports = {
     else {
       if (this.debug) console.log('Image data cache directory already exists.');
     }
+    if (!fs.existsSync(this.cachePath + '/data/blacklist')) {
+      if (this.debug) console.log('Blacklist data cache directory not found. Creating folder...');
+      fs.mkdir(this.cachePath + '/data/blacklist',err => {
+        if (err && this.debug) console.log(err);
+        if (this.debug) console.log('Finished creating blacklist data cache directory.');
+      });
+    }
+    else {
+      if (this.debug) console.log('Blacklist data cache directory already exists.');
+    }
   },
 
   objectInArray: function(obj,arr,ignoreKeys) {
@@ -489,6 +668,27 @@ module.exports = {
       if (matches) return true;
     }
     return false;
+  },
+
+  objectPropertyInArray: function(property,obj,arr) {
+    if (!property || !obj || !arr || typeof obj !== 'object' || typeof arr !== 'object' || typeof property !== 'string' || !obj[property]) {
+      return false;
+    }
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i][property] && arr[i][property] === obj[property]) return true;
+    }
+    return false;
+  },
+
+  objectsWithPropertyAndValue: function(objs,property,value) {
+    if (!property || !objs || !value || typeof objs !== 'object' || typeof value !== 'string' || typeof property !== 'string') {
+      return false;
+    }
+    let indexes = [];
+    for (let i = 0; i < objs.length; i++) {
+      if (objs[i][property] && objs[i][property] === value) indexes.push(i);
+    }
+    return indexes;
   },
 
   calculateImageCrop: function(width,height) {
@@ -1795,7 +1995,7 @@ module.exports = {
               this.downloadResults(results,store).then(data => resolve(data)).catch(err => reject(err));
             }
             else if (store.length) {
-              if (this.debug) console.log('Resolving downloaded page results.');
+              if (this.debug) console.log(`Resolving ${store.length} downloaded page results.`);
               resolve(store);
             }
             else {
@@ -1808,7 +2008,7 @@ module.exports = {
               this.downloadResults(results,store).then(data => resolve(data)).catch(err => reject(err));
             }
             else if (store.length) {
-              if (this.debug) console.log('Resolving downloaded page results.');
+              if (this.debug) console.log(`Resolving ${store.length} downloaded page results.`);
               resolve(store);
             }
             else {
@@ -1817,7 +2017,7 @@ module.exports = {
           });
         }
         else if (store.length) {
-          if (this.debug) console.log('Resolving downloaded page results.');
+          if (this.debug) console.log(`Resolving ${store.length} downloaded page results.`);
           resolve(store);
         }
         else {

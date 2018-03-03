@@ -21,4 +21,6 @@ let imageParams = {
   fallback: 'dogs',
   template: 'imageOnly'
 };
-wp.pages('non shedding dogs',searchParams).then(data => console.log(data)).catch(err => console.log(err));
+//wp.pages('non shedding dogs',searchParams).then(data => console.log(data)).catch(err => console.log(err));
+wp.updateTextCache({url: 'http://youtube.com/heartmydog'},'test-blacklist').then(data => console.log(data)).catch(err => console.log(err));
+//wp.deleteTextCache('test-blacklist','url','http://youtube.com/heartmydog').then(data => console.log(data)).catch(err => console.log(err));
