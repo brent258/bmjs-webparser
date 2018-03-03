@@ -21,4 +21,4 @@ let imageParams = {
   fallback: 'dogs',
   template: 'imageOnly'
 };
-wp.video('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
+wp.pages('non shedding dogs',searchParams).then(data => console.log(data)).catch(err => console.log(err));

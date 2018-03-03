@@ -245,7 +245,7 @@ module.exports = {
         this.createTextCache(keyword).then(() => {
           this.readTextCache(keyword).then(data => {
             data = JSON.parse(data);
-            if (!data.length || !this.objectInArray(obj,data)) {
+            if (!data.length || !this.objectInArray(obj,data,['body'])) {
               data.push(obj);
               this.addTextQueue(data,keyword);
               this.updateTextQueue(keyword).then(() => {
@@ -1772,6 +1772,106 @@ module.exports = {
             else {
               reject('No text object found for video keyword: ' + keyword);
             }
+          }).catch(err => reject(err));
+        }
+      }
+    });
+  },
+
+  downloadResults: function(results,store) {
+    return new Promise((resolve,reject) => {
+      if (!results) {
+        reject('Unable to download pages without search results.');
+      }
+      else {
+        if (!store) store = [];
+        if (results[0]) {
+          this.webpage(results[0].url).then(page => {
+            if (page.body.content.length > 5) {
+              store.push(page);
+            }
+            results.shift();
+            if (results.length) {
+              this.downloadResults(results,store).then(data => resolve(data)).catch(err => reject(err));
+            }
+            else if (store.length) {
+              if (this.debug) console.log('Resolving downloaded page results.');
+              resolve(store);
+            }
+            else {
+              reject('No page results found to download.');
+            }
+          }).catch(err => {
+            if (this.debug) console.log(err);
+            results.shift();
+            if (results.length) {
+              this.downloadResults(results,store).then(data => resolve(data)).catch(err => reject(err));
+            }
+            else if (store.length) {
+              if (this.debug) console.log('Resolving downloaded page results.');
+              resolve(store);
+            }
+            else {
+              reject('No page results found to download.');
+            }
+          });
+        }
+        else if (store.length) {
+          if (this.debug) console.log('Resolving downloaded page results.');
+          resolve(store);
+        }
+        else {
+          reject('No page results found to download.');
+        }
+      }
+    });
+  },
+
+  pages: function(keyword,searchArgs,limit,pages) {
+    return new Promise((resolve,reject) => {
+      if (!keyword) {
+        reject('Unable to search for pages without keyword.');
+      }
+      else {
+        let searchParams = this.setSearchParams(searchArgs);
+        if (!limit) limit = 1;
+        if (!pages) pages = 0;
+        if (limit > 0) {
+          this.search(keyword,searchParams.minResult,searchParams.maxResult).then(results => {
+            this.downloadResults(results).then(text => {
+              let textCount = text.length;
+              this.updateTextCacheMultiple(text,keyword).then(data => {
+                searchArgs.minResult += 10;
+                pages += textCount;
+                limit--;
+                if (limit > 0) {
+                  this.pages(keyword,searchArgs,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+                }
+                else {
+                  if (pages) {
+                    resolve(`Resolving ${pages} pages for keyword: ${keyword}`);
+                  }
+                  else {
+                    reject(`No pages found for keyword: ${keyword}`);
+                  }
+                }
+              }).catch(err => reject(err));
+            }).catch(err => {
+              searchArgs.minResult += 10;
+              limit--;
+              if (limit > 0) {
+                this.pages(keyword,searchArgs,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+              }
+              else {
+                if (pages) {
+                  if (this.debug) console.log(err);
+                  resolve(`Resolving ${pages} pages for keyword: ${keyword}`);
+                }
+                else {
+                  reject(err);
+                }
+              }
+            });
           }).catch(err => reject(err));
         }
       }
