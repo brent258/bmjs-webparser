@@ -9,9 +9,12 @@ let searchParams = {
   type: 'random',
   textKeywords: [],
   matchSections: false,
-  minResult: 1,
-  maxResult: 100,
-  keyword: 'dog training tips'
+  keywordType: 'PLURAL',
+  keywordPlural: true,
+  keywordDeterminer: '',
+  keywordNoun: '',
+  keywordList: ['dogs that don\'t shed','non shedding dogs','hypoallergenic dogs'],
+  link: ''
 };
 let imageParams = {
   match: true,
@@ -19,8 +22,6 @@ let imageParams = {
   search: 'google',
   limit: 2,
   fallback: 'dogs',
-  template: 'imageOnly'
+  template: ''
 };
-//wp.pages('non shedding dogs',searchParams).then(data => console.log(data)).catch(err => console.log(err));
-wp.updateTextCache({url: 'http://youtube.com/heartmydog'},'test-blacklist').then(data => console.log(data)).catch(err => console.log(err));
-//wp.deleteTextCache('test-blacklist','url','http://youtube.com/heartmydog').then(data => console.log(data)).catch(err => console.log(err));
+wp.video('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));

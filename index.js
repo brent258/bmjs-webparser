@@ -396,7 +396,7 @@ module.exports = {
           data = JSON.parse(data);
           let indexes = this.objectsWithPropertyAndValue(data,property,value);
           if (!indexes) {
-            resolve('No objects found to delete for: ' + keyword);
+            resolve('No objects found to delete from text cache for: ' + keyword);
           }
           else {
             let urls = [];
@@ -524,6 +524,42 @@ module.exports = {
           }).catch(err => reject(err));
         }).catch(err => reject(err));
       }
+    });
+  },
+
+  deleteImageCache: function(keyword,property,value) {
+    return new Promise((resolve,reject) => {
+      if (!keyword || !property || !value) {
+        reject('Unable to delete from image cache without keyword and object property and value.');
+      }
+      this.createImageCache(keyword).then(() => {
+        this.readImageCache(keyword).then(data => {
+          data = JSON.parse(data);
+          let indexes = this.objectsWithPropertyAndValue(data,property,value);
+          if (!indexes) {
+            resolve('No objects found to delete from image cache for: ' + keyword);
+          }
+          else {
+            let urls = [];
+            for (let i = 0; i < indexes.length; i++) {
+              if (data[indexes[i]].url) urls.push(data[indexes[i]].url);
+              data.splice(indexes[i],1);
+            }
+            this.addImageQueue(data,keyword);
+            this.updateImageQueue(keyword).then(() => {
+              if (urls.length) {
+                this.updateBlacklistCacheMultiple(urls,keyword).then(msg => {
+                  if (this.debug) console.log(msg);
+                  resolve(`Finished removing indexes ${indexes.join(', ')} from image cache: ${keyword}`);
+                }).catch(err => reject(err));
+              }
+              else {
+                resolve(`Finished removing indexes ${indexes.join(', ')} from image cache: ${keyword}`);
+              }
+            }).catch(err => reject(err));
+          }
+        }).catch(err => reject(err));
+      }).catch(err => reject(err));
     });
   },
 
@@ -1563,7 +1599,7 @@ module.exports = {
   },
 
   pageParagraphs: function(obj,headerKeywords,count) {
-
+    return obj.body.content;
   },
 
   resultLinks: function($,searchSource) {
@@ -1840,7 +1876,7 @@ module.exports = {
 
   videoPropertiesMultiple: function(objs,searchArgs,imageArgs,fallbackImages,keywordStore,slideStore,index) {
     return new Promise((resolve,reject) => {
-      if (!objs || !objs[0] || !searchArgs || !searchArgs.keyword || !imageArgs || !imageArgs.fallback || !fallbackImages.length) {
+      if (!objs || (!objs[0] && !index) || !searchArgs.keyword || !imageArgs || !imageArgs.fallback || (!fallbackImages.length && !index)) {
         reject('Unable to create multiple video properties without page object array and fallback image data.');
       }
       else {
@@ -1932,15 +1968,49 @@ module.exports = {
         let searchParams = this.setSearchParams(searchArgs);
         let imageParams = this.setImageParams(imageArgs);
         searchParams.keyword = keyword;
-        if (dataStore) {
-
+        if (dataStore && dataStore[0]) {
+          let text = this.pageParagraphs(obj,searchParams.headerKeywords,searchParams.count);
+          if (text.length) {
+            let fallbackImageParams = this.setImageParams(imageParams);
+            fallbackImageParams.limit = imageParams.fallbackLimit;
+            this.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
+              this.videoPropertiesMultiple(text,searchParams,imageParams,fallbackImages).then(data => {
+                let slides = {
+                  title: pos.title(keyword,searchParams.keywordType,searchParams.template,data.count),
+                  category: searchParams.category,
+                  privacy: searchParams.privacy,
+                  clips: data.slides,
+                  tags: pos.tags(searchParams.keywordList)
+                };
+                let intro = pos.intro(searchParams.template,searchParams.keywordList,searchParams.keywordPlural,searchParams.keywordDeterminer,searchParams.keywordNoun);
+                let promo = pos.promo(searchParams.keyword,searchParams.link,searchParams.keywordDeterminer);
+                let license = pos.license(!data.credits.length);
+                let description = [];
+                if (promo) description.push(promo);
+                if (intro) description.push(intro);
+                if (license) description.push(license);
+                if (data.credits.length) {
+                  description.push('IMAGE CREDITS');
+                  description.push(data.credits.join('\n'));
+                }
+                slides.description = description.join('\n\n');
+                if (this.debug) console.log('Resolving slides for video: ' + slides.title);
+                resolve(slides);
+              }).catch(err => reject(err));
+            }).catch(err => reject(err));
+          }
+          else {
+            reject('No text object found for video keyword: ' + keyword);
+          }
         }
         else {
           this.readTextCache(keyword).then(data => {
+            data = JSON.parse(data);
             if (data.length) data = shuffle(data);
             let obj = data.length ? rand(...data) : null;
-            let text = this.pageParagraphs(obj,searchParams.headerKeywords,searchParams.count);
-            if (text.length) {
+            let text = obj.body.content;
+            console.log(text);
+            if (text && text.length) {
               let fallbackImageParams = this.setImageParams(imageParams);
               fallbackImageParams.limit = imageParams.fallbackLimit;
               this.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
