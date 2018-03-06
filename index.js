@@ -1806,6 +1806,7 @@ module.exports = {
 
   parseAmazonProduct: function($,url) {
     let obj = {};
+    obj.amazon = true;
     obj.url = url;
     obj.title = $('span#productTitle.a-size-large').text().trim();
     if (!obj.title) return null;
@@ -1899,7 +1900,6 @@ module.exports = {
               break;
             }
           }
-
         }
       }
     });
@@ -1908,9 +1908,6 @@ module.exports = {
 
   amazonProduct: function(link) {
     return new Promise((resolve,reject) => {
-      setTimeout(() => {
-        reject('Server request timeout loading Amazon page: ' + link.url);
-      },this.timeout);
       if (!link || !link.text || !link.url || !link.keyword) {
         reject('Unable to download Amazon page without link object.');
       }
@@ -1931,14 +1928,25 @@ module.exports = {
         this.readTextCache(link.keyword).then(text => {
           text = JSON.parse(text);
           if (this.objectPropertyInArray('url',link,text)) {
-            reject('Amazon product already exists in cache: ' + link.text);
+            resolve('Amazon product already exists in cache: ' + link.text);
           }
           else {
             request(options).then(html => {
               if (this.debug) console.log('Loading Amazon product page: ' + link.text);
               let $ = cheerio.load(html);
               let obj = this.parseAmazonProduct($,link.url);
-              resolve(obj);
+              if (obj) {
+                this.updateTextCache(obj,link.keyword).then(textData => {
+                  if (this.debug) console.log(textData);
+                  this.updateImageCacheMultiple(obj.images,obj.title,false).then(imageData => {
+                    if (this.debug) console.log(imageData);
+                    resolve('Finished adding Amazon product to text and image cache: ' + link.text);
+                  }).catch(err => reject(err));
+                }).catch(err => reject(err));
+              }
+              else {
+                reject('No Amazon product found to add to text and image cache: ' + link.text);
+              }
             }).catch(err => reject(err));
           }
         }).catch(err => {
@@ -1947,9 +1955,98 @@ module.exports = {
             if (this.debug) console.log('Loading Amazon product page: ' + link.text);
             let $ = cheerio.load(html);
             let obj = this.parseAmazonProduct($,link.url);
-            resolve(obj);
+            if (obj) {
+              this.updateTextCache(obj,link.keyword).then(textData => {
+                if (this.debug) console.log(textData);
+                this.updateImageCacheMultiple(obj.images,obj.title,false).then(imageData => {
+                  if (this.debug) console.log(imageData);
+                  resolve('Finished adding Amazon product to text and image cache: ' + link.text);
+                }).catch(err => reject(err));
+              }).catch(err => reject(err));
+            }
+            else {
+              reject('No Amazon product found to add to text and image cache: ' + link.text);
+            }
           }).catch(err => reject(err));
         });
+      }
+    });
+  },
+
+  amazonProductMultiple: function(links) {
+    return new Promise((resolve,reject) => {
+      if (!links) {
+        reject('Unable to download Amazon pages without link object array.');
+      }
+      else if (links[0]) {
+        this.amazonProduct(links[0]).then(data => {
+          if (this.debug) console.log(data);
+          links.shift();
+          if (links.length) {
+            this.amazonProductMultiple(links).then(data => resolve(data)).catch(err => reject(err));
+          }
+          else {
+            resolve('Finished downloading multiple Amazon pages.');
+          }
+        }).catch(err => {
+          if (this.debug) console.log(err);
+          links.shift();
+          if (links.length) {
+            this.amazonProductMultiple(links).then(data => resolve(data)).catch(err => reject(err));
+          }
+          else {
+            resolve('Finished downloading multiple Amazon pages.');
+          }
+        })
+      }
+    });
+  },
+
+  amazonPages: function(keyword,searchArgs,limit,pages) {
+    return new Promise((resolve,reject) => {
+      if (!keyword) {
+        reject('Unable to search for Amazon pages without keyword.');
+      }
+      else {
+        if (!searchArgs) searchArgs = this.setSearchParams();
+        searchParams = this.setSearchParams(searchArgs);
+        if (!limit) limit = 1;
+        if (!pages) pages = 0;
+        this.amazonSearch(keyword,searchParams.minResult,searchParams.maxResult).then(data => {
+          let dataCount = data.length;
+          this.amazonProductMultiple(data).then(msg => {
+            if (this.debug) console.log(msg);
+            searchArgs.minResult += 1;
+            pages += dataCount;
+            limit--;
+            if (limit > 0) {
+              this.amazonPages(keyword,searchArgs,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+            }
+            else {
+              if (pages) {
+                resolve(`Resolving ${pages} pages for Amazon keyword: ${keyword}`);
+              }
+              else {
+                reject(`No pages found for Amazon keyword: ${keyword}`);
+              }
+            }
+          }).catch(err => reject(err));
+        }).catch(err => {
+          if (this.debug) console.log(err);
+          searchArgs.minResult += 1;
+          limit--;
+          if (limit > 0) {
+            this.amazonPages(keyword,searchArgs,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+          }
+          else {
+            if (pages) {
+              resolve(`Resolving ${pages} pages for Amazon keyword: ${keyword}`);
+            }
+            else {
+              reject(err);
+            }
+          }
+        })
       }
     });
   },
@@ -2196,6 +2293,7 @@ module.exports = {
     if (!searchParams.keywordNoun) searchParams.keywordNoun = '';
     if (!searchParams.keywordList) searchParams.keywordList = [];
     if (!searchParams.link) searchParams.link = '';
+    if (searchParams.amazon === undefined) searchParams.amazon = false;
     return searchParams;
   },
 
@@ -2209,7 +2307,7 @@ module.exports = {
         let imageParams = this.setImageParams(imageArgs);
         searchParams.keyword = keyword;
         if (dataStore && dataStore[0]) {
-          let text = obj.body.content;
+          let text = obj.amazon ? obj.description : obj.body.content;
           searchParams.url = obj.url;
           if (text && text.length) {
             let fallbackImageParams = this.setImageParams(imageParams);
@@ -2247,9 +2345,22 @@ module.exports = {
         else {
           this.readTextCache(keyword).then(data => {
             data = JSON.parse(data);
-            if (data.length) data = shuffle(data);
-            let obj = data.length ? rand(...data) : null;
-            let text = obj.body.content;
+            if (data.length) {
+              if (searchParams.amazon) {
+                data = data.filter(el => el.amazon);
+              }
+              else {
+                data = data.filter(el => !el.amazon);
+              }
+              if (data.length) {
+                data = shuffle(data);
+              }
+              else {
+                reject('No data found in cache for video keyword: ' + keyword);
+              }
+            }
+            let obj = rand(...data);
+            let text = obj.amazon ? obj.description : obj.body.content;
             searchParams.url = obj.url;
             if (text && text.length) {
               let fallbackImageParams = this.setImageParams(imageParams);
@@ -2349,44 +2460,42 @@ module.exports = {
         let searchParams = this.setSearchParams(searchArgs);
         if (!limit) limit = 1;
         if (!pages) pages = 0;
-        if (limit > 0) {
-          this.search(keyword,searchParams.minResult,searchParams.maxResult).then(results => {
-            this.downloadResults(results).then(text => {
-              let textCount = text.length;
-              this.updateTextCacheMultiple(text,keyword).then(data => {
-                searchArgs.minResult += 10;
-                pages += textCount;
-                limit--;
-                if (limit > 0) {
-                  this.pages(keyword,searchArgs,limit,pages).then(data => resolve(data)).catch(err => reject(err));
-                }
-                else {
-                  if (pages) {
-                    resolve(`Resolving ${pages} pages for keyword: ${keyword}`);
-                  }
-                  else {
-                    reject(`No pages found for keyword: ${keyword}`);
-                  }
-                }
-              }).catch(err => reject(err));
-            }).catch(err => {
+        this.search(keyword,searchParams.minResult,searchParams.maxResult).then(results => {
+          this.downloadResults(results).then(text => {
+            let textCount = text.length;
+            this.updateTextCacheMultiple(text,keyword).then(data => {
               searchArgs.minResult += 10;
+              pages += textCount;
               limit--;
               if (limit > 0) {
                 this.pages(keyword,searchArgs,limit,pages).then(data => resolve(data)).catch(err => reject(err));
               }
               else {
                 if (pages) {
-                  if (this.debug) console.log(err);
                   resolve(`Resolving ${pages} pages for keyword: ${keyword}`);
                 }
                 else {
-                  reject(err);
+                  reject(`No pages found for keyword: ${keyword}`);
                 }
               }
-            });
-          }).catch(err => reject(err));
-        }
+            }).catch(err => reject(err));
+          }).catch(err => {
+            searchArgs.minResult += 10;
+            limit--;
+            if (limit > 0) {
+              this.pages(keyword,searchArgs,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+            }
+            else {
+              if (pages) {
+                if (this.debug) console.log(err);
+                resolve(`Resolving ${pages} pages for keyword: ${keyword}`);
+              }
+              else {
+                reject(err);
+              }
+            }
+          });
+        }).catch(err => reject(err));
       }
     });
   }
