@@ -16,6 +16,7 @@ module.exports = {
   lastGoogleProxy: '',
   lastBingProxy: '',
   lastFlickrProxy: '',
+  lastAmazonProxy: '',
   lastWebSearch: '',
   imageBlacklist: [],
   textBlacklist: [],
@@ -57,6 +58,7 @@ module.exports = {
     this.lastGoogleProxy = '';
     this.lastBingProxy = '';
     this.lastFlickrProxy = '';
+    this.lastAmazonProxy = '';
     this.lastWebSearch = '';
     this.imageBlacklist = [];
     this.textBlacklist = [];
@@ -147,6 +149,19 @@ module.exports = {
       this.lastFlickrProxy = this.proxies[0] || undefined;
     }
     return this.lastFlickrProxy;
+  },
+
+  amazonProxy: function() {
+    if (!this.lastAmazonProxy) {
+      this.lastAmazonProxy = this.proxies[0] || undefined;
+    }
+    else if (this.proxies.length && this.proxies.indexOf(this.lastAmazonProxy) < this.proxies.length-1) {
+      this.lastAmazonProxy = this.proxies[this.proxies.indexOf(this.lastAmazonProxy)+1];
+    }
+    else {
+      this.lastAmazonProxy = this.proxies[0] || undefined;
+    }
+    return this.lastAmazonProxy;
   },
 
   addTextQueue: function(data,keyword) {
@@ -1401,6 +1416,19 @@ module.exports = {
     return [];
   },
 
+  filterProductBodyContent: function(paragraph,url) {
+    if (!paragraph || !url || typeof paragraph !== 'string' || typeof url !== 'string') {
+      return [];
+    }
+    let splitParagraph = paragraph.split('|||||');
+    let filtered = [];
+    for (let i = 0; i < splitParagraph.length; i++) {
+      if (this.validateText(splitParagraph[i],url)) filtered.push(splitParagraph[i]);
+    }
+    if (filtered.length) return filtered;
+    return [];
+  },
+
   extractBodyContent: function($,url,filterText) {
     return new Promise((resolve,reject) => {
       setTimeout(() => {
@@ -1606,7 +1634,7 @@ module.exports = {
     let links = [];
     if (searchSource === 'google') {
       $('h3 a').each(function(i,el) {
-        if ($(this).attr('href').match(/(http:|https:)/)) {
+        if ($(this).attr('href').match(/(http:|https:)/g)) {
           let url = $(this).attr('href');
           let text = $(this).text();
           links.push({url: url, text: text});
@@ -1615,13 +1643,25 @@ module.exports = {
     }
     else if (searchSource === 'bing') {
       $('h2 a').each(function(i,el) {
-        if ($(this).attr('href').match(/(http:|https:)/)) {
+        if ($(this).attr('href').match(/(http:|https:)/g) && !$(this).attr('href').match(/(bing\.|microsoft\.)/g)) {
           let url = $(this).attr('href');
           let text = $(this).text();
           links.push({url: url, text: text});
         }
       });
     }
+    return links;
+  },
+
+  amazonResultLinks: function($,keyword) {
+    let links = [];
+    $('.a-link-normal.s-access-detail-page.s-color-twister-title-link.a-text-normal').each(function(i,el) {
+      if ($(this).attr('href').match(/(http:|https:)/g)) {
+        let url = $(this).attr('href');
+        let text = $(this).text();
+        links.push({url: url, text: text, keyword: keyword});
+      }
+    });
     return links;
   },
 
@@ -1726,9 +1766,197 @@ module.exports = {
     });
   },
 
+  amazonSearch: function(keyword,minResult,maxResult) {
+    return new Promise((resolve,reject) => {
+      setTimeout(() => {
+        reject('Server request timeout searching for Amazon page: ' + keyword);
+      },this.timeout);
+      if (!keyword) {
+        reject('Unable to search for Amazon page without keyword.');
+      }
+      else {
+        if (!minResult) minResult = 1;
+        if (!maxResult) maxResult = minResult;
+        let parsedKeyword = keyword.replace(/\s/g,'+');
+        let queryPage = Math.floor(Math.random() * maxResult) + minResult;
+        let url = `https://www.amazon.com/s/field-keywords=${parsedKeyword}&page=${queryPage}`;
+        let options = {
+          method: 'GET',
+          uri: url,
+          gzip: true,
+          headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
+        };
+        let proxy = this.amazonProxy();
+        if (proxy) {
+          options.proxy = proxy;
+        }
+        else {
+          if (this.debug) console.log('WARNING: Proxies currently not set.');
+        }
+        request(options).then(html => {
+          if (this.debug) console.log('Searching Amazon for keyword: ' + keyword + ' - ' + minResult);
+          let $ = cheerio.load(html);
+          let results = this.amazonResultLinks($,keyword);
+          if (this.debug) console.log('Resolving Amazon search: ' + keyword);
+          resolve(results);
+        }).catch(err => reject(err));
+      }
+    });
+  },
+
+  parseAmazonProduct: function($,url) {
+    let obj = {};
+    obj.url = url;
+    obj.title = $('span#productTitle.a-size-large').text().trim();
+    if (!obj.title) return null;
+    obj.brand = $('#brand').text().trim();
+    obj.price = $('#priceblock_ourprice').text().trim();
+    obj.colors = $('#variation_color_name li').map(function(i,el) {
+      return $(this).attr('title').replace(/Click\sto\sselect\s/,'');
+    }).get();
+    obj.sizes = $('#variation_size_name li').map(function(i,el) {
+      return $(this).attr('title').replace(/Click\sto\sselect\s/,'');
+    }).get();
+    obj.features = $('#feature-bullets li').map(function(i,el) {
+      return $(this).text().trim();
+    }).get();
+    $('#detailBullets_feature_div li').each(function(i,el) {
+      let text = $(this).text().replace(/\n/g,'').replace(/\s+/g,' ').trim();
+      if (text.match(/product\s+dimensions:\s+/gi)) {
+        obj.dimensions = text.replace(/product\s+dimensions:\s+/gi,'');
+      }
+      else if (text.match(/shipping\s+weight:\s+/gi)) {
+        obj.weight = text.replace(/shipping\s+weight:\s+/gi,'').replace(/\s+\(.+/gi,'');
+      }
+      else if (text.match(/asin:\s+/gi)) {
+        obj.asin = text.replace(/asin:\s+/gi,'');
+      }
+    });
+    obj.description = [];
+    let self = this;
+    $('#productDescription p').each(function(i,el) {
+      if ($(this).contents().length) {
+        $(this).contents().each(function(i,sub) {
+          let text = self.parseText($(this).text());
+          let filtered = self.filterBodyContent(text,url);
+          if (filtered.length) obj.description = obj.description.concat(filtered);
+        });
+      }
+      else {
+        let text = self.parseText($(this).text());
+        let filtered = self.filterBodyContent(text,url);
+        if (filtered.length) obj.description = obj.description.concat(filtered);
+      }
+    });
+    obj.reviews = $('div [data-hook="review-collapsed"]').map(function(i,el) {
+      return $(this).text();
+    }).get();
+    obj.rating = $('#reviewSummary .a-icon-alt').text();
+    let imageData;
+    obj.images = [];
+    $('script').each(function(i,el) {
+      let text = $(this).html();
+      if (text.match(/\'colorImages\'/)) {
+        imageData = text;
+        imageData = imageData.replace(/(\{|\})/g,'$1|||||').split('|||||');
+        for (let i = 0; i < imageData.length; i++) {
+          let imageSizes = imageData[i].split(',');
+          for (let j = 0; j < imageSizes.length; j++) {
+            if (imageSizes[j].match(/"hiRes"/)) {
+              let img = imageSizes[j].replace(/"hiRes":"(.+)"/,'$1');
+              let imgObject = {
+                image: img,
+                url: img,
+                title: obj.title,
+                author: obj.brand,
+                width: 0,
+                height: 0,
+                description: obj.description,
+                filename: path.basename(img.split('?')[0]),
+                search: [],
+                tags: [],
+                copyright: true
+              };
+              obj.images.push(imgObject);
+              break;
+            }
+            else if (imageSizes[j].match(/"large"/)) {
+              let img = imageSizes[j].replace(/"large":"(.+)"/,'$1');
+              let imgObject = {
+                image: img,
+                url: img,
+                title: obj.title,
+                author: obj.brand,
+                width: 0,
+                height: 0,
+                description: obj.description,
+                filename: path.basename(img.split('?')[0]),
+                search: [],
+                tags: [],
+                copyright: true
+              };
+              obj.images.push(imgObject);
+              break;
+            }
+          }
+
+        }
+      }
+    });
+    return obj;
+  },
+
+  amazonProduct: function(link) {
+    return new Promise((resolve,reject) => {
+      setTimeout(() => {
+        reject('Server request timeout loading Amazon page: ' + link.url);
+      },this.timeout);
+      if (!link || !link.text || !link.url || !link.keyword) {
+        reject('Unable to download Amazon page without link object.');
+      }
+      else {
+        let options = {
+          method: 'GET',
+          uri: link.url,
+          gzip: true,
+          headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
+        };
+        let proxy = this.amazonProxy();
+        if (proxy) {
+          options.proxy = proxy;
+        }
+        else {
+          if (this.debug) console.log('WARNING: Proxies currently not set.');
+        }
+        this.readTextCache(link.keyword).then(text => {
+          text = JSON.parse(text);
+          if (this.objectPropertyInArray('url',link,text)) {
+            reject('Amazon product already exists in cache: ' + link.text);
+          }
+          else {
+            request(options).then(html => {
+              if (this.debug) console.log('Loading Amazon product page: ' + link.text);
+              let $ = cheerio.load(html);
+              let obj = this.parseAmazonProduct($,link.url);
+              resolve(obj);
+            }).catch(err => reject(err));
+          }
+        }).catch(err => {
+          if (this.debug) console.log(err);
+          request(options).then(html => {
+            if (this.debug) console.log('Loading Amazon product page: ' + link.text);
+            let $ = cheerio.load(html);
+            let obj = this.parseAmazonProduct($,link.url);
+            resolve(obj);
+          }).catch(err => reject(err));
+        });
+      }
+    });
+  },
+
   imageCredit: function(image) {
     if (!image) {
-      return;
+      return '';
     }
     let credit = [];
     if (image.title) credit.push(image.title);
@@ -1876,7 +2104,7 @@ module.exports = {
 
   videoPropertiesMultiple: function(objs,searchArgs,imageArgs,fallbackImages,keywordStore,slideStore,index) {
     return new Promise((resolve,reject) => {
-      if (!objs || (!objs[0] && !index) || !searchArgs.keyword || !imageArgs || !imageArgs.fallback || (!fallbackImages.length && !index)) {
+      if (!objs || !objs[0] || !searchArgs.keyword || !imageArgs || !imageArgs.fallback || (!fallbackImages.length && !index)) {
         reject('Unable to create multiple video properties without page object array and fallback image data.');
       }
       else {
@@ -1890,16 +2118,28 @@ module.exports = {
         if (!index) index = 0;
         let firstSlide = false;
         if (!slideStore.slides.length) firstSlide = true;
-        if (index < objs.length) {
+        if (index < objs.length && fallbackImages.length) {
           this.videoProperties(objs[index],searchParams,imageParams,fallbackImages,keywordStore,firstSlide).then(data => {
             slideStore.slides = slideStore.slides.concat(data.slides);
             slideStore.credits = slideStore.credits.concat(data.credits);
             index++;
-            this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
+            if (index >= objs.length) {
+              if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.url);
+              resolve(slideStore);
+            }
+            else {
+              this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
+            }
           }).catch(err => {
             if (this.debug) console.log(err);
             index++;
-            this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
+            if (index >= objs.length) {
+              if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.url);
+              resolve(slideStore);
+            }
+            else {
+              this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
+            }
           });
         }
         else if (slideStore.slides.length) {
@@ -1969,8 +2209,9 @@ module.exports = {
         let imageParams = this.setImageParams(imageArgs);
         searchParams.keyword = keyword;
         if (dataStore && dataStore[0]) {
-          let text = this.pageParagraphs(obj,searchParams.headerKeywords,searchParams.count);
-          if (text.length) {
+          let text = obj.body.content;
+          searchParams.url = obj.url;
+          if (text && text.length) {
             let fallbackImageParams = this.setImageParams(imageParams);
             fallbackImageParams.limit = imageParams.fallbackLimit;
             this.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
@@ -2009,21 +2250,23 @@ module.exports = {
             if (data.length) data = shuffle(data);
             let obj = data.length ? rand(...data) : null;
             let text = obj.body.content;
-            console.log(text);
+            searchParams.url = obj.url;
             if (text && text.length) {
               let fallbackImageParams = this.setImageParams(imageParams);
               fallbackImageParams.limit = imageParams.fallbackLimit;
               this.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
                 this.videoPropertiesMultiple(text,searchParams,imageParams,fallbackImages).then(data => {
+                  let titleKeyword = searchParams.keywordList.length ? rand(...searchParams.keywordList) : keyword;
+                  let promoKeyword = searchParams.keywordList.length ? rand(...searchParams.keywordList) : keyword;
                   let slides = {
-                    title: pos.title(keyword,searchParams.keywordType,searchParams.template,data.count),
+                    title: pos.title(titleKeyword,searchParams.keywordType,searchParams.template,data.count),
                     category: searchParams.category,
                     privacy: searchParams.privacy,
                     clips: data.slides,
                     tags: pos.tags(searchParams.keywordList)
                   };
                   let intro = pos.intro(searchParams.template,searchParams.keywordList,searchParams.keywordPlural,searchParams.keywordDeterminer,searchParams.keywordNoun);
-                  let promo = pos.promo(searchParams.keyword,searchParams.link,searchParams.keywordDeterminer);
+                  let promo = pos.promo(promoKeyword,searchParams.link,searchParams.keywordDeterminer);
                   let license = pos.license(!data.credits.length);
                   let description = [];
                   if (promo) description.push(promo);
