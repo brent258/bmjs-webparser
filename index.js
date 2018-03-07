@@ -1278,9 +1278,7 @@ module.exports = {
       return '';
     }
     text = text
-    .replace(/^(\n|\s|\r|\t)+/g,'')
-    .replace(/(\n|\s|\r|\t)+$/g,'')
-    .replace(/(\n|\r|\t|\s+)/g,' ')
+    .replace(/\n([A-Z])/g,'. $1')
     .replace(/\[\d+\]/g,'')
     .replace(/\!+/g,'!')
     .replace(/\?+/g,'?')
@@ -1319,7 +1317,6 @@ module.exports = {
     if (sentence.match(/[a-z][A-Z]/)) return false;
     if (sentence.match(/[^a-zA-Z\s\,\/\-0-9]/)) return false;
     if (!sentence.match(/^[A-Z]/)) return false;
-    if (this.matchUrl(sentence,url)) return false;
     return true;
   },
 
@@ -1334,7 +1331,6 @@ module.exports = {
     if (!sentence.match(/\s[a-z]/)) return false;
     if (sentence.match(/[\%\$]/)) return false;
     if (sentence.match(/\b(the|these|this)\s+(below|following)\b/i)) return false;
-    if (this.matchUrl(sentence,url)) return false;
     return true;
   },
 
@@ -1444,21 +1440,36 @@ module.exports = {
     return [];
   },
 
-  extractBody: function($,url,filterText) {
+  extractBody: function($,url,minLength) {
     return new Promise((resolve,reject) => {
+      if (!minLength) minLength = 150;
       let title = this.parseHeader($('h1').first().text().trim() || $('h2').first().text().trim() || '');
       let objs = [];
       let self = this;
       $('*').each(function(i,el) {
-        let headerTags = (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'h5' || el.name === 'h6');
-        let subHeaderTags = (el.name === 'strong' || el.name === 'b') && (el.parentNode && el.parentNode.name && el.parentNode.name === 'div');
-        let headerSiblingTags = (el.nextSibling && el.nextSibling.name && (el.nextSibling.name === 'p' || el.nextSibling.name === 'ul' || el.nextSibling.name === 'ol')) || (el.nextSibling && el.nextSibling.type && el.nextSibling.type === 'text');
+        let headerTags = (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'h5' || el.name === 'h6') ? true : false;
+        let subHeaderTags = ((el.name === 'strong' || el.name === 'b') && (el.parentNode && el.parentNode.name && el.parentNode.name === 'div')) ? true : false;
+        let headerSiblingTags = (el.nextSibling && el.nextSibling.name && (el.nextSibling.name === 'p' || el.nextSibling.name === 'ul' || el.nextSibling.name === 'ol')) ? true : false;
+        if (headerTags) {
+          console.log(el.name);
+          console.log($(this).text());
+          console.log(headerTags);
+          console.log(subHeaderTags);
+          if (el.next && el.next.name) console.log(el.next.name);
+        }
+
         if ((headerTags || subHeaderTags) && headerSiblingTags) {
           let count = $(this).text() ? $(this).text().match(/^#*[1-9]+/g) !== null : false;
           let header = count ? '#' + self.parseHeader($(this).text().trim()) : self.parseHeader($(this).text().trim());
           objs.push({type: 'header', content: header});
         }
-        else if (el.name === 'p' && $(this).parent().text() && $(this).parent().text().length > 150) {
+        else if (el.name === 'p' && $(this).parent().text().length > minLength) {
+          objs.push({type: 'text', content: self.parseText($(this).text().trim())});
+        }
+        else if ((el.name === 'ul' || el.name === 'ol') && $(this).parent().text().length > minLength && el.firstChild && (!el.firstChild.firstChild || el.firstChild.firstChild.name !== 'a')) {
+          objs.push({type: 'text', content: self.parseText($(this).text().trim())});
+        }
+        else if (el.type === 'text' && el.parentNode.name === 'div' && $(this).parent().text().length > minLength) {
           objs.push({type: 'text', content: self.parseText($(this).text().trim())});
         }
       });
@@ -1476,79 +1487,7 @@ module.exports = {
       }
       let filteredObjs = [];
       for (let i = 0; i < content.length; i++) {
-        let filtered;
-        if (filterText || typeof filterText === 'undefined') {
-          filtered = this.filterBodyContent(content[i].text,url);
-        }
-        else {
-          filtered = content[i].text.split('|||||');
-        }
-        if (filtered.length) {
-          filteredObjs.push({text: filtered, header: content[i].header});
-        }
-      }
-      resolve({content: filteredObjs, title: title});
-    });
-  },
-
-  extractBodyContent: function($,url,filterText) {
-    return new Promise((resolve,reject) => {
-      setTimeout(() => {
-        reject('Server request timeout out parsing webpage: ' + url);
-      },this.timeout);
-      let title = this.parseHeader($('h1').first().text().trim() || $('h2').first().text().trim() || '');
-      let objs = [];
-      let self = this;
-      $('div').contents().each(function(i,el) {
-        if (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'h5' || el.name === 'h6' || el.name === 'strong' || el.name === 'b') {
-          objs.push({type: 'header', content: self.parseHeader($(this).text().trim())});
-        }
-        else if (el.name === 'p' || el.type === 'text') {
-          if (el.firstChild && (el.firstChild.name === 'strong' || el.firstChild.name === 'em' || el.firstChild.name === 'b' || el.firstChild.name === 'i')) {
-            if (el.firstChild.children && el.firstChild.children.length === 1 && el.firstChild.children[0].type === 'text') {
-              objs.push({type: 'header', content: self.parseHeader(el.firstChild.children[0].data)});
-              let text = $(this).text().replace(el.firstChild.children[0].data,'').trim();
-              objs.push({type: 'text', content: self.parseText(text)});
-            }
-          }
-          else if (!el.firstChild || (el.firstChild && el.firstChild.type && el.firstChild.type === 'text')) {
-            objs.push({type: 'text', content: self.parseText($(this).text().trim())});
-          }
-        }
-        else if (el.name === 'ul' || el.type === 'ol') {
-          let list = [];
-          for (let i = 0; i < el.children.length; i++) {
-            if (el.children[i].name === 'li') {
-              for (let j = 0; j < el.children[i].children.length; j++) {
-                if (j === 0 && el.children[i].children[j].type === 'text') {
-                  let text = el.children[i].children[j].data.trim();
-                  if (text) list.push(text);
-                }
-              }
-            }
-          }
-          if (list.length) objs.push({type: 'text', content: self.parseText(list.join(' '))});
-        }
-      });
-      let content = [];
-      let lastHeader = '';
-      for (let i = 0; i < objs.length; i++) {
-        if (objs[i].type === 'text') {
-          content.push({text: objs[i].content, header: lastHeader});
-        }
-        else if (objs[i].type === 'header') {
-          lastHeader = objs[i].content;
-        }
-      }
-      let filteredObjs = [];
-      for (let i = 0; i < content.length; i++) {
-        let filtered;
-        if (filterText || typeof filterText === 'undefined') {
-          filtered = this.filterBodyContent(content[i].text,url);
-        }
-        else {
-          filtered = content[i].text.split('|||||');
-        }
+        let filtered = this.filterBodyContent(content[i].text,url);
         if (filtered.length) {
           filteredObjs.push({text: filtered, header: content[i].header});
         }
@@ -1573,7 +1512,7 @@ module.exports = {
       request(options).then(html => {
         if (this.debug) console.log('Parsing webpage: ' + url);
         let $ = cheerio.load(html);
-        this.extractBody($,url,filterText).then(data => {
+        this.extractBody($,url,150).then(data => {
           let pageObject = {
             title: $('title').text() || '',
             description: $('meta[name="description"]').attr('content') || '',
@@ -1688,18 +1627,19 @@ module.exports = {
     return paragraphs;
   },
 
-  pageParagraphs: function(obj,headerKeywords,count) {
+  pageParagraphs: function(obj,headerKeywords,count,random) {
     if (!obj || !obj.body.content.length) {
       return null;
     }
     if (!headerKeywords) headerKeywords = null;
     if (!count) count = 10;
+    if (random === undefined) random = true;
     let data = obj.body.content;
     let paragraphs = [];
     let lastHeader;
     for (let i = 0; i < data.length; i++) {
       if (count < 1) break;
-      if (paragraphs.length && rand(true,false) === false) continue;
+      if (random && paragraphs.length && rand(true,false) === false) continue;
       if (headerKeywords) {
         let headerMatch = this.headerFromKeywordList(data[i].header,headerKeywords);
         let paragraph = {
