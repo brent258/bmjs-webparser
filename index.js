@@ -239,6 +239,11 @@ module.exports = {
     });
   },
 
+  existsBlacklistCache: function(keyword) {
+    if (fs.existsSync(this.cachePath + '/data/blacklist/' + keyword + '.json')) return true;
+    return false;
+  },
+
   createBlacklistCache: function(keyword) {
     return new Promise((resolve,reject) => {
       if (!keyword) {
@@ -327,6 +332,11 @@ module.exports = {
         }
       }
     });
+  },
+
+  existsTextCache: function(keyword) {
+    if (fs.existsSync(this.cachePath + '/data/text/' + keyword + '.json')) return true;
+    return false;
   },
 
   createTextCache: function(keyword) {
@@ -461,6 +471,11 @@ module.exports = {
         }
       }
     });
+  },
+
+  existsImageCache: function(keyword) {
+    if (fs.existsSync(this.cachePath + '/data/images/' + keyword + '.json')) return true;
+    return false;
   },
 
   createImageCache: function(keyword) {
@@ -1655,12 +1670,11 @@ module.exports = {
 
   amazonResultLinks: function($,keyword) {
     let links = [];
-    $('.a-link-normal.s-access-detail-page.s-color-twister-title-link.a-text-normal').each(function(i,el) {
-      if ($(this).attr('href').match(/(http:|https:)/g)) {
-        let url = $(this).attr('href');
-        let text = $(this).text();
-        links.push({url: url, text: text, keyword: keyword});
-      }
+    $('.s-result-item.celwidget:not(.AdHolder)').each(function(i,el) {
+      let asin = $(this).attr('data-asin');
+      let url = $(this).find('.a-link-normal.s-access-detail-page.s-color-twister-title-link.a-text-normal').attr('href');
+      let text = $(this).find('.a-link-normal.s-access-detail-page.s-color-twister-title-link.a-text-normal').text();
+      links.push({url: url, text: text, keyword: keyword, asin: asin});
     });
     return links;
   },
@@ -1819,7 +1833,7 @@ module.exports = {
       return $(this).attr('title').replace(/Click\sto\sselect\s/,'');
     }).get();
     obj.features = $('#feature-bullets li').map(function(i,el) {
-      return $(this).text().trim();
+      return $(this).text().replace(/\n\W+/g,' ').replace(/\s+/g,' ').trim();
     }).get();
     $('#detailBullets_feature_div li').each(function(i,el) {
       let text = $(this).text().replace(/\n/g,'').replace(/\s+/g,' ').trim();
@@ -1863,8 +1877,9 @@ module.exports = {
         for (let i = 0; i < imageData.length; i++) {
           let imageSizes = imageData[i].split(',');
           for (let j = 0; j < imageSizes.length; j++) {
-            if (imageSizes[j].match(/"hiRes"/)) {
+            if (!imageSizes[j].match(/"hiRes":null/g) && imageSizes[j].match(/"hiRes":"(.+)"/g)) {
               let img = imageSizes[j].replace(/"hiRes":"(.+)"/,'$1');
+              if (!img.match(/^http.+\.jpg$/g)) continue;
               let imgObject = {
                 image: img,
                 url: img,
@@ -1872,7 +1887,7 @@ module.exports = {
                 author: obj.brand,
                 width: 0,
                 height: 0,
-                description: obj.description,
+                description: '',
                 filename: path.basename(img.split('?')[0]),
                 search: [],
                 tags: [],
@@ -1881,8 +1896,9 @@ module.exports = {
               obj.images.push(imgObject);
               break;
             }
-            else if (imageSizes[j].match(/"large"/)) {
+            else if (!imageSizes[j].match(/"large":null/g) && imageSizes[j].match(/"large":"(.+)"/g)) {
               let img = imageSizes[j].replace(/"large":"(.+)"/,'$1');
+              if (!img.match(/^http.+\.jpg$/g)) continue;
               let imgObject = {
                 image: img,
                 url: img,
@@ -1890,7 +1906,7 @@ module.exports = {
                 author: obj.brand,
                 width: 0,
                 height: 0,
-                description: obj.description,
+                description: '',
                 filename: path.basename(img.split('?')[0]),
                 search: [],
                 tags: [],
@@ -1903,54 +1919,38 @@ module.exports = {
         }
       }
     });
+    if (!obj.images.length) return null;
     return obj;
   },
 
   amazonProduct: function(link) {
     return new Promise((resolve,reject) => {
-      if (!link || !link.text || !link.url || !link.keyword) {
+      if (!link || !link.text || !link.url || !link.keyword || !link.asin) {
         reject('Unable to download Amazon page without link object.');
       }
       else {
-        let options = {
-          method: 'GET',
-          uri: link.url,
-          gzip: true,
-          headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
-        };
-        let proxy = this.amazonProxy();
-        if (proxy) {
-          options.proxy = proxy;
+        if (this.existsImageCache(link.asin)) {
+          let msg = 'Amazon product already exists in image cache: ' + link.text;
+          resolve({msg: msg, count: 0});
+        }
+        else if (this.existsBlacklistCache(link.asin)) {
+          let msg = 'Amazon product already exists in blacklist cache: ' + link.text;
+          resolve({msg: msg, count: 0});
         }
         else {
-          if (this.debug) console.log('WARNING: Proxies currently not set.');
-        }
-        this.readTextCache(link.keyword).then(text => {
-          text = JSON.parse(text);
-          if (this.objectPropertyInArray('url',link,text)) {
-            resolve('Amazon product already exists in cache: ' + link.text);
+          let options = {
+            method: 'GET',
+            uri: link.url,
+            gzip: true,
+            headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
+          };
+          let proxy = this.amazonProxy();
+          if (proxy) {
+            options.proxy = proxy;
           }
           else {
-            request(options).then(html => {
-              if (this.debug) console.log('Loading Amazon product page: ' + link.text);
-              let $ = cheerio.load(html);
-              let obj = this.parseAmazonProduct($,link.url);
-              if (obj) {
-                this.updateTextCache(obj,link.keyword).then(textData => {
-                  if (this.debug) console.log(textData);
-                  this.updateImageCacheMultiple(obj.images,obj.title,false).then(imageData => {
-                    if (this.debug) console.log(imageData);
-                    resolve('Finished adding Amazon product to text and image cache: ' + link.text);
-                  }).catch(err => reject(err));
-                }).catch(err => reject(err));
-              }
-              else {
-                reject('No Amazon product found to add to text and image cache: ' + link.text);
-              }
-            }).catch(err => reject(err));
+            if (this.debug) console.log('WARNING: Proxies currently not set.');
           }
-        }).catch(err => {
-          if (this.debug) console.log(err);
           request(options).then(html => {
             if (this.debug) console.log('Loading Amazon product page: ' + link.text);
             let $ = cheerio.load(html);
@@ -1958,44 +1958,52 @@ module.exports = {
             if (obj) {
               this.updateTextCache(obj,link.keyword).then(textData => {
                 if (this.debug) console.log(textData);
-                this.updateImageCacheMultiple(obj.images,obj.title,false).then(imageData => {
+                this.updateImageCacheMultiple(obj.images,link.asin,false).then(imageData => {
                   if (this.debug) console.log(imageData);
-                  resolve('Finished adding Amazon product to text and image cache: ' + link.text);
+                  let msg = 'Finished adding Amazon product to text and image cache: ' + link.text;
+                  resolve({msg: msg, count: 1});
                 }).catch(err => reject(err));
               }).catch(err => reject(err));
             }
             else {
-              reject('No Amazon product found to add to text and image cache: ' + link.text);
+              this.updateBlacklistCache(link.url,link.asin).then(msg => {
+                if (this.debug) console.log(msg);
+                reject('No Amazon product found to add to text and image cache: ' + link.text);
+              }).catch(err => reject(err));
             }
           }).catch(err => reject(err));
-        });
+        }
       }
     });
   },
 
-  amazonProductMultiple: function(links) {
+  amazonProductMultiple: function(links,count) {
     return new Promise((resolve,reject) => {
       if (!links) {
         reject('Unable to download Amazon pages without link object array.');
       }
       else if (links[0]) {
+        if (!count) count = 0;
         this.amazonProduct(links[0]).then(data => {
-          if (this.debug) console.log(data);
+          if (this.debug) console.log(data.msg);
+          count += data.count;
           links.shift();
           if (links.length) {
-            this.amazonProductMultiple(links).then(data => resolve(data)).catch(err => reject(err));
+            this.amazonProductMultiple(links,count).then(data => resolve(data)).catch(err => reject(err));
           }
           else {
-            resolve('Finished downloading multiple Amazon pages.');
+            let msg = `Finished downloading ${count} Amazon pages.`;
+            resolve({msg: msg, count: count});
           }
         }).catch(err => {
           if (this.debug) console.log(err);
           links.shift();
           if (links.length) {
-            this.amazonProductMultiple(links).then(data => resolve(data)).catch(err => reject(err));
+            this.amazonProductMultiple(links,count).then(data => resolve(data)).catch(err => reject(err));
           }
           else {
-            resolve('Finished downloading multiple Amazon pages.');
+            let msg = `Finished downloading ${count} Amazon pages.`;
+            resolve({msg: msg, count: count});
           }
         })
       }
@@ -2013,11 +2021,10 @@ module.exports = {
         if (!limit) limit = 1;
         if (!pages) pages = 0;
         this.amazonSearch(keyword,searchParams.minResult,searchParams.maxResult).then(data => {
-          let dataCount = data.length;
-          this.amazonProductMultiple(data).then(msg => {
-            if (this.debug) console.log(msg);
+          this.amazonProductMultiple(data).then(products => {
+            if (this.debug) console.log(products.msg);
             searchArgs.minResult += 1;
-            pages += dataCount;
+            pages += products.count;
             limit--;
             if (limit > 0) {
               this.amazonPages(keyword,searchArgs,limit,pages).then(data => resolve(data)).catch(err => reject(err));
@@ -2046,7 +2053,7 @@ module.exports = {
               reject(err);
             }
           }
-        })
+        });
       }
     });
   },

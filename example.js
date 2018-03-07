@@ -25,7 +25,7 @@ let imageParams = {
   fallback: 'dogs',
   template: ''
 };
-wp.amazonPages('batman').then(data => console.log(data)).catch(err => console.log(err));
+wp.amazonPages('batman',null,1).then(data => console.log(data)).catch(err => console.log(err));
 /*wp.amazonProduct({ url: 'https://www.amazon.com/Superhero-Costume-Dress-Up-Kids/dp/B076VQSFBT/ref=sr_1_9/134-9751470-1839260?ie=UTF8&qid=1520296356&sr=8-9&keywords=batman',
     text: 'Funhall Superhero Costume and Dress Up for Kids - Satin Cape and Felt Mask',
     keyword: 'batman' }).then(data => console.log(data)).catch(err => console.log(err));*/
