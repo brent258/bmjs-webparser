@@ -25,7 +25,8 @@ let imageParams = {
   fallback: 'dogs',
   template: ''
 };
-wp.amazonPages('batman',null,1).then(data => console.log(data)).catch(err => console.log(err));
-/*wp.amazonProduct({ url: 'https://www.amazon.com/Superhero-Costume-Dress-Up-Kids/dp/B076VQSFBT/ref=sr_1_9/134-9751470-1839260?ie=UTF8&qid=1520296356&sr=8-9&keywords=batman',
-    text: 'Funhall Superhero Costume and Dress Up for Kids - Satin Cape and Felt Mask',
-    keyword: 'batman' }).then(data => console.log(data)).catch(err => console.log(err));*/
+//wp.amazonPages('slow feed dog bowl',null,1).then(data => console.log(data)).catch(err => console.log(err));
+wp.webpage('https://www.homesalive.ca/blog/dogs-that-dont-shed-23-hypoallergenic-dog-breeds/').then(page => {
+  let content = wp.pageParagraphs(page,searchParams.headerKeywords);
+  console.log(content);
+}).catch(err => console.log(err));

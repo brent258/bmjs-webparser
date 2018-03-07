@@ -1444,6 +1444,53 @@ module.exports = {
     return [];
   },
 
+  extractBody: function($,url,filterText) {
+    return new Promise((resolve,reject) => {
+      let title = this.parseHeader($('h1').first().text().trim() || $('h2').first().text().trim() || '');
+      let objs = [];
+      let self = this;
+      $('*').each(function(i,el) {
+        let headerTags = (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'h5' || el.name === 'h6');
+        let subHeaderTags = (el.name === 'strong' || el.name === 'b') && (el.parentNode && el.parentNode.name && el.parentNode.name === 'div');
+        let headerSiblingTags = (el.nextSibling && el.nextSibling.name && (el.nextSibling.name === 'p' || el.nextSibling.name === 'ul' || el.nextSibling.name === 'ol')) || (el.nextSibling && el.nextSibling.type && el.nextSibling.type === 'text');
+        if ((headerTags || subHeaderTags) && headerSiblingTags) {
+          let count = $(this).text() ? $(this).text().match(/^#*[1-9]+/g) !== null : false;
+          let header = count ? '#' + self.parseHeader($(this).text().trim()) : self.parseHeader($(this).text().trim());
+          objs.push({type: 'header', content: header});
+        }
+        else if (el.name === 'p' && $(this).parent().text() && $(this).parent().text().length > 150) {
+          objs.push({type: 'text', content: self.parseText($(this).text().trim())});
+        }
+      });
+      let content = [];
+      let lastHeader = '';
+      for (let i = 0; i < objs.length; i++) {
+        if (objs[i].type === 'text') {
+          let count = (lastHeader && lastHeader.match(/^#/g)) ? 1 : 0;
+          let header = (lastHeader && lastHeader.match(/^#/g)) ? lastHeader.replace(/^#/,'') : lastHeader;
+          content.push({text: objs[i].content, header: header});
+        }
+        else if (objs[i].type === 'header') {
+          lastHeader = objs[i].content;
+        }
+      }
+      let filteredObjs = [];
+      for (let i = 0; i < content.length; i++) {
+        let filtered;
+        if (filterText || typeof filterText === 'undefined') {
+          filtered = this.filterBodyContent(content[i].text,url);
+        }
+        else {
+          filtered = content[i].text.split('|||||');
+        }
+        if (filtered.length) {
+          filteredObjs.push({text: filtered, header: content[i].header});
+        }
+      }
+      resolve({content: filteredObjs, title: title});
+    });
+  },
+
   extractBodyContent: function($,url,filterText) {
     return new Promise((resolve,reject) => {
       setTimeout(() => {
@@ -1526,7 +1573,7 @@ module.exports = {
       request(options).then(html => {
         if (this.debug) console.log('Parsing webpage: ' + url);
         let $ = cheerio.load(html);
-        this.extractBodyContent($,url,filterText).then(data => {
+        this.extractBody($,url,filterText).then(data => {
           let pageObject = {
             title: $('title').text() || '',
             description: $('meta[name="description"]').attr('content') || '',
@@ -1642,7 +1689,48 @@ module.exports = {
   },
 
   pageParagraphs: function(obj,headerKeywords,count) {
-    return obj.body.content;
+    if (!obj || !obj.body.content.length) {
+      return null;
+    }
+    if (!headerKeywords) headerKeywords = null;
+    if (!count) count = 10;
+    let data = obj.body.content;
+    let paragraphs = [];
+    let lastHeader;
+    for (let i = 0; i < data.length; i++) {
+      if (count < 1) break;
+      if (paragraphs.length && rand(true,false) === false) continue;
+      if (headerKeywords) {
+        let headerMatch = this.headerFromKeywordList(data[i].header,headerKeywords);
+        let paragraph = {
+          text: data[i].text,
+          header: headerMatch ? pos.titlecase(headerMatch) : data[i].header,
+          keyword: headerMatch ? headerMatch : '',
+          url: obj.url,
+          count: (lastHeader !== data[i].header && (headerMatch || data[i].count)) ? 1 : 0
+        };
+        if (data[i].text.length > 0) {
+          lastHeader = data[i].header;
+          paragraphs.push(paragraph);
+          count--;
+        }
+      }
+      else {
+        let paragraph = {
+          text: data[i].text,
+          header: data[i].header,
+          keyword: '',
+          url: obj.url,
+          count: (lastHeader !== data[i].header && data[i].count) ? 1 : 0
+        };
+        if (data[i].text.length > 0) {
+          lastHeader = data[i].header;
+          paragraphs.push(paragraph);
+          count--;
+        }
+      }
+    }
+    return paragraphs;
   },
 
   resultLinks: function($,searchSource) {
@@ -2023,11 +2111,11 @@ module.exports = {
         this.amazonSearch(keyword,searchParams.minResult,searchParams.maxResult).then(data => {
           this.amazonProductMultiple(data).then(products => {
             if (this.debug) console.log(products.msg);
-            searchArgs.minResult += 1;
+            searchParams.minResult += 1;
             pages += products.count;
             limit--;
             if (limit > 0) {
-              this.amazonPages(keyword,searchArgs,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+              this.amazonPages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
             }
             else {
               if (pages) {
@@ -2040,10 +2128,10 @@ module.exports = {
           }).catch(err => reject(err));
         }).catch(err => {
           if (this.debug) console.log(err);
-          searchArgs.minResult += 1;
+          searchParams.minResult += 1;
           limit--;
           if (limit > 0) {
-            this.amazonPages(keyword,searchArgs,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+            this.amazonPages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
           }
           else {
             if (pages) {
@@ -2266,7 +2354,7 @@ module.exports = {
     if (!imageParams.options) imageParams.options = ['medium','commercial'];
     if (!imageParams.tags) imageParams.tags = [];
     if (imageParams.crop === undefined) imageParams.crop = true;
-    if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = true;
+    if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = false;
     if (imageParams.exact === undefined) imageParams.exact = true;
     if (!imageParams.limit) imageParams.limit = 1;
     if (!imageParams.fallbackLimit) imageParams.fallbackLimit = 20;
@@ -2301,6 +2389,7 @@ module.exports = {
     if (!searchParams.keywordList) searchParams.keywordList = [];
     if (!searchParams.link) searchParams.link = '';
     if (searchParams.amazon === undefined) searchParams.amazon = false;
+    if (searchParams.cacheOnly === undefined) searchParams.cacheOnly = false;
     return searchParams;
   },
 
@@ -2464,18 +2553,19 @@ module.exports = {
         reject('Unable to search for pages without keyword.');
       }
       else {
-        let searchParams = this.setSearchParams(searchArgs);
+        if (!searchArgs) searchArgs = this.setSearchParams();
+        searchParams = this.setSearchParams(searchArgs);
         if (!limit) limit = 1;
         if (!pages) pages = 0;
         this.search(keyword,searchParams.minResult,searchParams.maxResult).then(results => {
           this.downloadResults(results).then(text => {
             let textCount = text.length;
             this.updateTextCacheMultiple(text,keyword).then(data => {
-              searchArgs.minResult += 10;
+              searchParams.minResult += 10;
               pages += textCount;
               limit--;
               if (limit > 0) {
-                this.pages(keyword,searchArgs,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+                this.pages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
               }
               else {
                 if (pages) {
@@ -2487,10 +2577,10 @@ module.exports = {
               }
             }).catch(err => reject(err));
           }).catch(err => {
-            searchArgs.minResult += 10;
+            searchParams.minResult += 10;
             limit--;
             if (limit > 0) {
-              this.pages(keyword,searchArgs,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+              this.pages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
             }
             else {
               if (pages) {
