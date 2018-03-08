@@ -26,7 +26,7 @@ let imageParams = {
   template: ''
 };
 //wp.amazonPages('slow feed dog bowl',null,1).then(data => console.log(data)).catch(err => console.log(err));
-wp.webpage('https://www.wikihow.com/Train-a-Dog').then(page => {
+wp.webpage('https://www.cesarsway.com/dog-training/obedience/5-essential-commands-you-can-teach-your-dog').then(page => {
   let content = wp.pageParagraphs(page,searchParams.headerKeywords);
   console.log(content);
 }).catch(err => console.log(err));

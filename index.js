@@ -1278,7 +1278,7 @@ module.exports = {
       return '';
     }
     text = text
-    .replace(/\n([A-Z])/g,'. $1')
+    .replace(/\n([A-Z])/g,': $1')
     .replace(/\[\d+\]/g,'')
     .replace(/\!+/g,'!')
     .replace(/\?+/g,'?')
@@ -1448,7 +1448,7 @@ module.exports = {
           let text = self.parseText($(this).text().trim());
           if (text) objs.push({type: 'text', content: text});
         }
-        else if (el.type === 'text' && el.parentNode.name === 'div' && $(this).parent().text().length > minLength) {
+        else if (el.type === 'text' && el.parentNode && el.parentNode.name && el.parentNode.name === 'div' && $(this).parent().text().length > minLength) {
           let text = self.parseText($(this).text().trim());
           if (text) objs.push({type: 'text', content: text});
         }
@@ -1611,7 +1611,7 @@ module.exports = {
 
   pageParagraphs: function(obj,headerKeywords,count,random) {
     if (!obj || !obj.body.content.length) {
-      return null;
+      return [];
     }
     if (!headerKeywords) headerKeywords = null;
     if (!count) count = 10;
