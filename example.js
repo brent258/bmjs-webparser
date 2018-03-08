@@ -26,7 +26,7 @@ let imageParams = {
   template: ''
 };
 //wp.amazonPages('slow feed dog bowl',null,1).then(data => console.log(data)).catch(err => console.log(err));
-wp.webpage('https://www.homesalive.ca/blog/dogs-that-dont-shed-23-hypoallergenic-dog-breeds/').then(page => {
+wp.webpage('https://www.wikihow.com/Train-a-Dog').then(page => {
   let content = wp.pageParagraphs(page,searchParams.headerKeywords);
   console.log(content);
 }).catch(err => console.log(err));
