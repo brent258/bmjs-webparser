@@ -19,14 +19,11 @@ let searchParams = {
 };
 let imageParams = {
   match: true,
-  cacheOnly: false,
+  cacheOnly: true,
   search: 'google',
   limit: 2,
   fallback: 'dogs',
   template: ''
 };
 
-wp.pages('non shedding dogs').then(msg => {
-  console.log(msg);
-  wp.video('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
-}).catch(err => console.log(err));
+wp.video('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));

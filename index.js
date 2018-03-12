@@ -2104,6 +2104,7 @@ module.exports = {
         if (!keywordStore) keywordStore = [];
         let slides = [];
         let credits = [];
+        let count = obj.count;
         let useFallback = obj.keyword ? false : true;
         let keyword = useFallback ? imageParams.fallback : obj.keyword;
         let titleFallback = searchParams.keywordList.length ? pos.titlecase(rand(...searchParams.keywordList)) : pos.titlecase(searchParams.keyword);
@@ -2201,7 +2202,7 @@ module.exports = {
           }
           if (slides.length) {
             if (this.debug) console.log('Resolving video properties: ' + keyword);
-            resolve({slides: slides, credits: credits});
+            resolve({slides: slides, credits: credits, count: count});
           }
           else {
             reject('No video properties found from: ' + obj.url);
@@ -2222,7 +2223,8 @@ module.exports = {
         if (!keywordStore) keywordStore = [];
         if (!slideStore) slideStore = {
           slides: [],
-          credits: []
+          credits: [],
+          count: 0
         };
         if (!index) index = 0;
         let firstSlide = false;
@@ -2231,6 +2233,7 @@ module.exports = {
           this.videoProperties(objs[index],searchParams,imageParams,fallbackImages,keywordStore,firstSlide).then(data => {
             slideStore.slides = slideStore.slides.concat(data.slides);
             slideStore.credits = slideStore.credits.concat(data.credits);
+            slideStore.count += data.count;
             index++;
             if (index >= objs.length) {
               if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.url);
@@ -2380,7 +2383,6 @@ module.exports = {
               let fallbackImageParams = this.setImageParams(imageParams);
               fallbackImageParams.limit = imageParams.fallbackLimit;
               this.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
-                console.log(fallbackImages);
                 this.videoPropertiesMultiple(text,searchParams,imageParams,fallbackImages).then(data => {
                   let titleKeyword = searchParams.keywordList.length ? rand(...searchParams.keywordList) : keyword;
                   let promoKeyword = searchParams.keywordList.length ? rand(...searchParams.keywordList) : keyword;
