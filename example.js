@@ -15,18 +15,18 @@ let searchParams = {
   keywordNoun: 'types of dogs',
   keywordList: ['dogs that don\'t shed','non shedding dogs','hypoallergenic dogs'],
   link: 'http://heartmydog.com',
-  amazon: true
+  amazon: false
 };
 let imageParams = {
   match: true,
-  cacheOnly: true,
+  cacheOnly: false,
   search: 'google',
   limit: 2,
   fallback: 'dogs',
   template: ''
 };
-//wp.amazonPages('slow feed dog bowl',null,1).then(data => console.log(data)).catch(err => console.log(err));
-wp.webpage('https://www.cesarsway.com/dog-training/obedience/5-essential-commands-you-can-teach-your-dog').then(page => {
-  let content = wp.pageParagraphs(page,searchParams.headerKeywords);
-  console.log(content);
+
+wp.pages('non shedding dogs').then(msg => {
+  console.log(msg);
+  wp.video('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
 }).catch(err => console.log(err));

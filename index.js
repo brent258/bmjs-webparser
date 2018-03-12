@@ -1167,7 +1167,7 @@ module.exports = {
             }
             if (this.debug) console.log('Resolving images: ' + keyword);
             resolve(filtered);
-          }).catch(error => reject(err));
+          }).catch(err => reject(err));
         }
         else {
           if (imageParams.search === 'google') {
@@ -1478,11 +1478,12 @@ module.exports = {
     });
   },
 
-  webpage: function(url,filterText) {
+  webpage: function(url,minLength) {
     return new Promise((resolve,reject) => {
       setTimeout(() => {
         reject('Server request timeout out at: ' + url);
       },this.timeout);
+      if (!minLength) minLength = 150;
       let options = {
         method: 'GET',
         uri: url,
@@ -1494,7 +1495,7 @@ module.exports = {
       request(options).then(html => {
         if (this.debug) console.log('Parsing webpage: ' + url);
         let $ = cheerio.load(html);
-        this.extractBody($,url,150).then(data => {
+        this.extractBody($,url,minLength).then(data => {
           let pageObject = {
             title: $('title').text() || '',
             description: $('meta[name="description"]').attr('content') || '',
@@ -1621,6 +1622,14 @@ module.exports = {
     let lastHeader;
     for (let i = 0; i < data.length; i++) {
       if (count < 1) break;
+      if (paragraphs.length && paragraphs[paragraphs.length-1].header === data[i].header) {
+        paragraphs[paragraphs.length-1].text = paragraphs[paragraphs.length-1].text.concat(data[i].text);
+        continue;
+      }
+      else if (headerKeywords && paragraphs.length && paragraphs[paragraphs.length-1].header === pos.titlecase(this.headerFromKeywordList(data[i].header,headerKeywords))) {
+        paragraphs[paragraphs.length-1].text = paragraphs[paragraphs.length-1].text.concat(data[i].text);
+        continue;
+      }
       if (random && paragraphs.length && rand(true,false) === false) continue;
       if (headerKeywords) {
         let headerMatch = this.headerFromKeywordList(data[i].header,headerKeywords);
@@ -2197,9 +2206,7 @@ module.exports = {
           else {
             reject('No video properties found from: ' + obj.url);
           }
-        }).catch(err => {
-          reject(err);
-        });
+        }).catch(err => reject(err));
       }
     });
   },
@@ -2313,7 +2320,7 @@ module.exports = {
         let imageParams = this.setImageParams(imageArgs);
         searchParams.keyword = keyword;
         if (dataStore && dataStore[0]) {
-          let text = obj.amazon ? obj.description : obj.body.content;
+          let text = obj.amazon ? obj.description : this.pageParagraphs(obj,searchParams.headerKeywords,searchParams.count,true);
           searchParams.url = obj.url;
           if (text && text.length) {
             let fallbackImageParams = this.setImageParams(imageParams);
@@ -2366,12 +2373,14 @@ module.exports = {
               }
             }
             let obj = rand(...data);
-            let text = obj.amazon ? obj.description : obj.body.content;
+            let text = obj.amazon ? obj.description : this.pageParagraphs(obj,searchParams.headerKeywords,searchParams.count,true);
             searchParams.url = obj.url;
             if (text && text.length) {
+              console.log(text);
               let fallbackImageParams = this.setImageParams(imageParams);
               fallbackImageParams.limit = imageParams.fallbackLimit;
               this.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
+                console.log(fallbackImages);
                 this.videoPropertiesMultiple(text,searchParams,imageParams,fallbackImages).then(data => {
                   let titleKeyword = searchParams.keywordList.length ? rand(...searchParams.keywordList) : keyword;
                   let promoKeyword = searchParams.keywordList.length ? rand(...searchParams.keywordList) : keyword;
