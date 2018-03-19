@@ -2035,9 +2035,8 @@ module.exports = {
         reject('Unable to search for Amazon pages without keyword.');
       }
       else {
-        if (!searchArgs) searchArgs = this.setSearchParams();
-        searchParams = this.setSearchParams(searchArgs);
-        if (!limit) limit = 1;
+        let searchParams = this.setSearchParams(searchArgs);
+        if (!limit) limit = searchParams.count;
         if (!pages) pages = 0;
         this.amazonSearch(keyword,searchParams.minResult,searchParams.maxResult).then(data => {
           this.amazonProductMultiple(data).then(products => {
@@ -2281,6 +2280,8 @@ module.exports = {
     if (!imageParams.page) imageParams.page = 1;
     if (!imageParams.maxTries) imageParams.maxTries = 5;
     if (!imageParams.googleDomain) imageParams.googleDomain = 'com.au';
+    if (!imageParams.tagline) imageParams.tagline = '';
+    if (!imageParams.logo) imageParams.logo = '';
     return imageParams;
   },
 
@@ -2296,7 +2297,7 @@ module.exports = {
     if (!searchParams.template) searchParams.template = 'facts';
     if (!searchParams.count) searchParams.count = 1;
     if (!searchParams.category) searchParams.category = 0;
-    if (!searchParams.privacy) searchParams.privacy = 'Public';
+    if (!searchParams.privacy) searchParams.privacy = 'public';
     if (searchParams.exact === undefined) searchParams.exact = true;
     if (searchParams.subSections === undefined) searchParams.subSections = true;
     if (searchParams.matchSections === undefined) searchParams.matchSections = true;
@@ -2310,6 +2311,58 @@ module.exports = {
     if (!searchParams.link) searchParams.link = '';
     if (searchParams.amazon === undefined) searchParams.amazon = false;
     if (searchParams.cacheOnly === undefined) searchParams.cacheOnly = false;
+    return searchParams;
+  },
+
+  overrideImageParams: function(imageArgs,overrideArgs) {
+    let imageParams = this.setImageParams(imageArgs);
+    if (overrideArgs && typeof overrideArgs === 'object') {
+      if (overrideArgs.fallback) imageParams.fallback = overrideArgs.fallback;
+      if (overrideArgs.template) imageParams.template = overrideArgs.template;
+      if (overrideArgs.search) imageParams.search = overrideArgs.search;
+      if (overrideArgs.options) imageParams.options = overrideArgs.options;
+      if (overrideArgs.tags) imageParams.tags = overrideArgs.tags;
+      if (overrideArgs.crop !== undefined) imageParams.crop = overrideArgs.crop;
+      if (overrideArgs.cacheOnly !== undefined) imageParams.cacheOnly = overrideArgs.cacheOnly;
+      if (overrideArgs.exact !== undefined) imageParams.exact = overrideArgs.exact;
+      if (overrideArgs.limit) imageParams.limit = overrideArgs.limit;
+      if (overrideArgs.fallbackLimit) imageParams.fallbackLimit = overrideArgs.fallbackLimit;
+      if (overrideArgs.page) imageParams.page = overrideArgs.page;
+      if (overrideArgs.maxTries) imageParams.maxTries = overrideArgs.maxTries;
+      if (overrideArgs.googleDomain) imageParams.googleDomain = overrideArgs.googleDomain;
+      if (overrideArgs.tagline) imageParams.tagline = overrideArgs.tagline;
+      if (overrideArgs.logo) imageParams.logo = overrideArgs.logo;
+    }
+    return imageParams;
+  },
+
+  overrideSearchParams: function(searchArgs,overrideArgs) {
+    let searchParams = this.setSearchParams(searchArgs);
+    if (overrideArgs && typeof overrideArgs === 'object') {
+      if (overrideArgs.minResult) searchParams.minResult = overrideArgs.minResult;
+      if (overrideArgs.maxResult) searchParams.maxResult = overrideArgs.maxResult;
+      if (searchParams.maxResult < searchParams.minResult) searchParams.maxResult = searchParams.minResult;
+      if (overrideArgs.minSections) searchParams.minSections = overrideArgs.minSections;
+      if (overrideArgs.maxSections) searchParams.maxSections = overrideArgs.maxSections;
+      if (overrideArgs.maxTries) searchParams.maxTries = overrideArgs.maxTries;
+      if (overrideArgs.template) searchParams.template = overrideArgs.template;
+      if (overrideArgs.count) searchParams.count = overrideArgs.count;
+      if (overrideArgs.category) searchParams.category = overrideArgs.category;
+      if (overrideArgs.privacy) searchParams.privacy = overrideArgs.privacy;
+      if (overrideArgs.exact !== undefined) searchParams.exact = overrideArgs.exact;
+      if (overrideArgs.subSections !== undefined) searchParams.subSections = overrideArgs.subSections;
+      if (overrideArgs.matchSections !== undefined) searchParams.matchSections = overrideArgs.matchSections;
+      if (overrideArgs.headerKeywords) searchParams.headerKeywords = overrideArgs.headerKeywords;
+      if (overrideArgs.textKeywords) searchParams.textKeywords = overrideArgs.textKeywords;
+      if (overrideArgs.keywordType) searchParams.keywordType = overrideArgs.keywordType;
+      if (overrideArgs.keywordPlural !== undefined) searchParams.keywordPlural = overrideArgs.keywordPlural;
+      if (overrideArgs.keywordDeterminer) searchParams.keywordDeterminer = overrideArgs.keywordDeterminer;
+      if (overrideArgs.keywordNoun) searchParams.keywordNoun = overrideArgs.keywordNoun;
+      if (overrideArgs.keywordList) searchParams.keywordList = overrideArgs.keywordList;
+      if (overrideArgs.link) searchParams.link = overrideArgs.link;
+      if (overrideArgs.amazon !== undefined) searchParams.amazon = overrideArgs.amazon;
+      if (overrideArgs.cacheOnly !== undefined) searchParams.cacheOnly = overrideArgs.cacheOnly;
+    }
     return searchParams;
   },
 
@@ -2379,7 +2432,6 @@ module.exports = {
             let text = obj.amazon ? obj.description : this.pageParagraphs(obj,searchParams.headerKeywords,searchParams.count,true);
             searchParams.url = obj.url;
             if (text && text.length) {
-              console.log(text);
               let fallbackImageParams = this.setImageParams(imageParams);
               fallbackImageParams.limit = imageParams.fallbackLimit;
               this.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
@@ -2474,9 +2526,8 @@ module.exports = {
         reject('Unable to search for pages without keyword.');
       }
       else {
-        if (!searchArgs) searchArgs = this.setSearchParams();
-        searchParams = this.setSearchParams(searchArgs);
-        if (!limit) limit = 1;
+        let searchParams = this.setSearchParams(searchArgs);
+        if (!limit) limit = searchParams.count;
         if (!pages) pages = 0;
         this.search(keyword,searchParams.minResult,searchParams.maxResult).then(results => {
           this.downloadResults(results).then(text => {

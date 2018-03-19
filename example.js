@@ -19,11 +19,17 @@ let searchParams = {
 };
 let imageParams = {
   match: true,
-  cacheOnly: true,
+  cacheOnly: false,
   search: 'google',
   limit: 2,
   fallback: 'dogs',
   template: ''
 };
 
-wp.video('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
+
+console.log(wp.overrideImageParams(null,{fallback: 'poodle'}));
+console.log(wp.overrideSearchParams(null,{keywordList: ['poodle']}));
+/*wp.pages('non shedding dogs').then(msg => {
+  console.log(msg);
+  wp.video('non shedding dogs',searchParams,imageParams,{keywordList: ['cool dogs that don\'t shed','cool non shedding dogs','best hypoallergenic dogs']}).then(data => console.log(data)).catch(err => console.log(err));
+}).catch(err => console.log(err));*/

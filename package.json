@@ -11,7 +11,7 @@
     "url": "git+https://github.com/brent258/bmjs-webparser.git"
   },
   "keywords": [
-    "PKG",
+    "web",
     "javascript",
     "nodejs"
   ],
@@ -26,9 +26,10 @@
     "mocha": "^4.1.0"
   },
   "dependencies": {
-    "bmjs-engpos": "^1.2.0",
-    "bmjs-random": "^1.0.0",
-    "bmjs-shuffle": "^1.0.0",
+    "bmjs-engpos": "latest",
+    "bmjs-fcpxml": "latest",
+    "bmjs-random": "latest",
+    "bmjs-shuffle": "latest",
     "cheerio": "^1.0.0-rc.2",
     "jimp": "^0.2.28",
     "request": "^2.83.0",
