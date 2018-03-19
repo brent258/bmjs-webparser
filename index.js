@@ -2316,6 +2316,7 @@ module.exports = {
     if (!searchParams.images) searchParams.images = __dirname + '/cache/images/';
     if (!searchParams.voice) searchParams.voice = 'karen';
     if (!searchParams.project) searchParams.project = 'My Project';
+    if (!searchParams.clips) searchParams.clips = 'clips-metadata.json';
     return searchParams;
   },
 
@@ -2371,6 +2372,7 @@ module.exports = {
       if (overrideArgs.images) searchParams.images = overrideArgs.images;
       if (overrideArgs.voice) searchParams.voice = overrideArgs.voice;
       if (overrideArgs.project) searchParams.project = overrideArgs.project;
+      if (overrideArgs.clips) searchParams.clips = overrideArgs.clips;
     }
     return searchParams;
   },
@@ -2649,10 +2651,17 @@ module.exports = {
             });
           }
           else if (dataStore.length) {
-            fcp.init(searchParams.assets,searchParams.images,searchParams.voice);
-            fcp.xml(dataStore,searchParams.project);
-            fcp.write();
-            resolve('Video XML successfully saved to: ' + searchParams.assets);
+            fs.writeFile(searchParams.assets + searchParams.clips,JSON.stringify(dataStore),err => {
+              if (err) {
+                reject(err);
+              }
+              else {
+                fcp.init(searchParams.assets,searchParams.images,searchParams.voice);
+                fcp.xml(dataStore,searchParams.project);
+                fcp.write();
+                resolve('Video XML successfully saved to: ' + searchParams.assets);
+              }
+            })
           }
           else {
             reject('No videos produced for keyword: ' + keyword);
