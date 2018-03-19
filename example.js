@@ -15,11 +15,12 @@ let searchParams = {
   keywordNoun: 'types of dogs',
   keywordList: ['dogs that don\'t shed','non shedding dogs','hypoallergenic dogs'],
   link: 'http://heartmydog.com',
-  amazon: false
+  amazon: false,
+  cacheOnly: true
 };
 let imageParams = {
   match: true,
-  cacheOnly: false,
+  cacheOnly: true,
   search: 'google',
   limit: 2,
   fallback: 'dogs',
@@ -27,9 +28,4 @@ let imageParams = {
 };
 
 
-console.log(wp.overrideImageParams(null,{fallback: 'poodle'}));
-console.log(wp.overrideSearchParams(null,{keywordList: ['poodle']}));
-/*wp.pages('non shedding dogs').then(msg => {
-  console.log(msg);
-  wp.video('non shedding dogs',searchParams,imageParams,{keywordList: ['cool dogs that don\'t shed','cool non shedding dogs','best hypoallergenic dogs']}).then(data => console.log(data)).catch(err => console.log(err));
-}).catch(err => console.log(err));*/
+wp.videosFromKeyword('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));

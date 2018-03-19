@@ -6,6 +6,7 @@ const jimp = require('jimp');
 const rand = require('bmjs-random');
 const pos = require('bmjs-engpos');
 const shuffle = require('bmjs-shuffle');
+const fcp = require('bmjs-fcpxml');
 
 module.exports = {
 
@@ -2311,6 +2312,10 @@ module.exports = {
     if (!searchParams.link) searchParams.link = '';
     if (searchParams.amazon === undefined) searchParams.amazon = false;
     if (searchParams.cacheOnly === undefined) searchParams.cacheOnly = false;
+    if (!searchParams.assets) searchParams.assets = __dirname + '/assets/';
+    if (!searchParams.images) searchParams.images = __dirname + '/cache/images/';
+    if (!searchParams.voice) searchParams.voice = 'karen';
+    if (!searchParams.project) searchParams.project = 'My Project';
     return searchParams;
   },
 
@@ -2362,6 +2367,10 @@ module.exports = {
       if (overrideArgs.link) searchParams.link = overrideArgs.link;
       if (overrideArgs.amazon !== undefined) searchParams.amazon = overrideArgs.amazon;
       if (overrideArgs.cacheOnly !== undefined) searchParams.cacheOnly = overrideArgs.cacheOnly;
+      if (overrideArgs.assets) searchParams.assets = overrideArgs.assets;
+      if (overrideArgs.images) searchParams.images = overrideArgs.images;
+      if (overrideArgs.voice) searchParams.voice = overrideArgs.voice;
+      if (overrideArgs.project) searchParams.project = overrideArgs.project;
     }
     return searchParams;
   },
@@ -2383,15 +2392,16 @@ module.exports = {
             fallbackImageParams.limit = imageParams.fallbackLimit;
             this.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
               this.videoPropertiesMultiple(text,searchParams,imageParams,fallbackImages).then(data => {
+                let promoKeyword = searchParams.keywordList.length ? rand(...searchParams.keywordList) : keyword;
                 let slides = {
                   title: pos.title(keyword,searchParams.keywordType,searchParams.template,data.count),
                   category: searchParams.category,
                   privacy: searchParams.privacy,
                   clips: data.slides,
-                  tags: pos.tags(searchParams.keywordList)
+                  keywords: shuffle(searchParams.keywordList)
                 };
                 let intro = pos.intro(searchParams.template,searchParams.keywordList,searchParams.keywordPlural,searchParams.keywordDeterminer,searchParams.keywordNoun);
-                let promo = pos.promo(searchParams.keyword,searchParams.link,searchParams.keywordDeterminer);
+                let promo = pos.promo(promoKeyword,searchParams.link,searchParams.keywordDeterminer);
                 let license = pos.license(!data.credits.length);
                 let description = [];
                 if (promo) description.push(promo);
@@ -2436,14 +2446,13 @@ module.exports = {
               fallbackImageParams.limit = imageParams.fallbackLimit;
               this.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
                 this.videoPropertiesMultiple(text,searchParams,imageParams,fallbackImages).then(data => {
-                  let titleKeyword = searchParams.keywordList.length ? rand(...searchParams.keywordList) : keyword;
                   let promoKeyword = searchParams.keywordList.length ? rand(...searchParams.keywordList) : keyword;
                   let slides = {
-                    title: pos.title(titleKeyword,searchParams.keywordType,searchParams.template,data.count),
+                    title: pos.title(keyword,searchParams.keywordType,searchParams.template,data.count),
                     category: searchParams.category,
                     privacy: searchParams.privacy,
                     clips: data.slides,
-                    tags: pos.tags(searchParams.keywordList)
+                    keywords: shuffle(searchParams.keywordList)
                   };
                   let intro = pos.intro(searchParams.template,searchParams.keywordList,searchParams.keywordPlural,searchParams.keywordDeterminer,searchParams.keywordNoun);
                   let promo = pos.promo(promoKeyword,searchParams.link,searchParams.keywordDeterminer);
@@ -2567,6 +2576,90 @@ module.exports = {
         }).catch(err => reject(err));
       }
     });
-  }
+  },
+
+  videosFromKeyword: function(keyword,searchArgs,imageArgs,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore) {
+    return new Promise((resolve,reject) => {
+      if (!keyword || typeof keyword !== 'string' || !searchArgs || !imageArgs) {
+        reject('Unable to create videos without keyword and search/image parameters.');
+      }
+      else {
+        if (!searchOverrideArgs) searchOverrideArgs = null;
+        if (!imageOverrideArgs) imageOverrideArgs = null;
+        if (!objectStore) objectStore = null;
+        if (!dataStore) dataStore = [];
+        let searchParams = this.overrideSearchParams(searchArgs,searchOverrideArgs);
+        let imageParams = this.overrideImageParams(imageArgs,imageOverrideArgs);
+        if (!objectStore) {
+          if (!searchParams.cacheOnly) {
+            let searchFunc = searchParams.amazon ? this.amazonPages : this.pages;
+            this.searchFunc(keyword,searchParams).then(msg => {
+              if (this.debug) console.log(msg);
+              this.readTextCache(keyword).then(data => {
+                objectStore = JSON.parse(data);
+                if (objectStore.length) {
+                  if (searchParams.amazon) {
+                    objectStore = objectStore.filter(el => el.amazon);
+                  }
+                  else {
+                    objectStore = objectStore.filter(el => !el.amazon);
+                  }
+                  if (objectStore.length) {
+                    objectStore = shuffle(objectStore);
+                    this.videosFromKeyword(keyword,searchArgs,imageArgs,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore).then(data => resolve(data)).catch(err => reject(err));
+                  }
+                }
+                if (!objectStore.length) {
+                  reject('No data found in cache for video keyword: ' + keyword);
+                }
+              }).catch(err => reject(err));
+            }).catch(err => reject(err));
+          }
+          else {
+            this.readTextCache(keyword).then(data => {
+              objectStore = JSON.parse(data);
+              if (objectStore.length) {
+                if (searchParams.amazon) {
+                  objectStore = objectStore.filter(el => el.amazon);
+                }
+                else {
+                  objectStore = objectStore.filter(el => !el.amazon);
+                }
+                if (objectStore.length) {
+                  objectStore = shuffle(objectStore);
+                  this.videosFromKeyword(keyword,searchArgs,imageArgs,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore).then(data => resolve(data)).catch(err => reject(err));
+                }
+              }
+              if (!objectStore.length) {
+                reject('No data found in cache for video keyword: ' + keyword);
+              }
+            }).catch(err => reject(err));
+          }
+        }
+        else {
+          if (objectStore.length) {
+            this.video(keyword,searchParams,imageParams).then(video => {
+              dataStore.push(video);
+              objectStore.shift();
+              this.videosFromKeyword(keyword,searchArgs,imageArgs,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore).then(data => resolve(data)).catch(err => reject(err));
+            }).catch(err => {
+              if (this.debug) console.log(err);
+              objectStore.shift();
+              this.videosFromKeyword(keyword,searchArgs,imageArgs,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore).then(data => resolve(data)).catch(err => reject(err));
+            });
+          }
+          else if (dataStore.length) {
+            fcp.init(searchParams.assets,searchParams.images,searchParams.voice);
+            fcp.xml(dataStore,searchParams.project);
+            fcp.write();
+            resolve('Video XML successfully saved to: ' + searchParams.assets);
+          }
+          else {
+            reject('No videos produced for keyword: ' + keyword);
+          }
+        }
+      }
+    });
+  },
 
 };
