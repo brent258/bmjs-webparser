@@ -24,7 +24,8 @@ let imageParams = {
   search: 'google',
   limit: 2,
   fallback: 'dogs',
-  template: ''
+  template: '',
+  tagline: 'Share the love!!!'
 };
 
 

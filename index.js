@@ -682,8 +682,15 @@ module.exports = {
         if (this.debug) console.log('Finished creating image cache directory.');
       });
     }
+    if (!fs.existsSync(this.cachePath + '/images/stills')) {
+      if (this.debug) console.log('Image stills cache directory not found. Creating folder...');
+      fs.mkdir(this.cachePath + '/images/stills',err => {
+        if (err && this.debug) console.log(err);
+        if (this.debug) console.log('Finished creating image stills cache directory.');
+      });
+    }
     else {
-      if (this.debug) console.log('Image cache directory already exists.');
+      if (this.debug) console.log('Image stills cache directory already exists.');
     }
     if (!fs.existsSync(this.cachePath + '/data/text')) {
       if (this.debug) console.log('Text data cache directory not found. Creating folder...');
@@ -2115,19 +2122,8 @@ module.exports = {
           if (imageParams.template.includes('textOnly')) imageActive = false;
           let bothActive = imageActive && textActive ? true : false;
           if (obj.keyword || firstSlide) {
-            let titleText, titleImage;
-            if (bothActive) {
-              if (useFallback) {
-                titleImage = fallbackImages[0] ? rand(fallbackImages[0],null,null,null) : null;
-                if (titleImage) fallbackImages.shift();
-              }
-              else {
-                titleImage = data[0] ? rand(data[0],null,null,null) : null;
-                if (titleImage) data.shift();
-              }
-              titleText = !firstSlide ? obj.header : titleFallback;
-            }
-            else if (imageActive) {
+            let titleText, titleImage, titleTemplate;
+            if (imageActive && firstSlide) {
               if (useFallback) {
                 titleImage = fallbackImages[0] ? fallbackImages[0] : null;
                 if (titleImage) fallbackImages.shift();
@@ -2137,16 +2133,28 @@ module.exports = {
                 if (titleImage) data.shift();
               }
               titleText = '';
+              titleTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
             }
-            else if (textActive) {
-              titleImage = null;
+            else if (imageActive) {
+              if (useFallback) {
+                titleImage = fallbackImages[0] ? rand(fallbackImages[0],null,null,null) : null;
+                if (titleImage) fallbackImages.shift();
+              }
+              else {
+                titleImage = data[0] ? rand(data[0],null,null,null) : null;
+                if (titleImage) data.shift();
+              }
+              titleText = '';
+              titleTemplate = imageParams.template;
+            }
+            if (textActive) {
               titleText = !firstSlide ? obj.header : titleFallback;
             }
             let titleObj = {
               text: titleText,
               audio: '',
               image: titleImage,
-              template: imageParams.template,
+              template: titleTemplate,
               keyword: keyword,
               url: obj.url
             };
@@ -2237,6 +2245,26 @@ module.exports = {
             index++;
             if (index >= objs.length) {
               if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.url);
+              if (imageParams.tagline) {
+                slideStore.slides.push({
+                  text: imageParams.tagline,
+                  audio: '',
+                  image: null,
+                  template: 'noTransitions',
+                  keyword: '',
+                  url: ''
+                });
+              }
+              if (imageParams.logo && searchParams.stills) {
+                slideStore.slides.push({
+                  text: '',
+                  audio: '',
+                  image: imageParams.logo,
+                  template: 'noTransitions stillImage',
+                  keyword: searchParams.stills,
+                  url: ''
+                });
+              }
               resolve(slideStore);
             }
             else {
@@ -2247,16 +2275,32 @@ module.exports = {
             index++;
             if (index >= objs.length) {
               if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.url);
+              if (imageParams.tagline) {
+                slideStore.slides.push({
+                  text: imageParams.tagline,
+                  audio: '',
+                  image: null,
+                  template: 'noTransitions',
+                  keyword: '',
+                  url: ''
+                });
+              }
+              if (imageParams.logo && searchParams.stills) {
+                slideStore.slides.push({
+                  text: '',
+                  audio: '',
+                  image: imageParams.logo,
+                  template: 'noTransitions stillImage',
+                  keyword: searchParams.stills,
+                  url: ''
+                });
+              }
               resolve(slideStore);
             }
             else {
               this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
             }
           });
-        }
-        else if (slideStore.slides.length) {
-          if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.url);
-          resolve(slideStore);
         }
         else {
           reject('No video properties found from: ' + searchParams.url);
@@ -2317,6 +2361,7 @@ module.exports = {
     if (!searchParams.voice) searchParams.voice = 'karen';
     if (!searchParams.project) searchParams.project = 'My Project';
     if (!searchParams.clips) searchParams.clips = 'clips-metadata.json';
+    if (!searchParams.stills) searchParams.stills = 'stills';
     return searchParams;
   },
 
@@ -2373,6 +2418,7 @@ module.exports = {
       if (overrideArgs.voice) searchParams.voice = overrideArgs.voice;
       if (overrideArgs.project) searchParams.project = overrideArgs.project;
       if (overrideArgs.clips) searchParams.clips = overrideArgs.clips;
+      if (overrideArgs.stills) searchParams.stills = overrideArgs.stills;
     }
     return searchParams;
   },
