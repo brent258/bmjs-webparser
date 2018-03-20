@@ -421,7 +421,7 @@ module.exports = {
         this.readTextCache(keyword).then(data => {
           data = JSON.parse(data);
           let indexes = this.objectsWithPropertyAndValue(data,property,value);
-          if (!indexes) {
+          if (!indexes.length) {
             resolve('No objects found to delete from text cache for: ' + keyword);
           }
           else {
@@ -567,7 +567,7 @@ module.exports = {
         this.readImageCache(keyword).then(data => {
           data = JSON.parse(data);
           let indexes = this.objectsWithPropertyAndValue(data,property,value);
-          if (!indexes) {
+          if (!indexes.length) {
             resolve('No objects found to delete from image cache for: ' + keyword);
           }
           else {
@@ -2682,5 +2682,82 @@ module.exports = {
       }
     });
   },
+
+  addImages: function(keywords,imageArgs,searchAll,index) {
+    return new Promise((resolve,reject) => {
+      if (!keywords || typeof keywords !== 'object') {
+        reject('Unable to download images without image keyword list.');
+      }
+      else {
+        if (imageArgs === undefined) imageArgs = null;
+        if (searchAll === undefined) searchAll = true;
+        if (!index) index = 0;
+        if (keywords.length) {
+          let googleParams = this.setImageParams(imageArgs);
+          googleParams.search = 'google';
+          this.images(keywords[0],googleParams).then(() => {
+            if (searchAll) {
+              let flickrParams = this.setImageParams(imageArgs);
+              flickrParams.search = 'flickr';
+              this.images(keywords[0],flickrParams).then(() => {
+                index++;
+                keywords.shift();
+                this.addImages(keywords,imageArgs,searchAll,index).then(data => resolve(data)).catch(err => reject(err));
+              }).catch(err => {
+                if (this.debug) console.log(err);
+                index++;
+                keywords.shift();
+                this.addImages(keywords,imageArgs,searchAll,index).then(data => resolve(data)).catch(err => reject(err));
+              });
+            }
+            else {
+              index++;
+              keywords.shift();
+              this.addImages(keywords,imageArgs,searchAll,index).then(data => resolve(data)).catch(err => reject(err));
+            }
+          }).catch(err => {
+            if (this.debug) console.log(err);
+            keywords.shift();
+            this.addImages(keywords,imageArgs,searchAll,index).then(data => resolve(data)).catch(err => reject(err));
+          });
+        }
+        else if (index) {
+          resolve(`Downloaded ${index} keyword(s) from image keyword list.`);
+        }
+        else {
+          reject('No images downloaded from keyword list.');
+        }
+      }
+    });
+  },
+
+  deleteImages: function(images,property,index) {
+    return new Promise((resolve,reject) => {
+      if (!images || typeof images !== 'object' || !property || typeof property !== 'string') {
+        reject('Unable to delete images without image object properties.');
+      }
+      else {
+        if (!index) index = 0;
+        if (images.length && images[0].keyword && images[0].value) {
+          this.deleteImageCache(images[0].keyword,property,images[0].value).then(msg => {
+            if (this.debug) console.log(msg);
+            images.shift();
+            index++;
+            this.deleteImages(images,property,index).then(data => resolve(data)).catch(err => reject(err));
+          }).catch(err => {
+            if (this.debug) console.log(err);
+            images.shift();
+            this.deleteImages(images,property,index).then(data => resolve(data)).catch(err => reject(err));
+          })
+        }
+        else if (index) {
+          resolve(`Deleted ${index} images(s) from image list.`);
+        }
+        else {
+          reject('No images deleted from image list.');
+        }
+      }
+    });
+  }
 
 };

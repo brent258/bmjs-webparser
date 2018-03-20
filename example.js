@@ -29,5 +29,5 @@ let imageParams = {
 };
 
 
-wp.videosFromKeyword('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
-//wp.images('golden retriever',imageParams).then(data => console.log(data)).catch(err => console.log(err));
+//wp.videosFromKeyword('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
+wp.deleteImages([{keyword: 'yorkshire terrier', value: 'Yorkie_or_Yorkshire_Terrier_%2811406003593%29.png'}],'filename').then(data => console.log(data)).catch(err => console.log(err));
