@@ -203,8 +203,10 @@ describe('web parser', function() {
   });
 
   it('header from keyword list should return keyword if header found', () => {
-    let match = wp.headerFromKeywordList('Golden Retrievers',wp.keywords.dogs);
-    expect(match).to.equal('golden retriever');
+    let keywordList = ['golden retriever','labrador'];
+    expect(wp.headerFromKeywordList('1. Golden Retriever',keywordList)).to.equal('golden retriever');
+    expect(wp.headerFromKeywordList('2. Labrador Retriever',keywordList)).to.equal('labrador');
+    expect(wp.headerFromKeywordList('3. Shih tzu',keywordList)).to.equal('');
   });
 
   it('text from keyword list should return true if keyword found', () => {
