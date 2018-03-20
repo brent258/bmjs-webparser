@@ -956,7 +956,7 @@ module.exports = {
               image: photos[i].ou,
               width: parseInt(photos[i].ow),
               height: parseInt(photos[i].oh),
-              filename: path.basename(photos[i].ou.split('?')[0]),
+              filename: this.parseImageFilename(path.basename(photos[i].ou.split('?')[0])),
               search: imageParams.options.join(','),
               tags: imageParams.tags.join(','),
               copyright: (!imageParams.options.includes('cc') && !imageParams.options.includes('commercial')) ? true : false
@@ -1102,7 +1102,7 @@ module.exports = {
               image: 'https:' + photos[i].sizes[size].url,
               width: parseInt(photos[i].sizes[size].width),
               height: parseInt(photos[i].sizes[size].height),
-              filename: path.basename(photos[i].sizes[size].url.split('?')[0]),
+              filename: this.parseImageFilename(path.basename(photos[i].sizes[size].url.split('?')[0])),
               search: imageParams.options.join(','),
               tags: imageParams.tags.join(','),
               copyright: (!imageParams.options.includes('cc') && !imageParams.options.includes('commercial')) ? true : false
@@ -1263,6 +1263,13 @@ module.exports = {
     return false;
   },
 
+  parseImageFilename(filename) {
+    if (!filename || typeof filename !== 'string') {
+      return '';
+    }
+    return filename.replace(/[^a-zA-z0-9\-\_\.]/g,'');
+  },
+
   parseHeader: function(text) {
     if (!text || typeof text !== 'string') {
       return '';
@@ -1333,6 +1340,7 @@ module.exports = {
       return false;
     }
     if (sentence.match(/[a-z][A-Z]/g)) return false;
+    if (!sentence.match(/\s[a-z]+\s[a-z]/g)) return false;
     if (sentence.match(/[\.\,\?\!\;\&\/][\.\,\?\!\;\&\/]/g)) return false;
     if (!sentence.match(/[\!\.\?]$/g)) return false;
     if (!sentence.match(/^[A-Z]/g)) return false;
@@ -1915,7 +1923,7 @@ module.exports = {
                 width: 0,
                 height: 0,
                 description: '',
-                filename: path.basename(img.split('?')[0]),
+                filename: this.parseImageFilename(path.basename(img.split('?')[0])),
                 search: [],
                 tags: [],
                 copyright: true

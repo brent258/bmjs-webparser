@@ -189,13 +189,13 @@ describe('web parser', function() {
   });
 
   it('validate text should match suitable text', () => {
-    expect(wp.validateText('This is my webpage','http://heartmydog.com')).to.equal(false);
-    expect(wp.validateText('Dog training is something you should do.','http://heartmydog.com')).to.equal(true);
+    expect(wp.validateText('This is my webpage')).to.equal(false);
+    expect(wp.validateText('Dog training is something you should do.')).to.equal(true);
   });
 
   it('validate header should match suitable text', () => {
-    expect(wp.validateHeader('This is my webpage','http://heartmydog.com')).to.equal(false);
-    expect(wp.validateHeader('Dog training is something you should do','http://heartmydog.com')).to.equal(true);
+    expect(wp.validateHeader('This is my webpage.')).to.equal(false);
+    expect(wp.validateHeader('Dog training is something you should do')).to.equal(true);
   });
 
   it('find keyword in sentence should find correct matching words', () => {
@@ -214,12 +214,16 @@ describe('web parser', function() {
 
   it('find context from link should return true if url matches keywords', () => {
     expect(wp.findContextFromLink('tips',{url:'http://dogtraining.com/top-10-dog-training-tips', text: 'Dog training info'})).to.equal(true);
-    expect(wp.findContextFromLink('tips',{url:'http://dogtraining.com/', text: 'Dog training tips'})).to.equal(true);
+    expect(wp.findContextFromLink('tips',{url:'http://dogtraining.com/', text: 'Dog training tips'})).to.equal(false);
   });
 
   it('filter body content should return an array of filtered text', () => {
     let arr = wp.filterBodyContent('This is a sentence!|||||Here is another sentence.','http://mysite.com');
     expect(arr.length).to.equal(2);
+  });
+
+  it('parse image filename should remove unwanted characters', () => {
+    expect(wp.parseImageFilename('%20_%567a.jpg')).to.equal('20_567a.jpg');
   });
 
 });

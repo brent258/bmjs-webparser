@@ -20,8 +20,8 @@ let searchParams = {
 };
 let imageParams = {
   match: true,
-  cacheOnly: true,
-  search: 'google',
+  cacheOnly: false,
+  search: 'flickr',
   limit: 2,
   fallback: 'dogs',
   template: '',
@@ -29,4 +29,5 @@ let imageParams = {
 };
 
 
-wp.videosFromKeyword('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
+//wp.videosFromKeyword('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
+wp.images('golden retriever',imageParams).then(data => console.log(data)).catch(err => console.log(err));
