@@ -3,7 +3,7 @@ const pos = require('bmjs-engpos');
 
 wp.init();
 let searchParams = {
-  count: 1,
+  limit: 1,
   template: 'list',
   headerKeywords: wp.keywords.dogs,
   type: 'random',
@@ -16,7 +16,7 @@ let searchParams = {
   keywordList: ['dogs that don\'t shed','non shedding dogs','hypoallergenic dogs'],
   link: 'http://heartmydog.com',
   amazon: false,
-  cacheOnly: false
+  cacheOnly: true
 };
 let imageParams = {
   match: true,

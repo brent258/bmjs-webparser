@@ -1622,29 +1622,27 @@ module.exports = {
     return paragraphs;
   },
 
-  pageParagraphs: function(obj,headerKeywords,count,random) {
+  pageParagraphs: function(obj,searchArgs,random) {
     if (!obj || !obj.body.content.length) {
       return [];
     }
-    if (!headerKeywords) headerKeywords = null;
-    if (!count) count = 10;
+    let searchParams = this.setSearchParams(searchArgs);
     if (random === undefined) random = true;
     let data = obj.body.content;
     let paragraphs = [];
     let lastHeader;
     for (let i = 0; i < data.length; i++) {
-      if (count < 1) break;
       if (paragraphs.length && paragraphs[paragraphs.length-1].header === data[i].header) {
         paragraphs[paragraphs.length-1].text = paragraphs[paragraphs.length-1].text.concat(data[i].text);
         continue;
       }
-      else if (headerKeywords && paragraphs.length && paragraphs[paragraphs.length-1].header === pos.titlecase(this.headerFromKeywordList(data[i].header,headerKeywords))) {
+      else if (searchParams.headerKeywords.length && paragraphs.length && paragraphs[paragraphs.length-1].header === pos.titlecase(this.headerFromKeywordList(data[i].header,searchParams.headerKeywords))) {
         paragraphs[paragraphs.length-1].text = paragraphs[paragraphs.length-1].text.concat(data[i].text);
         continue;
       }
       if (random && paragraphs.length && rand(true,false) === false) continue;
-      if (headerKeywords) {
-        let headerMatch = this.headerFromKeywordList(data[i].header,headerKeywords);
+      if (searchParams.headerKeywords) {
+        let headerMatch = this.headerFromKeywordList(data[i].header,searchParams.headerKeywords);
         let paragraph = {
           text: data[i].text,
           header: headerMatch ? pos.titlecase(headerMatch) : data[i].header,
@@ -1655,7 +1653,6 @@ module.exports = {
         if (data[i].text.length > 0) {
           lastHeader = data[i].header;
           paragraphs.push(paragraph);
-          count--;
         }
       }
       else {
@@ -1669,11 +1666,40 @@ module.exports = {
         if (data[i].text.length > 0) {
           lastHeader = data[i].header;
           paragraphs.push(paragraph);
-          count--;
         }
       }
     }
-    return paragraphs;
+    let filteredParagraphs = [];
+    let minParagraphCount = searchParams.count > 2 ? (searchParams.count - 2) : 1;
+    let randomParagraphCount = Math.floor(Math.random() * searchParams.count) + minParagraphCount;
+    for (let i = 0; i < paragraphs.length; i++) {
+      if (filteredParagraphs.length >= randomParagraphCount) break;
+      if (!paragraphs[i].header) {
+        let minResult = searchParams.intro > 2 ? (searchParams.intro - 2) : 1;
+        let spliceIndex = Math.floor(Math.random() * searchParams.intro) + minResult;
+        let paragraph = {
+          text: paragraphs[i].text.slice(0,spliceIndex),
+          header: paragraphs[i].header,
+          keyword: paragraphs[i].keyword,
+          url: paragraphs[i].url,
+          count: paragraphs[i].count
+        };
+        filteredParagraphs.push(paragraph);
+      }
+      else {
+        let minResult = searchParams.sections > 2 ? (searchParams.sections - 2) : 1;
+        let spliceIndex = Math.floor(Math.random() * searchParams.sections) + minResult;
+        let paragraph = {
+          text: paragraphs[i].text.slice(0,spliceIndex),
+          header: paragraphs[i].header,
+          keyword: paragraphs[i].keyword,
+          url: paragraphs[i].url,
+          count: paragraphs[i].count
+        };
+        filteredParagraphs.push(paragraph);
+      }
+    }
+    return filteredParagraphs;
   },
 
   resultLinks: function($,searchSource) {
@@ -2048,7 +2074,7 @@ module.exports = {
       }
       else {
         let searchParams = this.setSearchParams(searchArgs);
-        if (!limit) limit = searchParams.count;
+        if (!limit) limit = searchParams.limit;
         if (!pages) pages = 0;
         this.amazonSearch(keyword,searchParams.minResult,searchParams.maxResult).then(data => {
           this.amazonProductMultiple(data).then(products => {
@@ -2340,12 +2366,13 @@ module.exports = {
     if (!searchParams.minResult) searchParams.minResult = 1;
     if (!searchParams.maxResult) searchParams.maxResult = 1;
     if (searchParams.maxResult < searchParams.minResult) searchParams.maxResult = searchParams.minResult;
-    if (!searchParams.minSections) searchParams.minSections = 15;
-    if (!searchParams.maxSections) searchParams.maxSections = 20;
+    if (!searchParams.intro) searchParams.intro = 10;
+    if (!searchParams.sections) searchParams.sections = 5;
+    if (!searchParams.count) searchParams.count = 10;
     if (!searchParams.maxTries) searchParams.maxTries = 10;
     if (!searchParams.template) searchParams.template = 'facts';
-    if (!searchParams.count) searchParams.count = 1;
-    if (!searchParams.category) searchParams.category = 0;
+    if (!searchParams.limit) searchParams.limit = 1;
+    if (!searchParams.category) searchParams.category = '22';
     if (!searchParams.privacy) searchParams.privacy = 'public';
     if (searchParams.exact === undefined) searchParams.exact = true;
     if (searchParams.subSections === undefined) searchParams.subSections = true;
@@ -2397,11 +2424,12 @@ module.exports = {
       if (overrideArgs.minResult) searchParams.minResult = overrideArgs.minResult;
       if (overrideArgs.maxResult) searchParams.maxResult = overrideArgs.maxResult;
       if (searchParams.maxResult < searchParams.minResult) searchParams.maxResult = searchParams.minResult;
-      if (overrideArgs.minSections) searchParams.minSections = overrideArgs.minSections;
-      if (overrideArgs.maxSections) searchParams.maxSections = overrideArgs.maxSections;
+      if (overrideArgs.intro) searchParams.intro = overrideArgs.intro;
+      if (overrideArgs.sections) searchParams.sections = overrideArgs.sections;
+      if (overrideArgs.count) searchParams.count = overrideArgs.count;
       if (overrideArgs.maxTries) searchParams.maxTries = overrideArgs.maxTries;
       if (overrideArgs.template) searchParams.template = overrideArgs.template;
-      if (overrideArgs.count) searchParams.count = overrideArgs.count;
+      if (overrideArgs.limit) searchParams.limit = overrideArgs.limit;
       if (overrideArgs.category) searchParams.category = overrideArgs.category;
       if (overrideArgs.privacy) searchParams.privacy = overrideArgs.privacy;
       if (overrideArgs.exact !== undefined) searchParams.exact = overrideArgs.exact;
@@ -2435,7 +2463,7 @@ module.exports = {
       else {
         let searchParams = this.setSearchParams(searchArgs);
         let imageParams = this.setImageParams(imageArgs);
-        let text = dataObject.amazon ? dataObject.description : this.pageParagraphs(dataObject,searchParams.headerKeywords,searchParams.count,true);
+        let text = dataObject.amazon ? dataObject.description : this.pageParagraphs(dataObject,searchParams,true);
         searchParams.url = dataObject.url;
         if (text && text.length) {
           let fallbackImageParams = this.setImageParams(imageParams);
@@ -2532,7 +2560,7 @@ module.exports = {
       }
       else {
         let searchParams = this.setSearchParams(searchArgs);
-        if (!limit) limit = searchParams.count;
+        if (!limit) limit = searchParams.limit;
         if (!pages) pages = 0;
         this.search(keyword,searchParams.minResult,searchParams.maxResult).then(results => {
           this.downloadResults(results).then(text => {
