@@ -1398,26 +1398,26 @@ module.exports = {
     let regex;
     switch (template) {
       case 'tips':
-      regex = /\b(tips|how.to|ideas)\b/i;
-      if (link.url.match(regex)) return true;
+      regex = /\b(tips|how.to|ideas)\b/gi;
+      if (link.url.match(regex) || link.text.match(regex)) return true;
       return false;
       case 'facts':
-      regex = /\b(facts|info|information)\b/i;
-      if (link.url.match(regex)) return true;
-      case 'myths':
-      regex = /\b(myths|misconceptions)\b/i;
-      if (link.url.match(regex)) return true;
+      regex = /\b(facts|info|information)\b/gi;
+      if (link.url.match(regex) || link.text.match(regex)) return true;
+      case 'pitfalls':
+      regex = /\b(pitfalls|traps|mistakes)\b/gi;
+      if (link.url.match(regex) || link.text.match(regex)) return true;
       case 'list':
-      regex = /\b(list|best|top|\d\s\w|\d-\w)\b/i;
-      if (link.url.match(regex)) return true;
+      regex = /\b(list|best|top|\d+.\w+)\b/gi;
+      if (link.url.match(regex) || link.text.match(regex)) return true;
       return false;
-      case 'product':
-      regex = /\b(\d\d)\b/i;
-      if (link.url.match(regex)) return true;
+      case 'products':
+      regex = /\b(\d\d)\b/gi;
+      if (link.url.match(regex) || link.text.match(regex)) return true;
       return false;
       case 'review':
-      regex = /\b(review)\b/i;
-      if (link.url.match(regex)) return true;
+      regex = /\b(review)\b/gi;
+      if (link.url.match(regex) || link.text.match(regex)) return true;
       return false;
       default: return false;
     }
@@ -1492,20 +1492,17 @@ module.exports = {
 
   webpage: function(url,minLength) {
     return new Promise((resolve,reject) => {
-      setTimeout(() => {
-        reject('Server request timeout out at: ' + url);
-      },this.timeout);
       if (!minLength) minLength = 150;
       let options = {
         method: 'GET',
         uri: url,
         gzip: true,
         rejectUnauthorized: false,
+        timeout: this.timeout,
         headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
       };
       if (this.debug) console.log('Requesting webpage: ' + url);
       request(options).then(html => {
-        if (this.debug) console.log('Parsing webpage: ' + url);
         let $ = cheerio.load(html);
         this.extractBody($,url,minLength).then(data => {
           let pageObject = {
@@ -1515,13 +1512,7 @@ module.exports = {
             url: url,
             body: data
           };
-          if (pageObject.body) {
-            if (this.debug) console.log('Resolving webpage: ' + url);
-            resolve(pageObject);
-          }
-          else {
-            reject('No webpage content found: ' + url);
-          }
+          resolve(pageObject);
         }).catch(err => reject(err));
       }).catch(err => reject(err));
     });
@@ -1738,9 +1729,6 @@ module.exports = {
 
   googleSearch: function(keyword,minResult,maxResult,domain) {
     return new Promise((resolve,reject) => {
-      setTimeout(() => {
-        reject('Server request timeout searching for: ' + keyword);
-      },this.timeout);
       if (!keyword) {
         reject('Unable to search without keyword.');
       }
@@ -1757,6 +1745,7 @@ module.exports = {
           method: 'GET',
           uri: url,
           gzip: true,
+          timeout: this.timeout,
           headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
         };
         let proxy = this.googleProxy();
@@ -1779,9 +1768,6 @@ module.exports = {
 
   bingSearch: function(keyword,minResult,maxResult,domain) {
     return new Promise((resolve,reject) => {
-      setTimeout(() => {
-        reject('Server request timeout searching for: ' + keyword);
-      },this.timeout);
       if (!keyword) {
         reject('Unable to search without keyword.');
       }
@@ -1798,6 +1784,7 @@ module.exports = {
           method: 'GET',
           uri: url,
           gzip: true,
+          timeout: this.timeout,
           headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
         };
         let proxy = this.bingProxy();
@@ -1820,9 +1807,6 @@ module.exports = {
 
   search: function(keyword,minResult,maxResult,googleDomain,bingDomain) {
     return new Promise((resolve,reject) => {
-      setTimeout(() => {
-        reject('Server request timeout searching for: ' + keyword);
-      },this.timeout);
       if (!keyword) {
         reject('Unable to search without keyword.');
       }
@@ -1839,9 +1823,6 @@ module.exports = {
 
   amazonSearch: function(keyword,minResult,maxResult) {
     return new Promise((resolve,reject) => {
-      setTimeout(() => {
-        reject('Server request timeout searching for Amazon page: ' + keyword);
-      },this.timeout);
       if (!keyword) {
         reject('Unable to search for Amazon page without keyword.');
       }
@@ -1855,6 +1836,7 @@ module.exports = {
           method: 'GET',
           uri: url,
           gzip: true,
+          timeout: this.timeout,
           headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
         };
         let proxy = this.amazonProxy();
@@ -2478,7 +2460,8 @@ module.exports = {
                 category: searchParams.category,
                 privacy: searchParams.privacy,
                 clips: data.slides,
-                keywords: shuffle(searchParams.keywordList)
+                keywords: shuffle(searchParams.keywordList),
+                count: data.count
               };
               let intro = pos.intro(searchParams.template,searchParams.keywordList,searchParams.keywordPlural,searchParams.keywordDeterminer,searchParams.keywordNoun);
               let promo = pos.promo(promoKeyword,searchParams.link,searchParams.keywordDeterminer);
@@ -2517,29 +2500,11 @@ module.exports = {
               store.push(page);
             }
             results.shift();
-            if (results.length) {
-              this.downloadResults(results,store).then(data => resolve(data)).catch(err => reject(err));
-            }
-            else if (store.length) {
-              if (this.debug) console.log(`Resolving ${store.length} downloaded page results.`);
-              resolve(store);
-            }
-            else {
-              reject('No page results found to download.');
-            }
+            this.downloadResults(results,store).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {
             if (this.debug) console.log(err);
             results.shift();
-            if (results.length) {
-              this.downloadResults(results,store).then(data => resolve(data)).catch(err => reject(err));
-            }
-            else if (store.length) {
-              if (this.debug) console.log(`Resolving ${store.length} downloaded page results.`);
-              resolve(store);
-            }
-            else {
-              reject('No page results found to download.');
-            }
+            this.downloadResults(results,store).then(data => resolve(data)).catch(err => reject(err));
           });
         }
         else if (store.length) {
@@ -2565,8 +2530,10 @@ module.exports = {
         this.search(keyword,searchParams.minResult,searchParams.maxResult).then(results => {
           this.downloadResults(results).then(text => {
             let textCount = text.length;
-            this.updateTextCacheMultiple(text,keyword).then(data => {
+            this.updateTextCacheMultiple(text,keyword).then(msg => {
+              if (this.debug) console.log(msg);
               searchParams.minResult += 10;
+              searchParams.maxResult += 10;
               pages += textCount;
               limit--;
               if (limit > 0) {
@@ -2581,22 +2548,7 @@ module.exports = {
                 }
               }
             }).catch(err => reject(err));
-          }).catch(err => {
-            searchParams.minResult += 10;
-            limit--;
-            if (limit > 0) {
-              this.pages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
-            }
-            else {
-              if (pages) {
-                if (this.debug) console.log(err);
-                resolve(`Resolving ${pages} pages for keyword: ${keyword}`);
-              }
-              else {
-                reject(err);
-              }
-            }
-          });
+          }).catch(err => reject(err));
         }).catch(err => reject(err));
       }
     });
@@ -2668,7 +2620,9 @@ module.exports = {
               obj = objectStore[index];
             }
             this.video(keyword,obj,searchParams,imageParams,false).then(video => {
-              dataStore.push(video);
+              if (!searchParams.multipleOnly || (searchParams.multipleOnly && video.count > 1)) {
+                dataStore.push(video);
+              }
               index++;
               this.videosFromKeyword(keyword,searchArgs,imageArgs,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
             }).catch(err => {

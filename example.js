@@ -3,7 +3,7 @@ const pos = require('bmjs-engpos');
 
 wp.init();
 let searchParams = {
-  limit: 1,
+  limit: 2,
   template: 'list',
   headerKeywords: wp.keywords.dogs,
   type: 'random',
@@ -29,5 +29,6 @@ let imageParams = {
 };
 
 
-wp.videosFromKeyword('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
+wp.pages('non shedding dogs',searchParams).then(data => console.log(data)).catch(err => console.log(err));
 //wp.deleteImages([{keyword: 'yorkshire terrier', value: 'Yorkie_or_Yorkshire_Terrier_%2811406003593%29.png'}],'filename').then(data => console.log(data)).catch(err => console.log(err));
+//wp.updateTextCacheMultiple([{name: 'Brent'}],'test-keyword').then(data => console.log(data)).catch(err => console.log(err));
