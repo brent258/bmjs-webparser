@@ -1375,8 +1375,9 @@ module.exports = {
     if (!header || typeof header !== 'string' || !keywordList || typeof keywordList !== 'object') {
       return '';
     }
+    let parsedHeader = header.replace(/[^a-zA-Z0-9]/g,' ').replace(/\s+/g,' ').toLowerCase();
     for (let i = 0; i < keywordList.length; i++) {
-      if (header.toLowerCase().includes(keywordList[i])) return keywordList[i];
+      if (parsedHeader.includes(keywordList[i])) return keywordList[i];
     }
     return '';
   },
@@ -2369,6 +2370,7 @@ module.exports = {
     if (!searchParams.link) searchParams.link = '';
     if (searchParams.amazon === undefined) searchParams.amazon = false;
     if (searchParams.cacheOnly === undefined) searchParams.cacheOnly = false;
+    if (searchParams.multipleOnly === undefined) searchParams.multipleOnly = false;
     if (!searchParams.assets) searchParams.assets = __dirname + '/assets/';
     if (!searchParams.images) searchParams.images = __dirname + '/cache/images/';
     if (!searchParams.voice) searchParams.voice = 'karen';
@@ -2427,6 +2429,7 @@ module.exports = {
       if (overrideArgs.link) searchParams.link = overrideArgs.link;
       if (overrideArgs.amazon !== undefined) searchParams.amazon = overrideArgs.amazon;
       if (overrideArgs.cacheOnly !== undefined) searchParams.cacheOnly = overrideArgs.cacheOnly;
+      if (overrideArgs.multipleOnly !== undefined) searchParams.multipleOnly = overrideArgs.multipleOnly;
       if (overrideArgs.assets) searchParams.assets = overrideArgs.assets;
       if (overrideArgs.images) searchParams.images = overrideArgs.images;
       if (overrideArgs.voice) searchParams.voice = overrideArgs.voice;
