@@ -2164,33 +2164,25 @@ module.exports = {
             if (imageParams.template.includes('textOnly')) imageActive = false;
             let bothActive = imageActive && textActive ? true : false;
             if (obj.keyword || firstSlide) {
-              let titleText, titleImage, titleTemplate;
+              let titleText = '';
+              let titleImage = null;
+              let titleTemplate = '';
               if (imageActive && firstSlide) {
                 if (useFallback) {
-                  titleImage = fallbackImages[0] ? fallbackImages[0] : null;
+                  if (fallbackImages[0]) titleImage = fallbackImages[0];
                   if (titleImage) fallbackImages.shift();
                 }
                 else {
-                  titleImage = data[0] ? data[0] : null;
+                  if (data[0]) titleImage = data[0];
                   if (titleImage) data.shift();
                 }
-                titleText = '';
+                if (textActive) titleText = !firstSlide ? obj.header : titleFallback;
                 titleTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
               }
-              else if (imageActive) {
-                if (useFallback) {
-                  titleImage = fallbackImages[0] ? rand(fallbackImages[0],null,null,null) : null;
-                  if (titleImage) fallbackImages.shift();
-                }
-                else {
-                  titleImage = data[0] ? rand(data[0],null,null,null) : null;
-                  if (titleImage) data.shift();
-                }
-                titleText = '';
-                titleTemplate = imageParams.template;
-              }
-              if (textActive) {
+              else if (textActive) {
                 titleText = !firstSlide ? obj.header : titleFallback;
+                titleTemplate = imageParams.template;
+                titleImage = null;
               }
               let titleObj = {
                 text: titleText,
@@ -2910,6 +2902,10 @@ module.exports = {
         }
       }
     });
+  },
+
+  upload: function(metadata,apiParams) {
+    fcp.upload(metadata,apiParams);
   }
 
 };

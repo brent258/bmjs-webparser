@@ -18,7 +18,7 @@ module.exports = {
     keywordList: ['dogs that don\'t shed','non shedding dogs','hypoallergenic dogs'],
     link: 'http://heartmydog.com',
     amazon: false,
-    cacheOnly: true,
+    cacheOnly: false,
     multipleOnly: true,
     slideshows: 1,
     assets: '/Users/brentmccoy/Apps/node-modules/bmjs-webparser/assets/',
