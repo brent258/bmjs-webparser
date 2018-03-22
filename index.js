@@ -2133,6 +2133,13 @@ module.exports = {
         }
         else {
           keyword = imageParams.fallback;
+          useFallback = true;
+        }
+        if (useFallback) {
+          imageParams.cacheOnly = imageParams.cacheFallback;
+        }
+        else {
+          imageParams.cacheOnly = imageParams.cacheKeyword;
         }
         this.images(keyword,imageParams).then(data => {
           if (!obj) {
@@ -2356,6 +2363,8 @@ module.exports = {
     if (!imageParams.tags) imageParams.tags = [];
     if (imageParams.crop === undefined) imageParams.crop = true;
     if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = false;
+    if (imageParams.cacheKeyword === undefined) imageParams.cacheKeyword = false;
+    if (imageParams.cacheFallback === undefined) imageParams.cacheFallback = false;
     if (imageParams.exact === undefined) imageParams.exact = true;
     if (!imageParams.limit) imageParams.limit = 1;
     if (!imageParams.fallbackLimit) imageParams.fallbackLimit = 20;
@@ -2416,6 +2425,8 @@ module.exports = {
       if (overrideArgs.tags) imageParams.tags = overrideArgs.tags;
       if (overrideArgs.crop !== undefined) imageParams.crop = overrideArgs.crop;
       if (overrideArgs.cacheOnly !== undefined) imageParams.cacheOnly = overrideArgs.cacheOnly;
+      if (overrideArgs.cacheKeyword !== undefined) imageParams.cacheKeyword = overrideArgs.cacheKeyword;
+      if (overrideArgs.cacheFallback !== undefined) imageParams.cacheFallback = overrideArgs.cacheFallback;
       if (overrideArgs.exact !== undefined) imageParams.exact = overrideArgs.exact;
       if (overrideArgs.limit) imageParams.limit = overrideArgs.limit;
       if (overrideArgs.fallbackLimit) imageParams.fallbackLimit = overrideArgs.fallbackLimit;
@@ -2487,7 +2498,7 @@ module.exports = {
         if ((text && text.length) || text === null) {
           let fallbackImageParams = this.setImageParams(imageParams);
           fallbackImageParams.limit = imageParams.fallbackLimit;
-          fallbackImageParams.cacheOnly = true;
+          fallbackImageParams.cacheOnly = fallbackImageParams.cacheFallback;
           this.images(imageParams.fallback,fallbackImageParams).then(fallbackImages => {
             this.videoPropertiesMultiple(text,searchParams,imageParams,fallbackImages).then(data => {
               let titleKeyword = (matchKeyword || !searchParams.keywordList.length) ? keyword : rand(...searchParams.keywordList,keyword);
@@ -2680,7 +2691,7 @@ module.exports = {
                 fcp.write();
                 resolve('Video XML successfully saved to: ' + searchParams.assets);
               }
-            })
+            });
           }
           else {
             reject('No videos produced for keyword: ' + keyword);
@@ -2688,6 +2699,142 @@ module.exports = {
         }
       }
     });
+  },
+
+  videosFromFile: function(filePath,dataStore,index) {
+    return new Promise((resolve,reject) => {
+      if (!filePath || typeof filePath !== 'string') {
+        reject('Unable to create videos without file path.');
+      }
+      else {
+        let data = require(filePath);
+        if (!dataStore) dataStore = [];
+        if (!index) index = 0;
+        let object = data.objects[index];
+        let searchParams, imageParams;
+        if (object) {
+          searchParams = this.overrideSearchParams(data.search,object.search);
+          imageParams = this.overrideImageParams(data.image,object.image);
+        }
+        else {
+          searchParams = this.overrideSearchParams(data.search,null);
+          imageParams = this.overrideImageParams(data.image,null);
+        }
+        if (index < data.objects.length) {
+          let objectStore = null;
+          if (!searchParams.cacheOnly && !imageParams.template.includes('imageOnly')) {
+            let searchFunc = searchParams.amazon ? 'amazonPages' : 'pages';
+            this[searchFunc](object.keyword,searchParams).then(msg => {
+              if (this.debug) console.log(msg);
+              this.readTextCache(object.keyword).then(data => {
+                objectStore = JSON.parse(data);
+                if (objectStore.length) {
+                  if (searchParams.amazon) {
+                    objectStore = objectStore.filter(el => el.amazon);
+                  }
+                  else {
+                    objectStore = objectStore.filter(el => !el.amazon);
+                  }
+                  if (objectStore.length) {
+                    objectStore = shuffle(objectStore);
+                    let obj = null;
+                    if (!searchParams.amazon) {
+                      obj = objectStore[index];
+                    }
+                    this.video(object.keyword,obj,searchParams,imageParams,true).then(video => {
+                      if (!searchParams.multipleOnly || (searchParams.multipleOnly && video.count > 1)) {
+                        dataStore.push(video);
+                      }
+                      index++;
+                      this.videosFromFile(filePath,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+                    }).catch(err => {
+                      if (this.debug) console.log(err);
+                      index++;
+                      this.videosFromFile(filePath,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+                    });
+                  }
+                  else {
+                    reject('No data found in cache for video keyword: ' + object.keyword);
+                  }
+                }
+                else {
+                  reject('No data found in cache for video keyword: ' + object.keyword);
+                }
+              }).catch(err => reject(err));
+            }).catch(err => reject(err));
+          }
+          else if (!imageParams.template.includes('imageOnly')) {
+            this.readTextCache(keyword).then(data => {
+              objectStore = JSON.parse(data);
+              if (objectStore.length) {
+                if (searchParams.amazon) {
+                  objectStore = objectStore.filter(el => el.amazon);
+                }
+                else {
+                  objectStore = objectStore.filter(el => !el.amazon);
+                }
+                if (objectStore.length) {
+                  objectStore = shuffle(objectStore);
+                  let obj = null;
+                  if (!searchParams.amazon) {
+                    obj = objectStore[index];
+                  }
+                  this.video(object.keyword,obj,searchParams,imageParams,true).then(video => {
+                    if (!searchParams.multipleOnly || (searchParams.multipleOnly && video.count > 1)) {
+                      dataStore.push(video);
+                    }
+                    index++;
+                    this.videosFromFile(filePath,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+                  }).catch(err => {
+                    if (this.debug) console.log(err);
+                    index++;
+                    this.videosFromFile(filePath,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+                  });
+                }
+                else {
+                  reject('No data found in cache for video keyword: ' + object.keyword);
+                }
+              }
+              else {
+                reject('No data found in cache for video keyword: ' + object.keyword);
+              }
+            }).catch(err => reject(err));
+          }
+          else {
+            let obj = null;
+            this.video(object.keyword,obj,searchParams,imageParams,true).then(video => {
+              if (!searchParams.multipleOnly || (searchParams.multipleOnly && video.count > 1)) {
+                dataStore.push(video);
+              }
+              index++;
+              this.videosFromFile(filePath,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+            }).catch(err => {
+              if (this.debug) console.log(err);
+              index++;
+              this.videosFromFile(filePath,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+            });
+          }
+        }
+        else if (dataStore.length) {
+          fs.writeFile(searchParams.assets + searchParams.clips,JSON.stringify(dataStore),err => {
+            if (err) {
+              reject(err);
+            }
+            else {
+              fcp.init(searchParams.assets,searchParams.images,searchParams.voice);
+              fcp.xml(dataStore,searchParams.project);
+              fcp.write();
+              resolve('Video XML successfully saved to: ' + searchParams.assets);
+            }
+          });
+        }
+        else {
+          reject('No videos produced from selected file path: ' + filePath);
+        }
+
+      }
+    });
+
   },
 
   addImages: function(keywords,imageArgs,searchAll,index) {
