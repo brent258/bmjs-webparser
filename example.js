@@ -18,6 +18,7 @@ let searchParams = {
   amazon: false,
   cacheOnly: true,
   multipleOnly: true,
+  slideshows: 1
 };
 let imageParams = {
   match: true,
@@ -25,7 +26,7 @@ let imageParams = {
   search: 'flickr',
   limit: 2,
   fallback: 'dogs',
-  template: 'imageAudio',
+  template: 'imageOnly',
   tagline: 'Share the love!!!'
 };
 

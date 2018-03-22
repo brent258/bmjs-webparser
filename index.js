@@ -2115,7 +2115,7 @@ module.exports = {
 
   videoProperties: function(obj,searchArgs,imageArgs,fallbackImages,keywordStore,firstSlide) {
     return new Promise((resolve,reject) => {
-      if (!obj || !searchArgs || !imageArgs || !imageArgs.fallback || !fallbackImages.length) {
+      if (!(obj || imageArgs && imageArgs.template && imageArgs.template.includes('imageOnly')) || !searchArgs || !imageArgs || !imageArgs.fallback || !fallbackImages.length) {
         reject('Unable to create video properties without page object and fallback image data.');
       }
       else {
@@ -2124,109 +2124,132 @@ module.exports = {
         if (!keywordStore) keywordStore = [];
         let slides = [];
         let credits = [];
-        let count = obj.count;
-        let useFallback = obj.keyword ? false : true;
-        let keyword = useFallback ? imageParams.fallback : obj.keyword;
-        let titleFallback = searchParams.keywordList.length ? pos.titlecase(rand(...searchParams.keywordList)) : pos.titlecase(searchParams.keyword);
+        let count, useFallback, keyword, titleFallback;
+        if (obj) {
+          count = obj.count;
+          useFallback = obj.keyword ? false : true;
+          keyword = useFallback ? imageParams.fallback : obj.keyword;
+          titleFallback = searchParams.keywordList.length ? pos.titlecase(rand(...searchParams.keywordList)) : pos.titlecase(searchParams.keyword);
+        }
+        else {
+          keyword = imageParams.fallback;
+        }
         this.images(keyword,imageParams).then(data => {
-          let imageActive = true;
-          let textActive = true;
-          if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageAudio')) textActive = false;
-          if (imageParams.template.includes('textOnly')) imageActive = false;
-          let bothActive = imageActive && textActive ? true : false;
-          if (obj.keyword || firstSlide) {
-            let titleText, titleImage, titleTemplate;
-            if (imageActive && firstSlide) {
-              if (useFallback) {
-                titleImage = fallbackImages[0] ? fallbackImages[0] : null;
-                if (titleImage) fallbackImages.shift();
-              }
-              else {
-                titleImage = data[0] ? data[0] : null;
-                if (titleImage) data.shift();
-              }
-              titleText = '';
-              titleTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
-            }
-            else if (imageActive) {
-              if (useFallback) {
-                titleImage = fallbackImages[0] ? rand(fallbackImages[0],null,null,null) : null;
-                if (titleImage) fallbackImages.shift();
-              }
-              else {
-                titleImage = data[0] ? rand(data[0],null,null,null) : null;
-                if (titleImage) data.shift();
-              }
-              titleText = '';
-              titleTemplate = imageParams.template;
-            }
-            if (textActive) {
-              titleText = !firstSlide ? obj.header : titleFallback;
-            }
-            let titleObj = {
-              text: titleText,
-              audio: '',
-              image: titleImage,
-              template: titleTemplate,
-              keyword: keyword,
-              url: obj.url
-            };
-            if (titleObj.text) {
-              let titleCredit = this.imageCredit(titleObj.image);
-              if (titleCredit && !titleObj.image.copyright) credits.push(titleCredit);
-              slides.push(titleObj);
-            }
-          }
-          for (let i = 0; i < obj.text.length; i++) {
-            if (!obj.text[i]) continue;
-            let slideText, slideImage;
-            let snippet = pos.snippet(obj.text[i]);
-            if (bothActive) {
-              if (useFallback) {
-                slideImage = fallbackImages[0] ? rand(fallbackImages[0],fallbackImages[0],fallbackImages[0],null) : null;
-                if (slideImage) fallbackImages.shift();
-              }
-              else {
-                slideImage = data[0] ? rand(data[0],data[0],data[0],null) : null;
-                if (slideImage) data.shift();
-              }
-              slideText = !slideImage ? snippet : rand(snippet,'');
-            }
-            else if (imageActive) {
-              if (useFallback) {
-                slideImage = fallbackImages[0] ? fallbackImages[0] : null;
-                if (slideImage) fallbackImages.shift();
-              }
-              else {
-                slideImage = data[0] ? data[0] : null;
-                if (slideImage) data.shift();
-              }
-              slideText = '';
-            }
-            else if (textActive) {
-              slideImage = null;
-              slideText = snippet;
-            }
+          if (!obj) {
             let slideObj = {
-              text: slideText,
-              audio: (textActive || imageParams.template.includes('imageAudio')) ? obj.text[i] : '',
-              image: slideImage,
+              text: '',
+              audio: '',
+              image: fallbackImages[0],
               template: imageParams.template,
               keyword: keyword,
-              url: obj.url
+              url: ''
             };
-            if (slideObj.text || slideObj.image) {
-              let slideCredit = this.imageCredit(slideObj.image);
-              if (slideCredit && !slideObj.image.copyright) credits.push(slideCredit);
-              slides.push(slideObj);
-            }
-          }
-          if (slides.length) {
-            if (this.debug) console.log('Resolving video properties: ' + keyword);
-            resolve({slides: slides, credits: credits, count: count});
+            fallbackImages.shift();
+            let slideCredit = this.imageCredit(slideObj.image);
+            if (slideCredit && !slideObj.image.copyright) credits.push(slideCredit);
+            slides.push(slideObj);
+            resolve({slides: slides, credits: credits, count: 1});
           }
           else {
-            reject('No video properties found from: ' + obj.url);
+            let imageActive = true;
+            let textActive = true;
+            if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageAudio')) textActive = false;
+            if (imageParams.template.includes('textOnly')) imageActive = false;
+            let bothActive = imageActive && textActive ? true : false;
+            if (obj.keyword || firstSlide) {
+              let titleText, titleImage, titleTemplate;
+              if (imageActive && firstSlide) {
+                if (useFallback) {
+                  titleImage = fallbackImages[0] ? fallbackImages[0] : null;
+                  if (titleImage) fallbackImages.shift();
+                }
+                else {
+                  titleImage = data[0] ? data[0] : null;
+                  if (titleImage) data.shift();
+                }
+                titleText = '';
+                titleTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
+              }
+              else if (imageActive) {
+                if (useFallback) {
+                  titleImage = fallbackImages[0] ? rand(fallbackImages[0],null,null,null) : null;
+                  if (titleImage) fallbackImages.shift();
+                }
+                else {
+                  titleImage = data[0] ? rand(data[0],null,null,null) : null;
+                  if (titleImage) data.shift();
+                }
+                titleText = '';
+                titleTemplate = imageParams.template;
+              }
+              if (textActive) {
+                titleText = !firstSlide ? obj.header : titleFallback;
+              }
+              let titleObj = {
+                text: titleText,
+                audio: '',
+                image: titleImage,
+                template: titleTemplate,
+                keyword: keyword,
+                url: obj.url
+              };
+              if (titleObj.text) {
+                let titleCredit = this.imageCredit(titleObj.image);
+                if (titleCredit && !titleObj.image.copyright) credits.push(titleCredit);
+                slides.push(titleObj);
+              }
+            }
+            for (let i = 0; i < obj.text.length; i++) {
+              if (!obj.text[i]) continue;
+              let slideText, slideImage;
+              let snippet = pos.snippet(obj.text[i]);
+              if (bothActive) {
+                if (useFallback) {
+                  slideImage = fallbackImages[0] ? rand(fallbackImages[0],fallbackImages[0],fallbackImages[0],null) : null;
+                  if (slideImage) fallbackImages.shift();
+                }
+                else {
+                  slideImage = data[0] ? rand(data[0],data[0],data[0],null) : null;
+                  if (slideImage) data.shift();
+                }
+                slideText = !slideImage ? snippet : rand(snippet,'');
+              }
+              else if (imageActive) {
+                if (useFallback) {
+                  slideImage = fallbackImages[0] ? fallbackImages[0] : null;
+                  if (slideImage) fallbackImages.shift();
+                }
+                else {
+                  slideImage = data[0] ? data[0] : null;
+                  if (slideImage) data.shift();
+                }
+                slideText = '';
+              }
+              else if (textActive) {
+                slideImage = null;
+                slideText = snippet;
+              }
+              let slideObj = {
+                text: slideText,
+                audio: (textActive || imageParams.template.includes('imageAudio')) ? obj.text[i] : '',
+                image: slideImage,
+                template: imageParams.template,
+                keyword: keyword,
+                url: obj.url
+              };
+              if (slideObj.text || slideObj.image) {
+                let slideCredit = this.imageCredit(slideObj.image);
+                if (slideCredit && !slideObj.image.copyright) credits.push(slideCredit);
+                slides.push(slideObj);
+              }
+            }
+            if (slides.length) {
+              if (this.debug) console.log('Resolving video properties: ' + keyword);
+              resolve({slides: slides, credits: credits, count: count});
+            }
+            else {
+              reject('No video properties found from: ' + obj.url);
+            }
           }
         }).catch(err => reject(err));
       }
@@ -2235,7 +2258,7 @@ module.exports = {
 
   videoPropertiesMultiple: function(objs,searchArgs,imageArgs,fallbackImages,keywordStore,slideStore,index) {
     return new Promise((resolve,reject) => {
-      if (!objs || !objs[0] || !imageArgs || !imageArgs.fallback || (!fallbackImages.length && !index)) {
+      if (!(objs || imageArgs && imageArgs.template && imageArgs.template.includes('imageOnly')) || !searchArgs || !imageArgs || !imageArgs.fallback || (!fallbackImages.length && !index)) {
         reject('Unable to create multiple video properties without page object array and fallback image data.');
       }
       else {
@@ -2250,14 +2273,15 @@ module.exports = {
         if (!index) index = 0;
         let firstSlide = false;
         if (!slideStore.slides.length) firstSlide = true;
-        if (index < objs.length && fallbackImages.length) {
-          this.videoProperties(objs[index],searchParams,imageParams,fallbackImages,keywordStore,firstSlide).then(data => {
+        if ((objs && index < objs.length && fallbackImages.length) || (!objs && fallbackImages.length)) {
+          let obj = objs ? objs[index] : null;
+          this.videoProperties(obj,searchParams,imageParams,fallbackImages,keywordStore,firstSlide).then(data => {
             slideStore.slides = slideStore.slides.concat(data.slides);
             slideStore.credits = slideStore.credits.concat(data.credits);
             slideStore.count += data.count;
             index++;
-            if (index >= objs.length) {
-              if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.url);
+            if ((objs && index >= objs.length) || (!objs && !fallbackImages.length)) {
+              if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.keyword);
               if (imageParams.tagline) {
                 slideStore.slides.push({
                   text: imageParams.tagline,
@@ -2286,8 +2310,8 @@ module.exports = {
           }).catch(err => {
             if (this.debug) console.log(err);
             index++;
-            if (index >= objs.length) {
-              if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.url);
+            if ((objs && index >= objs.length) || (!objs && !fallbackImages.length)) {
+              if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.keyword);
               if (imageParams.tagline) {
                 slideStore.slides.push({
                   text: imageParams.tagline,
@@ -2316,7 +2340,7 @@ module.exports = {
           });
         }
         else {
-          reject('No video properties found from: ' + searchParams.url);
+          reject('No video properties found from: ' + searchParams.keyword);
         }
       }
     });
@@ -2377,6 +2401,8 @@ module.exports = {
     if (!searchParams.project) searchParams.project = 'My Project';
     if (!searchParams.clips) searchParams.clips = 'clips-metadata.json';
     if (!searchParams.stills) searchParams.stills = 'stills';
+    if (!searchParams.slideshows) searchParams.slideshows = 1;
+    if (!searchParams.keyword) searchParams.keyword = '';
     return searchParams;
   },
 
@@ -2436,21 +2462,29 @@ module.exports = {
       if (overrideArgs.project) searchParams.project = overrideArgs.project;
       if (overrideArgs.clips) searchParams.clips = overrideArgs.clips;
       if (overrideArgs.stills) searchParams.stills = overrideArgs.stills;
+      if (overrideArgs.slideshows) searchParams.slideshows = overrideArgs.slideshows;
+      if (overrideArgs.keyword) searchParams.keyword = overrideArgs.keyword;
     }
     return searchParams;
   },
 
   video: function(keyword,dataObject,searchArgs,imageArgs,matchKeyword) {
     return new Promise((resolve,reject) => {
-      if (!keyword || !dataObject) {
+      if (!keyword || !(dataObject || imageArgs && imageArgs.template && imageArgs.template.includes('imageOnly'))) {
         reject('Unable to create video without keyword and data object array.');
       }
       else {
         let searchParams = this.setSearchParams(searchArgs);
         let imageParams = this.setImageParams(imageArgs);
-        let text = dataObject.amazon ? dataObject.description : this.pageParagraphs(dataObject,searchParams,true);
-        searchParams.url = dataObject.url;
-        if (text && text.length) {
+        searchParams.keyword = keyword;
+        let text;
+        if (!dataObject) {
+          text = null;
+        }
+        else {
+          text = dataObject.amazon ? dataObject.description : this.pageParagraphs(dataObject,searchParams,true);
+        }
+        if ((text && text.length) || text === null) {
           let fallbackImageParams = this.setImageParams(imageParams);
           fallbackImageParams.limit = imageParams.fallbackLimit;
           fallbackImageParams.cacheOnly = true;
@@ -2570,7 +2604,8 @@ module.exports = {
         if (!index) index = 0;
         let searchParams = this.overrideSearchParams(searchArgs,searchOverrideArgs);
         let imageParams = this.overrideImageParams(imageArgs,imageOverrideArgs);
-        if (!objectStore) {
+        searchParams.keyword = keyword;
+        if (!objectStore && !imageParams.template.includes('imageOnly')) {
           if (!searchParams.cacheOnly) {
             let searchFunc = searchParams.amazon ? 'amazonPages' : 'pages';
             this[searchFunc](keyword,searchParams).then(msg => {
@@ -2617,9 +2652,9 @@ module.exports = {
           }
         }
         else {
-          if (objectStore.length && index < objectStore.length) {
+          if ((objectStore && objectStore.length && index < objectStore.length) || (objectStore === null && index < searchParams.slideshows)) {
             let obj = null;
-            if (!searchParams.amazon) {
+            if (objectStore && !searchParams.amazon) {
               obj = objectStore[index];
             }
             this.video(keyword,obj,searchParams,imageParams,false).then(video => {
