@@ -33,6 +33,7 @@ module.exports = {
     cacheFallback: true,
     search: 'flickr',
     limit: 2,
+    fallbackLimit: 20,
     fallback: 'dogs',
     template: 'imageOnly',
     tagline: 'Share the love!!!',
@@ -51,6 +52,18 @@ module.exports = {
         link: ''
       },
       image: {fallback: 'pekingese'}
+    },
+    {
+      keyword: 'shih tzu facts',
+      search: {
+        keywordType: '',
+        keywordPlural: undefined,
+        keywordDeterminer: '',
+        keywordNoun: '',
+        keywordList: null,
+        link: ''
+      },
+      image: {fallback: 'shih tzu'}
     },
   ]
 };

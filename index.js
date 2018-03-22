@@ -2831,10 +2831,8 @@ module.exports = {
         else {
           reject('No videos produced from selected file path: ' + filePath);
         }
-
       }
     });
-
   },
 
   addImages: function(keywords,imageArgs,searchAll,index) {
