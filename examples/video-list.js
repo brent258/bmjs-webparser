@@ -35,14 +35,14 @@ module.exports = {
     limit: 2,
     fallbackLimit: 20,
     fallback: 'dogs',
-    template: 'imageOnly',
+    template: '',
     tagline: 'Share the love!!!',
     logo: ''
   },
 
   objects: [
     {
-      keyword: 'pekingese facts',
+      keyword: 'non shedding dogs',
       search: {
         keywordType: '',
         keywordPlural: undefined,
@@ -51,19 +51,7 @@ module.exports = {
         keywordList: null,
         link: ''
       },
-      image: {fallback: 'pekingese'}
-    },
-    {
-      keyword: 'shih tzu facts',
-      search: {
-        keywordType: '',
-        keywordPlural: undefined,
-        keywordDeterminer: '',
-        keywordNoun: '',
-        keywordList: null,
-        link: ''
-      },
-      image: {fallback: 'shih tzu'}
+      image: {fallback: ''}
     },
   ]
 };

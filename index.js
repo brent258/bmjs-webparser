@@ -2764,7 +2764,7 @@ module.exports = {
             }).catch(err => reject(err));
           }
           else if (!imageParams.template.includes('imageOnly')) {
-            this.readTextCache(keyword).then(data => {
+            this.readTextCache(object.keyword).then(data => {
               objectStore = JSON.parse(data);
               if (objectStore.length) {
                 if (searchParams.amazon) {

@@ -1,6 +1,6 @@
 module.exports = [
   {
-    keyword: '',
-    value: ''
+    keyword: 'dogs',
+    value: 'dogs-batons-play-bite.jpg'
   },
 ];
