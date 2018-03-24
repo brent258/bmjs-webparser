@@ -2113,28 +2113,20 @@ module.exports = {
     }
   },
 
-  videoProperties: function(obj,searchArgs,imageArgs,fallbackImages,keywordStore,firstSlide) {
+  videoProperties: function(obj,searchArgs,imageArgs,fallbackImages,firstSlide) {
     return new Promise((resolve,reject) => {
-      if (!(obj || imageArgs && imageArgs.template && imageArgs.template.includes('imageOnly')) || !searchArgs || !imageArgs || !imageArgs.fallback || !fallbackImages.length) {
+      if (!obj || !searchArgs || !imageArgs || !imageArgs.fallback || !fallbackImages) {
         reject('Unable to create video properties without page object and fallback image data.');
       }
       else {
         let searchParams = this.setSearchParams(searchArgs);
         let imageParams = this.setImageParams(imageArgs);
-        if (!keywordStore) keywordStore = [];
         let slides = [];
         let credits = [];
-        let count, useFallback, keyword, titleFallback;
-        if (obj) {
-          count = obj.count;
-          useFallback = obj.keyword ? false : true;
-          keyword = useFallback ? imageParams.fallback : obj.keyword;
-          titleFallback = searchParams.keywordList.length ? pos.titlecase(rand(...searchParams.keywordList)) : pos.titlecase(searchParams.keyword);
-        }
-        else {
-          keyword = imageParams.fallback;
-          useFallback = true;
-        }
+        let count = obj.count;
+        let useFallback = obj.keyword ? false : true;
+        let keyword = useFallback ? imageParams.fallback : obj.keyword;
+        let titleFallback = searchParams.keywordList.length ? pos.titlecase(rand(...searchParams.keywordList)) : pos.titlecase(searchParams.keyword);
         if (useFallback) {
           imageParams.cacheOnly = imageParams.cacheFallback;
         }
@@ -2257,13 +2249,12 @@ module.exports = {
 
   videoPropertiesMultiple: function(objs,searchArgs,imageArgs,fallbackImages,keywordStore,slideStore,index) {
     return new Promise((resolve,reject) => {
-      if (!(objs || imageArgs && imageArgs.template && imageArgs.template.includes('imageOnly')) || !searchArgs || !imageArgs || !imageArgs.fallback || (!fallbackImages.length && !index)) {
+      if (!objs || !searchArgs || !imageArgs || !imageArgs.fallback || !fallbackImages) {
         reject('Unable to create multiple video properties without page object array and fallback image data.');
       }
       else {
         let searchParams = this.setSearchParams(searchArgs);
         let imageParams = this.setImageParams(imageArgs);
-        if (!keywordStore) keywordStore = [];
         if (!slideStore) slideStore = {
           slides: [],
           credits: [],
@@ -2272,14 +2263,13 @@ module.exports = {
         if (!index) index = 0;
         let firstSlide = false;
         if (!slideStore.slides.length) firstSlide = true;
-        if ((objs && index < objs.length && fallbackImages.length) || (!objs && fallbackImages.length)) {
-          let obj = objs ? objs[index] : null;
-          this.videoProperties(obj,searchParams,imageParams,fallbackImages,keywordStore,firstSlide).then(data => {
+        if (objs && index < objs.length) {
+          this.videoProperties(objs[index],searchParams,imageParams,fallbackImages,firstSlide).then(data => {
             slideStore.slides = slideStore.slides.concat(data.slides);
             slideStore.credits = slideStore.credits.concat(data.credits);
             slideStore.count += data.count;
             index++;
-            if ((objs && index >= objs.length) || (!objs && !fallbackImages.length)) {
+            if (objs && index >= objs.length) {
               if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.keyword);
               if (imageParams.tagline) {
                 slideStore.slides.push({
@@ -2304,12 +2294,12 @@ module.exports = {
               resolve(slideStore);
             }
             else {
-              this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
+              this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
             }
           }).catch(err => {
             if (this.debug) console.log(err);
             index++;
-            if ((objs && index >= objs.length) || (!objs && !fallbackImages.length)) {
+            if (objs && index >= objs.length) {
               if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.keyword);
               if (imageParams.tagline) {
                 slideStore.slides.push({
@@ -2334,7 +2324,7 @@ module.exports = {
               resolve(slideStore);
             }
             else {
-              this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,keywordStore,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
+              this.videoPropertiesMultiple(objs,searchParams,imageParams,fallbackImages,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
             }
           });
         }
@@ -2471,10 +2461,28 @@ module.exports = {
     return searchParams;
   },
 
+  slideshowParagraphs: function(keyword,searchArgs,imageArgs) {
+    if (!keyword || typeof keyword !== 'string') {
+      if (this.debug) console.log('Unable to produce slideshow paragraphs without keyword.');
+      return;
+    }
+    let searchParams = this.setSearchParams(searchArgs);
+    let imageParams = this.setImageParams(imageArgs);
+    let searchLowerBound = Math.ceil(searchParams.count/2);
+    let searchCount = searchParams.random ? Math.floor(Math.random() * searchParams.count) + searchLowerBound : searchParams.count;
+    if (searchParams.headerKeywords && searchParams.headerKeywords.length) {
+
+    }
+    else {
+
+    }
+
+  };
+
   video: function(keyword,dataObject,searchArgs,imageArgs,matchKeyword) {
     return new Promise((resolve,reject) => {
-      if (!keyword || !(dataObject || imageArgs && imageArgs.template && imageArgs.template.includes('imageOnly'))) {
-        reject('Unable to create video without keyword and data object array.');
+      if (!keyword) {
+        reject('Unable to create video without keyword.');
       }
       else {
         let searchParams = this.setSearchParams(searchArgs);
@@ -2487,7 +2495,7 @@ module.exports = {
         else {
           text = dataObject.amazon ? dataObject.description : this.pageParagraphs(dataObject,searchParams,true);
         }
-        if ((text && text.length) || text === null) {
+        if (text && text.length) {
           let fallbackImageParams = this.setImageParams(imageParams);
           fallbackImageParams.limit = imageParams.fallbackLimit;
           fallbackImageParams.cacheOnly = fallbackImageParams.cacheFallback;
@@ -2608,30 +2616,9 @@ module.exports = {
         let searchParams = this.overrideSearchParams(searchArgs,searchOverrideArgs);
         let imageParams = this.overrideImageParams(imageArgs,imageOverrideArgs);
         searchParams.keyword = keyword;
-        if (!objectStore && !imageParams.template.includes('imageOnly')) {
-          if (!searchParams.cacheOnly) {
-            let searchFunc = searchParams.amazon ? 'amazonPages' : 'pages';
-            this[searchFunc](keyword,searchParams).then(msg => {
-              if (this.debug) console.log(msg);
-              this.readTextCache(keyword).then(data => {
-                objectStore = JSON.parse(data);
-                if (objectStore.length) {
-                  if (searchParams.amazon) {
-                    objectStore = objectStore.filter(el => el.amazon);
-                  }
-                  else {
-                    objectStore = objectStore.filter(el => !el.amazon);
-                  }
-                  if (objectStore.length) {
-                    objectStore = shuffle(objectStore);
-                    this.videosFromKeyword(keyword,searchArgs,imageArgs,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
-                  }
-                }
-                if (!objectStore.length) {
-                  reject('No data found in cache for video keyword: ' + keyword);
-                }
-              }).catch(err => reject(err));
-            }).catch(err => reject(err));
+        if (!objectStore && !imageParams.template.includes('imageOnly') && !imageParams.template.includes('imageTitle')) {
+          if (!fs.existsSync(this.cachePath + '/data/text/' + keyword + '.json') || !fs.existsSync(this.cachePath + '/text/' + keyword)) {
+            reject('No text data found to produce videos from keyword: ' + keyword);
           }
           else {
             this.readTextCache(keyword).then(data => {
@@ -2647,8 +2634,11 @@ module.exports = {
                   objectStore = shuffle(objectStore);
                   this.videosFromKeyword(keyword,searchArgs,imageArgs,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
                 }
+                else {
+                  reject('No data found in cache for video keyword: ' + keyword);
+                }
               }
-              if (!objectStore.length) {
+              else {
                 reject('No data found in cache for video keyword: ' + keyword);
               }
             }).catch(err => reject(err));
@@ -2714,10 +2704,11 @@ module.exports = {
         }
         if (index < data.objects.length) {
           let objectStore = null;
-          if (!searchParams.cacheOnly && !imageParams.template.includes('imageOnly')) {
-            let searchFunc = searchParams.amazon ? 'amazonPages' : 'pages';
-            this[searchFunc](object.keyword,searchParams).then(msg => {
-              if (this.debug) console.log(msg);
+          if (!imageParams.template.includes('imageOnly') && !imageParams.template.includes('imageTitle')) {
+            if (!fs.existsSync(this.cachePath + '/data/text/' + object.keyword + '.json') || !fs.existsSync(this.cachePath + '/text/' + object.keyword)) {
+              reject('No text data found to produce videos from keyword: ' + object.keyword);
+            }
+            else {
               this.readTextCache(object.keyword).then(data => {
                 objectStore = JSON.parse(data);
                 if (objectStore.length) {
@@ -2753,44 +2744,7 @@ module.exports = {
                   reject('No data found in cache for video keyword: ' + object.keyword);
                 }
               }).catch(err => reject(err));
-            }).catch(err => reject(err));
-          }
-          else if (!imageParams.template.includes('imageOnly')) {
-            this.readTextCache(object.keyword).then(data => {
-              objectStore = JSON.parse(data);
-              if (objectStore.length) {
-                if (searchParams.amazon) {
-                  objectStore = objectStore.filter(el => el.amazon);
-                }
-                else {
-                  objectStore = objectStore.filter(el => !el.amazon);
-                }
-                if (objectStore.length) {
-                  objectStore = shuffle(objectStore);
-                  let obj = null;
-                  if (!searchParams.amazon) {
-                    obj = objectStore[index];
-                  }
-                  this.video(object.keyword,obj,searchParams,imageParams,true).then(video => {
-                    if (!searchParams.multipleOnly || (searchParams.multipleOnly && video.count > 1)) {
-                      dataStore.push(video);
-                    }
-                    index++;
-                    this.videosFromFile(filePath,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
-                  }).catch(err => {
-                    if (this.debug) console.log(err);
-                    index++;
-                    this.videosFromFile(filePath,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
-                  });
-                }
-                else {
-                  reject('No data found in cache for video keyword: ' + object.keyword);
-                }
-              }
-              else {
-                reject('No data found in cache for video keyword: ' + object.keyword);
-              }
-            }).catch(err => reject(err));
+            }
           }
           else {
             let obj = null;

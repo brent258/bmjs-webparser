@@ -1,11 +1,13 @@
+const wp = require('../index.js');
+
 module.exports = {
   limit: 1,
-  intro: 10,
-  sections: 5,
+  intro: 20,
+  sections: 15,
   count: 15,
   category: '22',
   privacy: 'public',
-  headerKeywords: [],
+  headerKeywords: wp.keywords.dogs,
   template: 'list',
   keywordType: 'PLURAL',
   keywordPlural: true,

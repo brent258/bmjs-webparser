@@ -4,8 +4,8 @@ module.exports = {
 
   search: {
     limit: 1,
-    intro: 10,
-    sections: 5,
+    intro: 20,
+    sections: 10,
     count: 15,
     category: '22',
     privacy: 'public',
@@ -18,7 +18,7 @@ module.exports = {
     keywordList: ['dogs that don\'t shed','non shedding dogs','hypoallergenic dogs'],
     link: 'http://heartmydog.com',
     amazon: false,
-    cacheOnly: false,
+    cacheOnly: true,
     multipleOnly: true,
     slideshows: 1,
     assets: '/Users/brentmccoy/Apps/node-modules/bmjs-webparser/assets/',
@@ -35,7 +35,7 @@ module.exports = {
     limit: 2,
     fallbackLimit: 20,
     fallback: 'dogs',
-    template: '',
+    template: 'imageOnly',
     tagline: 'Share the love!!!',
     logo: ''
   },

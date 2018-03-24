@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "bmjs-engpos": "latest",
-    "bmjs-fcpxml": "^1.1.4",
+    "bmjs-fcpxml": "^1.1.5",
     "bmjs-random": "latest",
     "bmjs-shuffle": "latest",
     "cheerio": "^1.0.0-rc.2",
