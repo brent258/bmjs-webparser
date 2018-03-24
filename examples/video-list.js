@@ -9,7 +9,7 @@ module.exports = {
     count: 15,
     category: '22',
     privacy: 'public',
-    headerKeywords: wp.keywords.dogs,
+    headerKeywords: [],
     template: 'list',
     keywordType: 'PLURAL',
     keywordPlural: true,
@@ -29,7 +29,7 @@ module.exports = {
   image: {
     options: null,
     tags: null,
-    cacheKeyword: true,
+    cacheOnly: true,
     cacheFallback: true,
     search: 'flickr',
     limit: 2,

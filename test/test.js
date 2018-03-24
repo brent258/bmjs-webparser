@@ -228,4 +228,11 @@ describe('web parser', function() {
     expect(wp.parseImageFilename('%20_%567a.jpg')).to.equal('20_567a.jpg');
   });
 
+  it('filter images should return array of filtered images', () => {
+    let data = ['image001.jpg'];
+    let images = [{image: 'image001.jpg'}];
+    expect(wp.filterUsedImages(images,data)).to.deep.equal([]);
+    expect(wp.filterUsedImages(images,[])).to.deep.equal(images);
+  });
+
 });
