@@ -14,10 +14,10 @@ module.exports = {
     keywordType: 'PLURAL',
     keywordPlural: true,
     keywordDeterminer: '',
-    keywordNoun: 'types of dogs',
-    keywordList: ['dogs that don\'t shed','non shedding dogs','hypoallergenic dogs'],
+    keywordNoun: 'product',
+    keywordList: ['slow feed dog bowls','slow dog feeders','brake fast dog bowls'],
     link: 'http://heartmydog.com',
-    amazon: false,
+    amazon: true,
     cacheOnly: true,
     multipleOnly: true,
     slideshows: 1,
@@ -35,14 +35,14 @@ module.exports = {
     limit: 2,
     fallbackLimit: 20,
     fallback: 'dogs',
-    template: 'imageOnly',
+    template: 'imageTitle',
     tagline: 'Share the love!!!',
     logo: ''
   },
 
   objects: [
     {
-      keyword: 'non shedding dogs',
+      keyword: 'slow feed dog bowls',
       search: {
         keywordType: '',
         keywordPlural: undefined,

@@ -1,13 +1,12 @@
 module.exports = {
   options: null,
   tags: null,
-  cacheKeyword: true,
-  cacheFallback: true,
+  cacheOnly: true,
   search: 'flickr',
   limit: 2,
   fallbackLimit: 20,
   fallback: 'dogs',
-  template: 'imageOnly',
+  template: 'imageTitle',
   tagline: 'Share the love!!!',
   logo: ''
 };

@@ -1858,10 +1858,11 @@ module.exports = {
     });
   },
 
-  parseAmazonProduct: function($,url) {
+  parseAmazonProduct: function($,link) {
     let obj = {};
     obj.amazon = true;
-    obj.url = url;
+    obj.asin = link.asin;
+    obj.url = link.url;
     obj.title = $('span#productTitle.a-size-large').text().trim();
     if (!obj.title) return null;
     obj.brand = $('#brand').text().trim();
@@ -1883,9 +1884,6 @@ module.exports = {
       else if (text.match(/shipping\s+weight:\s+/gi)) {
         obj.weight = text.replace(/shipping\s+weight:\s+/gi,'').replace(/\s+\(.+/gi,'');
       }
-      else if (text.match(/asin:\s+/gi)) {
-        obj.asin = text.replace(/asin:\s+/gi,'');
-      }
     });
     obj.description = [];
     let self = this;
@@ -1893,13 +1891,13 @@ module.exports = {
       if ($(this).contents().length) {
         $(this).contents().each(function(i,sub) {
           let text = self.parseText($(this).text());
-          let filtered = self.filterBodyContent(text,url);
+          let filtered = self.filterBodyContent(text);
           if (filtered.length) obj.description = obj.description.concat(filtered);
         });
       }
       else {
         let text = self.parseText($(this).text());
-        let filtered = self.filterBodyContent(text,url);
+        let filtered = self.filterBodyContent(text);
         if (filtered.length) obj.description = obj.description.concat(filtered);
       }
     });
@@ -1928,7 +1926,7 @@ module.exports = {
                 width: 0,
                 height: 0,
                 description: '',
-                filename: this.parseImageFilename(path.basename(img.split('?')[0])),
+                filename: self.parseImageFilename(path.basename(img.split('?')[0])),
                 search: [],
                 tags: [],
                 copyright: true
@@ -1994,7 +1992,7 @@ module.exports = {
           request(options).then(html => {
             if (this.debug) console.log('Loading Amazon product page: ' + link.text);
             let $ = cheerio.load(html);
-            let obj = this.parseAmazonProduct($,link.url);
+            let obj = this.parseAmazonProduct($,link);
             if (obj) {
               this.updateTextCache(obj,link.keyword).then(textData => {
                 if (this.debug) console.log(textData);
@@ -2095,6 +2093,23 @@ module.exports = {
         });
       }
     });
+  },
+
+  amazonKeywords: function(data) {
+    if (!data || typeof data !== 'object') {
+      if (this.debug) console.log('Unable to filter Amazon keywords without data.');
+      return [];
+    }
+    let keywords = [];
+    for (let i = 0; i < data.length; i++) {
+      let obj = {
+        header: this.parseHeader(data[i].title),
+        keyword: data[i].asin
+      };
+      if (obj.header && obj.keyword) keywords.push(obj);
+    }
+    if (keywords.length) keywords = shuffle(keywords);
+    return keywords;
   },
 
   imageCredit: function(image) {
@@ -2509,25 +2524,50 @@ module.exports = {
         count: 0
       };
       paragraphs.push(title);
-      for (let i = 0; i < searchCount; i++) {
-        let title = {
-          text: [],
-          header: pos.titlecase(searchParams.headerKeywords[i]),
-          keyword: searchParams.headerKeywords[i],
-          url: 'image slideshow',
-          count: 1
-        };
-        paragraphs.push(title);
-        let imageCount = imageParams.random ? Math.floor(Math.random() * imageParams.count) + imageLowerBound : imageParams.count;
-        for (let j = 0; j < imageCount; j++) {
-          let image = {
+      if (!searchParams.amazon) {
+        for (let i = 0; i < searchCount; i++) {
+          let title = {
             text: [],
-            header: '',
+            header: pos.titlecase(searchParams.headerKeywords[i]),
             keyword: searchParams.headerKeywords[i],
             url: 'image slideshow',
-            count: 0
+            count: 1
           };
-          paragraphs.push(image);
+          paragraphs.push(title);
+          let imageCount = imageParams.random ? Math.floor(Math.random() * imageParams.count) + imageLowerBound : imageParams.count;
+          for (let j = 0; j < imageCount; j++) {
+            let image = {
+              text: [],
+              header: '',
+              keyword: searchParams.headerKeywords[i],
+              url: 'image slideshow',
+              count: 0
+            };
+            paragraphs.push(image);
+          }
+        }
+      }
+      else {
+        for (let i = 0; i < searchCount; i++) {
+          let title = {
+            text: [],
+            header: pos.titlecase(searchParams.headerKeywords[i].header),
+            keyword: searchParams.headerKeywords[i].keyword,
+            url: 'image slideshow',
+            count: 1
+          };
+          paragraphs.push(title);
+          let imageCount = imageParams.random ? Math.floor(Math.random() * imageParams.count) + imageLowerBound : imageParams.count;
+          for (let j = 0; j < imageCount; j++) {
+            let image = {
+              text: [],
+              header: '',
+              keyword: searchParams.headerKeywords[i].keyword,
+              url: 'image slideshow',
+              count: 0
+            };
+            paragraphs.push(image);
+          }
         }
       }
     }
@@ -2678,8 +2718,8 @@ module.exports = {
         let searchParams = this.overrideSearchParams(searchArgs,searchOverrideArgs);
         let imageParams = this.overrideImageParams(imageArgs,imageOverrideArgs);
         searchParams.keyword = keyword;
-        if (!objectStore && !imageParams.template.includes('imageOnly') && !imageParams.template.includes('imageTitle')) {
-          if (!fs.existsSync(this.cachePath + '/data/text/' + keyword + '.json') || !fs.existsSync(this.cachePath + '/text/' + keyword)) {
+        if (!objectStore && (searchParams.amazon || (!imageParams.template.includes('imageOnly') && !imageParams.template.includes('imageTitle')))) {
+          if (!fs.existsSync(this.cachePath + '/data/text/' + keyword + '.json')) {
             reject('No text data found to produce videos from keyword: ' + keyword);
           }
           else {
@@ -2694,7 +2734,7 @@ module.exports = {
                 }
                 if (objectStore.length) {
                   objectStore = shuffle(objectStore);
-                  this.videosFromKeyword(keyword,searchArgs,imageArgs,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+                  this.videosFromKeyword(keyword,searchParams,imageParams,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
                 }
                 else {
                   reject('No data found in cache for video keyword: ' + keyword);
@@ -2712,16 +2752,21 @@ module.exports = {
             if (objectStore && !searchParams.amazon) {
               obj = objectStore[index];
             }
+            else if (objectStore) {
+              if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageTitle')) {
+                searchParams.headerKeywords = this.amazonKeywords(objectStore);
+              }
+            }
             this.video(keyword,obj,searchParams,imageParams,false).then(video => {
               if (!searchParams.multipleOnly || (searchParams.multipleOnly && video.count > 1)) {
                 dataStore.push(video);
               }
               index++;
-              this.videosFromKeyword(keyword,searchArgs,imageArgs,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+              this.videosFromKeyword(keyword,searchParams,imageParams,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
             }).catch(err => {
               if (this.debug) console.log(err);
               index++;
-              this.videosFromKeyword(keyword,searchArgs,imageArgs,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+              this.videosFromKeyword(keyword,searchParams,imageParams,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
             });
           }
           else if (dataStore.length) {
@@ -2766,8 +2811,8 @@ module.exports = {
         }
         if (index < data.objects.length) {
           let objectStore = null;
-          if (!imageParams.template.includes('imageOnly') && !imageParams.template.includes('imageTitle')) {
-            if (!fs.existsSync(this.cachePath + '/data/text/' + object.keyword + '.json') || !fs.existsSync(this.cachePath + '/text/' + object.keyword)) {
+          if (searchParams.amazon || (!imageParams.template.includes('imageOnly') && !imageParams.template.includes('imageTitle'))) {
+            if (!fs.existsSync(this.cachePath + '/data/text/' + object.keyword + '.json')) {
               reject('No text data found to produce videos from keyword: ' + object.keyword);
             }
             else {
@@ -2785,6 +2830,11 @@ module.exports = {
                     let obj = null;
                     if (!searchParams.amazon) {
                       obj = objectStore[index];
+                    }
+                    else {
+                      if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageTitle')) {
+                        searchParams.headerKeywords = this.amazonKeywords(objectStore);
+                      }
                     }
                     this.video(object.keyword,obj,searchParams,imageParams,true).then(video => {
                       if (!searchParams.multipleOnly || (searchParams.multipleOnly && video.count > 1)) {
