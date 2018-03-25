@@ -2513,9 +2513,11 @@ module.exports = {
     let searchParams = this.setSearchParams(searchArgs);
     let imageParams = this.setImageParams(imageArgs);
     let searchLowerBound = Math.ceil(searchParams.count/2);
-    let searchCount = searchParams.random ? Math.floor(Math.random() * searchParams.count) + searchLowerBound : searchParams.count;
+    let searchCount = searchParams.count;
+    if (searchParams.random) searchCount = Math.floor(Math.random() * (searchParams.count - searchLowerBound + 1)) + searchLowerBound;
     let imageLowerBound = Math.ceil(imageParams.count/2);
     if (searchParams.headerKeywords && searchParams.headerKeywords.length) {
+      if (searchCount > searchParams.headerKeywords.length) searchCount = searchParams.headerKeywords.length;
       let title = {
         text: [],
         header: pos.titlecase(keyword),
@@ -2534,7 +2536,8 @@ module.exports = {
             count: 1
           };
           paragraphs.push(title);
-          let imageCount = imageParams.random ? Math.floor(Math.random() * imageParams.count) + imageLowerBound : imageParams.count;
+          let imageCount = imageParams.count;
+          if (imageParams.random) imageCount = Math.floor(Math.random() * (imageParams.count - imageLowerBound + 1)) + imageLowerBound;
           for (let j = 0; j < imageCount; j++) {
             let image = {
               text: [],
@@ -2557,7 +2560,8 @@ module.exports = {
             count: 1
           };
           paragraphs.push(title);
-          let imageCount = imageParams.random ? Math.floor(Math.random() * imageParams.count) + imageLowerBound : imageParams.count;
+          let imageCount = imageParams.count;
+          if (imageParams.random) imageCount = Math.floor(Math.random() * (imageParams.count - imageLowerBound + 1)) + imageLowerBound;
           for (let j = 0; j < imageCount; j++) {
             let image = {
               text: [],

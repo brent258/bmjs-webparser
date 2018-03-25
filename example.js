@@ -7,8 +7,8 @@ const apiParams = require('./examples/api-params.js');
 
 wp.init();
 // Create videos
-//wp.videosFromFile('./examples/video-list.js').then(data => console.log(data)).catch(err => console.log(err));
-wp.videosFromKeyword('slow feed dog bowls',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
+wp.videosFromFile('./examples/video-list.js').then(data => console.log(data)).catch(err => console.log(err));
+//wp.videosFromKeyword('slow feed dog bowls',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
 // Add images
 //wp.addImages(addImageList,imageParams,true).then(data => console.log(data)).catch(err => console.log(err));
 // Delete images

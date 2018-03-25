@@ -14,10 +14,10 @@ module.exports = {
     keywordType: 'PLURAL',
     keywordPlural: true,
     keywordDeterminer: '',
-    keywordNoun: 'product',
-    keywordList: ['slow feed dog bowls','slow dog feeders','brake fast dog bowls'],
+    keywordNoun: '',
+    keywordList: [],
     link: 'http://heartmydog.com',
-    amazon: true,
+    amazon: false,
     cacheOnly: true,
     multipleOnly: true,
     slideshows: 1,
@@ -30,9 +30,9 @@ module.exports = {
     options: null,
     tags: null,
     cacheOnly: true,
-    cacheFallback: true,
     search: 'flickr',
-    limit: 2,
+    limit: 10,
+    count: 2,
     fallbackLimit: 20,
     fallback: 'dogs',
     template: 'imageTitle',
@@ -44,11 +44,27 @@ module.exports = {
     {
       keyword: 'slow feed dog bowls',
       search: {
+        amazon: true,
+        headerKeywords: [],
         keywordType: '',
         keywordPlural: undefined,
         keywordDeterminer: '',
         keywordNoun: '',
-        keywordList: null,
+        keywordList: ['slow dog food bowls'],
+        link: ''
+      },
+      image: {fallback: ''}
+    },
+    {
+      keyword: 'non shedding dogs',
+      search: {
+        amazon: false,
+        headerKeywords: wp.keywords.dogs,
+        keywordType: '',
+        keywordPlural: undefined,
+        keywordDeterminer: '',
+        keywordNoun: '',
+        keywordList: ['non shedding dogs'],
         link: ''
       },
       image: {fallback: ''}
