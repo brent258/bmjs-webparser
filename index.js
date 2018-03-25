@@ -1860,6 +1860,7 @@ module.exports = {
 
   parseAmazonProduct: function($,link) {
     let obj = {};
+    let self = this;
     obj.amazon = true;
     obj.asin = link.asin;
     obj.url = link.url;
@@ -1876,6 +1877,8 @@ module.exports = {
     obj.features = $('#feature-bullets li').map(function(i,el) {
       return $(this).text().replace(/\n\W+/g,' ').replace(/\s+/g,' ').trim();
     }).get();
+    obj.dimensions = '';
+    obj.weight = '';
     $('#detailBullets_feature_div li').each(function(i,el) {
       let text = $(this).text().replace(/\n/g,'').replace(/\s+/g,' ').trim();
       if (text.match(/product\s+dimensions:\s+/gi)) {
@@ -1886,7 +1889,6 @@ module.exports = {
       }
     });
     obj.description = [];
-    let self = this;
     $('#productDescription p').each(function(i,el) {
       if ($(this).contents().length) {
         $(this).contents().each(function(i,sub) {
@@ -1945,7 +1947,7 @@ module.exports = {
                 width: 0,
                 height: 0,
                 description: '',
-                filename: path.basename(img.split('?')[0]),
+                filename: self.parseImageFilename(path.basename(img.split('?')[0])),
                 search: [],
                 tags: [],
                 copyright: true
@@ -2234,23 +2236,18 @@ module.exports = {
             let slideText = '';
             let slideImage = null;
             let slideTemplate = '';
-            if (imageActive && firstSlide && !imageParams.template.includes('imageOnly')) {
-              if (data[0]) slideImage = data[0];
+            if (obj.header && !imageParams.template.includes('imageOnly')) {
+              slideText = !firstSlide ? obj.header : titleFallback;
+              slideTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
+              slideImage = firstSlide ? data[0] : null;
               if (slideImage) {
                 usedImages.push(data[0].image);
                 data.shift();
               }
-              slideText = !firstSlide ? obj.header : titleFallback;
-              slideTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
-            }
-            else if (obj.header && !imageParams.template.includes('imageOnly')) {
-              slideText = !firstSlide ? obj.header : titleFallback;
-              slideTemplate = imageParams.template;
-              slideImage = null;
             }
             else {
               slideText = '';
-              slideTemplate = imageParams.template;
+              slideTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
               if (data[0]) slideImage = data[0];
               if (slideImage) {
                 usedImages.push(data[0].image);
@@ -2518,14 +2515,16 @@ module.exports = {
     let imageLowerBound = Math.ceil(imageParams.count/2);
     if (searchParams.headerKeywords && searchParams.headerKeywords.length) {
       if (searchCount > searchParams.headerKeywords.length) searchCount = searchParams.headerKeywords.length;
-      let title = {
-        text: [],
-        header: pos.titlecase(keyword),
-        keyword: imageParams.fallback,
-        url: 'image slideshow',
-        count: 0
-      };
-      paragraphs.push(title);
+      if (!imageParams.template.includes('imageOnly')) {
+        let title = {
+          text: [],
+          header: pos.titlecase(keyword),
+          keyword: imageParams.fallback,
+          url: 'image slideshow',
+          count: 0
+        };
+        paragraphs.push(title);
+      }
       if (!searchParams.amazon) {
         for (let i = 0; i < searchCount; i++) {
           let title = {
