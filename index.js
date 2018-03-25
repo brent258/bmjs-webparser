@@ -2973,6 +2973,55 @@ module.exports = {
     });
   },
 
+  pagesFromFile: function(filePath,index) {
+    return new Promise((resolve,reject) => {
+      if (!filePath || typeof filePath !== 'string') {
+        reject('Unable to create videos without file path.');
+      }
+      else {
+        let data = require(filePath);
+        if (!index) index = 0;
+        let object = data.objects[index];
+        let searchParams, imageParams;
+        if (object) {
+          searchParams = this.overrideSearchParams(data.search,object.search);
+          imageParams = this.overrideImageParams(data.image,object.image);
+        }
+        else {
+          searchParams = this.overrideSearchParams(data.search,null);
+          imageParams = this.overrideImageParams(data.image,null);
+        }
+        if (index < data.objects.length) {
+          if (searchParams.amazon) {
+            this.amazonPages(object.keyword,searchParams).then(msg => {
+              if (this.debug) console.log(msg);
+              index++;
+              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+            }).catch(err => {
+              if (this.debug) console.log(err);
+              index++;
+              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+            });
+          }
+          else {
+            this.pages(object.keyword,searchParams).then(msg => {
+              if (this.debug) console.log(msg);
+              index++;
+              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+            }).catch(err => {
+              if (this.debug) console.log(err);
+              index++;
+              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+            });
+          }
+        }
+        else {
+          resolve(`Finished downloading ${index} keywords from file: ${filePath}`);
+        }
+      }
+    });
+  },
+
   upload: function(metadata,apiParams) {
     fcp.upload(metadata,apiParams);
   }

@@ -7,7 +7,7 @@ const apiParams = require('./examples/api-params.js');
 
 wp.init();
 // Create videos
-wp.videosFromFile('./examples/video-list.js').then(data => console.log(data)).catch(err => console.log(err));
+//wp.videosFromFile('./examples/video-list.js').then(data => console.log(data)).catch(err => console.log(err));
 //wp.videosFromKeyword('slow feed dog bowls',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
 // Add images
 //wp.addImages(addImageList,imageParams,true).then(data => console.log(data)).catch(err => console.log(err));
@@ -16,4 +16,4 @@ wp.videosFromFile('./examples/video-list.js').then(data => console.log(data)).ca
 // Upload videosFromFile
 //wp.upload('assets/upload-metadata.json',apiParams);
 // Search for pages
-//wp.amazonPages('slow feed dog bowls',searchParams).then(data => console.log(data)).catch(err => console.log(err));
+wp.pagesFromFile('./examples/video-list.js').then(data => console.log(data)).catch(err => console.log(err));
