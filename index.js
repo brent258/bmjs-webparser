@@ -1275,11 +1275,12 @@ module.exports = {
       return '';
     }
     text = text
-    .replace(/^(\n|\s|\r|\t)+/g,'')
-    .replace(/(\n|\s|\r|\t)+$/g,'')
-    .replace(/(\n|\r|\t|\s+)/g,' ')
     .replace(/^[^A-Za-z]*([A-Za-z])/,'$1')
     .replace(/([a-zA-Z])(\:\s.+|\s\(.+|\s\-\s.+|\s\|\s.+|\,\s.+)/,'$1')
+    .replace(/\!+/g,'!')
+    .replace(/\?+/g,'?')
+    .replace(/\.+/g,'.')
+    .replace(/\s+/g,' ')
     .replace(/(\u201C|\u201D|\u2033|\u201e)/g,'"')
     .replace(/(\u2018|\u2019|\u201a|\u2032)/g,'\'')
     .replace(/(\u2026)/g,'.')
@@ -1293,23 +1294,16 @@ module.exports = {
       return '';
     }
     text = text
-    .replace(/\n([A-Z])/g,': $1')
-    .replace(/\[\d+\]/g,'')
     .replace(/\!+/g,'!')
     .replace(/\?+/g,'?')
     .replace(/\.+/g,'.')
-    .replace(/^[^A-Z]*([A-Z])/,'$1')
-    .replace(/(.*)(\:\s|\s\-\s)([A-Z].+)/,'$3')
-    .replace(/(Dr|St|Rd|Mr|Ms|Mrs)\./g,'$1')
-    .replace(/(\s[A-Za-z])\./g,'$1')
-    .replace(/\.([0-9])/g,' point $1')
-    .replace(/\.([A-Z]|[a-z])/g,'$1')
-    .replace(/([a-z])(A\s)/g,'$1. $2')
     .replace(/\s+/g,' ')
     .replace(/(\u201C|\u201D|\u2033|\u201e)/g,'"')
     .replace(/(\u2018|\u2019|\u201a|\u2032)/g,'\'')
     .replace(/(\u2026)/g,'.')
-    .replace(/([\!\?\.])\s*(\w)/g,'$1|||||$2');
+    .replace(/(\.|\?|\!|\:|\")\s/g,'$1\n')
+    .replace(/\n([a-z])/g,' $1')
+    .replace(/^\s/,'');
     if (text) return text;
     return '';
   },
@@ -1438,62 +1432,36 @@ module.exports = {
     return [];
   },
 
-  extractBody: function($,url,minLength) {
+  extractBody: function($,headerPrefix) {
     return new Promise((resolve,reject) => {
-      if (!minLength) minLength = 150;
-      let title = this.parseHeader($('h1').first().text().trim() || $('h2').first().text().trim() || '');
-      let objs = [];
+      if (!headerPrefix) headerPrefix = '#';
+      let lines = [];
       let self = this;
+      let start = false;
       $('*').each(function(i,el) {
-        let headerTags = false, subHeaderTags = false, headerSiblingTags = false;
-        if (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'h5' || el.name === 'h6') headerTags = true;
-        if ((el.nextSibling && el.nextSibling.name && (el.nextSibling.name === 'p' || el.nextSibling.name === 'ul' || el.nextSibling.name === 'ol')) || (el.nextSibling && el.nextSibling.type && el.nextSibling.type === 'text' )) headerSiblingTags = true;
-        if (headerTags && headerSiblingTags) {
-          let count = $(this).text() ? $(this).text().match(/^#*[1-9]+/g) !== null : false;
-          let header = count ? '#' + self.parseHeader($(this).text().trim()) : self.parseHeader($(this).text().trim());
-          objs.push({type: 'header', content: header});
+        let text;
+        if (el.name === 'h1') start = true;
+        if (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'h5' || el.name === 'h6') {
+          text = '\n' + headerPrefix + self.parseHeader($(this).text());
         }
-        else if (el.name === 'p' && $(this).parent().text().length > minLength) {
-          let text = self.parseText($(this).text().trim());
-          if (text) objs.push({type: 'text', content: text});
+        else if (el.name === 'ol' || el.name === 'ul') {
+          text = self.parseText($(this).text());
         }
-        else if ((el.name === 'ul' || el.name === 'ol') && $(this).parent().text().length > minLength && el.firstChild && (!el.firstChild.firstChild || el.firstChild.firstChild.name !== 'a')) {
-          let text = self.parseText($(this).text().trim());
-          if (text) objs.push({type: 'text', content: text});
+        else if (el.name === 'p' || (el.type === 'text' && el.parentNode && el.parentNode.name === 'div')) {
+          text = self.parseText($(this).text());
+          if (text.match(/[a-z]\s[A-Z]/g)) text = '\n' + headerPrefix + text.replace(/([a-z])\W([A-Z])/g,'$1\n$2');
         }
-        else if (el.type === 'text' && el.parentNode && el.parentNode.name && el.parentNode.name === 'div' && $(this).parent().text().length > minLength) {
-          let text = self.parseText($(this).text().trim());
-          if (text) objs.push({type: 'text', content: text});
+        if (start && text && !lines.includes(text)) {
+          lines.push(text);
         }
       });
-      let content = [];
-      let lastHeader = '';
-      for (let i = 0; i < objs.length; i++) {
-        if (objs[i].type === 'text') {
-          let count = (lastHeader && lastHeader.match(/^#/g)) ? 1 : 0;
-          let header = (lastHeader && lastHeader.match(/^#/g)) ? lastHeader.replace(/^#/,'') : lastHeader;
-          content.push({text: objs[i].content, header: header});
-        }
-        else if (objs[i].type === 'header') {
-          if (self.validateHeader(objs[i].content)) {
-            lastHeader = objs[i].content;
-          }
-        }
-      }
-      let filteredObjs = [];
-      for (let i = 0; i < content.length; i++) {
-        let filtered = this.filterBodyContent(content[i].text);
-        if (filtered.length) {
-          filteredObjs.push({text: filtered, header: content[i].header});
-        }
-      }
-      resolve({content: filteredObjs, title: title});
+      resolve(lines.join('\n'));
     });
   },
 
-  webpage: function(url,minLength) {
+  webpage: function(url,headerPrefix) {
     return new Promise((resolve,reject) => {
-      if (!minLength) minLength = 150;
+      if (!headerPrefix) headerPrefix = '#';
       let options = {
         method: 'GET',
         uri: url,
@@ -1505,7 +1473,7 @@ module.exports = {
       if (this.debug) console.log('Requesting webpage: ' + url);
       request(options).then(html => {
         let $ = cheerio.load(html);
-        this.extractBody($,url,minLength).then(data => {
+        this.extractBody($,headerPrefix).then(data => {
           let pageObject = {
             title: $('title').text() || '',
             description: $('meta[name="description"]').attr('content') || '',
