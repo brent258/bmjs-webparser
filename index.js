@@ -1284,7 +1284,11 @@ module.exports = {
     .replace(/(\u201C|\u201D|\u2033|\u201e)/g,'"')
     .replace(/(\u2018|\u2019|\u201a|\u2032)/g,'\'')
     .replace(/(\u2026)/g,'.')
-    .replace(/[\.\?\!]$/,'');
+    .replace(/[\.\?\!]$/,'')
+    .replace(/\<.+\>/g,'')
+    .replace(/\[.+\]/g,'')
+    .replace(/.+\d+\s+([A-Z])/g,'$1')
+    .replace(/.+[a-z][A-Z].+/g,'');
     if (text) return pos.titlecase(text);
     return '';
   },
@@ -1301,9 +1305,15 @@ module.exports = {
     .replace(/(\u201C|\u201D|\u2033|\u201e)/g,'"')
     .replace(/(\u2018|\u2019|\u201a|\u2032)/g,'\'')
     .replace(/(\u2026)/g,'.')
-    .replace(/(\.|\?|\!|\:|\")\s/g,'$1\n')
+    .replace(/(\.|\?|\!|\:)\s/g,'$1\n')
     .replace(/\n([a-z])/g,' $1')
-    .replace(/^\s/,'');
+    .replace(/\<.+\>/g,'')
+    .replace(/\[.+\]/g,'')
+    .replace(/\d+\s+([A-Z])/g,'$1')
+    .replace(/^\s+/g,'')
+    .replace(/\n\s+/g,'\n')
+    .replace(/.+[a-z][A-Z].+/g,'')
+    .replace(/\.\"/g,'".');
     if (text) return text;
     return '';
   },
@@ -1435,10 +1445,22 @@ module.exports = {
   extractBody: function($,headerPrefix) {
     return new Promise((resolve,reject) => {
       if (!headerPrefix) headerPrefix = '#';
-      let lines = [];
+      let lines = ['!!!'];
       let self = this;
       let start = false;
-      $('*').each(function(i,el) {
+      let els = $('*').filter(function(i,el) {
+        let text;
+        if (el.name === 'h1') start = true;
+        if (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'h5' || el.name === 'h6') {
+          if (start) return $(this);
+        }
+        else if (el.name === 'ol' || el.name === 'ul') {
+          if (start) return $(this);
+        }
+        else if (el.name === 'p' || (el.type === 'text' && el.parentNode && el.parentNode.name === 'div')) {
+          if (start) return $(this);
+        }
+      }).each(function(i,el) {
         let text;
         if (el.name === 'h1') start = true;
         if (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'h5' || el.name === 'h6') {
@@ -1449,7 +1471,6 @@ module.exports = {
         }
         else if (el.name === 'p' || (el.type === 'text' && el.parentNode && el.parentNode.name === 'div')) {
           text = self.parseText($(this).text());
-          if (text.match(/[a-z]\s[A-Z]/g)) text = '\n' + headerPrefix + text.replace(/([a-z])\W([A-Z])/g,'$1\n$2');
         }
         if (start && text && !lines.includes(text)) {
           lines.push(text);
