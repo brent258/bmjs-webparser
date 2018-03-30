@@ -335,8 +335,45 @@ module.exports = {
     });
   },
 
+  textFilename: function(keyword,index) {
+    if (!keyword) throw new Error('Unable to generate filename without keyword.');
+    if (!index) index = 1;
+    let prefix = '';
+    if (index > 9999) {
+      prefix = '0';
+    }
+    else if (index > 999) {
+      prefix = '00';
+    }
+    else if (index > 99) {
+      prefix = '000';
+    }
+    else if (index > 9) {
+      prefix = '0000';
+    }
+    else {
+      prefix = '00000';
+    }
+    let path = this.cachePath + '/text/' + keyword + '/' + prefix + index + '.txt';
+    if (fs.existsSync(path)) {
+      index++;
+      return this.textFilename(keyword,index);
+    }
+    else {
+      return path;
+    }
+  },
+
   existsTextCache: function(keyword) {
     if (fs.existsSync(this.cachePath + '/data/text/' + keyword + '.json')) return true;
+    return false;
+  },
+
+  existsTextCacheValue: function(keyword,property,value) {
+    let data = JSON.parse(fs.readFileSync(this.cachePath + '/data/text/' + keyword + '.json'));
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][property] === value) return true;
+    }
     return false;
   },
 
@@ -352,8 +389,15 @@ module.exports = {
         else {
           let data = [];
           fs.writeFile(this.cachePath + '/data/text/' + keyword + '.json', JSON.stringify(data), err => {
-            if (err) reject(err);
-            resolve('Text cache created for: ' + keyword);
+            if (err) {
+              reject(err);
+            }
+            else {
+              fs.mkdir(this.cachePath + '/text/' + keyword, err => {
+                if (err) reject(err);
+                resolve('Text cache created for: ' + keyword);
+              });
+            }
           });
         }
       }
@@ -491,11 +535,15 @@ module.exports = {
         else {
           let data = [];
           fs.writeFile(this.cachePath + '/data/images/' + keyword + '.json', JSON.stringify(data), err => {
-            if (err) reject(err);
-            fs.mkdir(this.cachePath + '/images/' + keyword, err => {
-              if (err) reject(err);
-              resolve('Image cache created for: ' + keyword);
-            });
+            if (err) {
+              reject(err);
+            }
+            else {
+              fs.mkdir(this.cachePath + '/images/' + keyword, err => {
+                if (err) reject(err);
+                resolve('Image cache created for: ' + keyword);
+              });
+            }
           });
         }
       }
@@ -674,6 +722,13 @@ module.exports = {
     }
     else {
       if (this.debug) console.log('Data cache directory already exists.');
+    }
+    if (!fs.existsSync(this.cachePath + '/text')) {
+      if (this.debug) console.log('Text cache directory not found. Creating folder...');
+      fs.mkdir(this.cachePath + '/text',err => {
+        if (err && this.debug) console.log(err);
+        if (this.debug) console.log('Finished creating text cache directory.');
+      });
     }
     if (!fs.existsSync(this.cachePath + '/images')) {
       if (this.debug) console.log('Image cache directory not found. Creating folder...');
@@ -1547,6 +1602,7 @@ module.exports = {
               for (let i = 0; i < paragraphs.length; i++) {
                 if (filteredParagraphs.length >= searchCount) break;
                 let maxResult = i === 0 ? searchParams.intro : searchParams.sections;
+                if (!maxResult) continue;
                 let minResult = Math.ceil(maxResult/2);
                 let spliceIndex = maxResult;
                 if (searchParams.random) spliceIndex = Math.floor(Math.random() * (maxResult - minResult + 1)) + minResult;
@@ -2297,8 +2353,8 @@ module.exports = {
     if (!searchParams.minResult) searchParams.minResult = 1;
     if (!searchParams.maxResult) searchParams.maxResult = 1;
     if (searchParams.maxResult < searchParams.minResult) searchParams.maxResult = searchParams.minResult;
-    if (!searchParams.intro) searchParams.intro = 10;
-    if (!searchParams.sections) searchParams.sections = 5;
+    if (searchParams.intro === undefined) searchParams.intro = 10;
+    if (searchParams.sections === undefined) searchParams.sections = 5;
     if (!searchParams.count) searchParams.count = 10;
     if (!searchParams.maxTries) searchParams.maxTries = 10;
     if (!searchParams.template) searchParams.template = 'facts';
@@ -2363,8 +2419,8 @@ module.exports = {
       if (overrideArgs.minResult) searchParams.minResult = overrideArgs.minResult;
       if (overrideArgs.maxResult) searchParams.maxResult = overrideArgs.maxResult;
       if (searchParams.maxResult < searchParams.minResult) searchParams.maxResult = searchParams.minResult;
-      if (overrideArgs.intro) searchParams.intro = overrideArgs.intro;
-      if (overrideArgs.sections) searchParams.sections = overrideArgs.sections;
+      if (overrideArgs.intro !== undefined) searchParams.intro = overrideArgs.intro;
+      if (overrideArgs.sections !== undefined) searchParams.sections = overrideArgs.sections;
       if (overrideArgs.count) searchParams.count = overrideArgs.count;
       if (overrideArgs.maxTries) searchParams.maxTries = overrideArgs.maxTries;
       if (overrideArgs.template) searchParams.template = overrideArgs.template;
@@ -2537,7 +2593,7 @@ module.exports = {
     });
   },
 
-  downloadResults: function(results,store) {
+  downloadResults: function(keyword,results,store) {
     return new Promise((resolve,reject) => {
       if (!results) {
         reject('Unable to download pages without search results.');
@@ -2546,15 +2602,36 @@ module.exports = {
         if (!store) store = [];
         if (results[0]) {
           this.webpage(results[0].url).then(page => {
-            if (page.body.content.length > 5) {
-              store.push(page);
+            let textFile = this.textFilename(keyword);
+            let textObj = {
+              filename: textFile,
+              title: page.title,
+              description: page.description,
+              keywords: page.keywords,
+              url: page.url
+            };
+            if (!this.existsTextCacheValue(keyword,'url',textObj.url)) {
+              fs.writeFile(textFile,page.body, err => {
+                if (this.debug) {
+                  if (err) {
+                    console.log(err);
+                  }
+                  else {
+                    console.log('Finished writing text file to: ' + textFile);
+                  }
+                }
+              });
             }
+            else {
+              if (this.debug) console.log('Text file already saved to cache: ' + textFile);
+            }
+            store.push(textObj);
             results.shift();
-            this.downloadResults(results,store).then(data => resolve(data)).catch(err => reject(err));
+            this.downloadResults(keyword,results,store).then(data => resolve(data)).catch(err => reject(err));
           }).catch(err => {
             if (this.debug) console.log(err);
             results.shift();
-            this.downloadResults(results,store).then(data => resolve(data)).catch(err => reject(err));
+            this.downloadResults(keyword,results,store).then(data => resolve(data)).catch(err => reject(err));
           });
         }
         else if (store.length) {
@@ -2578,7 +2655,7 @@ module.exports = {
         if (!limit) limit = searchParams.limit;
         if (!pages) pages = 0;
         this.search(keyword,searchParams.minResult,searchParams.maxResult).then(results => {
-          this.downloadResults(results).then(text => {
+          this.downloadResults(keyword,results).then(text => {
             let textCount = text.length;
             this.updateTextCacheMultiple(text,keyword).then(msg => {
               if (this.debug) console.log(msg);

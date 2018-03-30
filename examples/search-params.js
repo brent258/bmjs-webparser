@@ -3,7 +3,7 @@ const wp = require('../index.js');
 module.exports = {
   limit: 1,
   intro: 20,
-  sections: 15,
+  sections: 0,
   count: 15,
   category: '22',
   privacy: 'public',
@@ -21,9 +21,9 @@ module.exports = {
   assets: '/Users/brentmccoy/Apps/node-modules/bmjs-webparser/assets/',
   images: '/Users/brentmccoy/Apps/node-modules/bmjs-webparser/cache/images/',
   voice: 'karen',
-  shuffle: true,
+  shuffle: false,
   random: true,
   matchRegex: null,
-  strict: true,
+  strict: false,
   minLength: 0
 };
