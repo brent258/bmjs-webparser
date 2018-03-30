@@ -1448,7 +1448,7 @@ module.exports = {
       let lines = ['!!!'];
       let self = this;
       let start = false;
-      let els = $('*').filter(function(i,el) {
+      $('*').filter(function(i,el) {
         let text;
         if (el.name === 'h1') start = true;
         if (el.name === 'h1' || el.name === 'h2' || el.name === 'h3' || el.name === 'h4' || el.name === 'h5' || el.name === 'h6') {
@@ -1477,6 +1477,61 @@ module.exports = {
         }
       });
       resolve(lines.join('\n'));
+    });
+  },
+
+  parseParagraphs: function(filePath,matchRegex,minLength) {
+    return new Promise((resolve,reject) => {
+      if (!filePath || typeof filePath !== 'string') {
+        reject('Unable to parse paragraphs without text filename.');
+      }
+      else {
+        if (!matchRegex) matchRegex = null;
+        if (!minLength) minLength = 0;
+        fs.readFile(filePath,(err,data) => {
+          if (err) {
+            reject(err);
+          }
+          else {
+            let text = data.toString().split('\n');
+            let paragraphs = [];
+            for (let i = 0; i < text.length; i++) {
+              if (!text[i]) continue;
+              let x = paragraphs.length-1;
+              if (text[i].match(/^(\#|\*)/g)) {
+                if (paragraphs[x] && paragraphs[x].header && !paragraphs[x].text.length) {
+                  paragraphs.pop();
+                }
+                let header = text[i].slice(1).trim();
+                let keyword = text[i].match(/^\*/g) ? text[i].slice(1).toLowerCase().trim() : '';
+                let obj = {
+                  text: [],
+                  header: header,
+                  keyword: keyword
+                };
+                paragraphs.push(obj);
+              }
+              else {
+                let line = text[i].trim();
+                line = line.match(/^\w/g) && line.match(/(\.|\?|\!)$/g) ? line : '';
+                if (!line) continue;
+                if (paragraphs[x]) {
+                  paragraphs[x].text.push(text[i]);
+                }
+                else {
+                  let obj = {
+                    text: [text[i]],
+                    header: '',
+                    keyword: ''
+                  };
+                  paragraphs.push(obj);
+                }
+              }
+            }
+            resolve(paragraphs.filter(el => el.text.length && el.text.length > minLength && (!matchRegex || !el.header.match(matchRegex))));
+          }
+        });
+      }
     });
   },
 
