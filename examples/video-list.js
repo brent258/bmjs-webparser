@@ -9,7 +9,6 @@ module.exports = {
     count: 15,
     category: '22',
     privacy: 'public',
-    headerKeywords: [],
     template: 'list',
     keywordType: 'PLURAL',
     keywordPlural: true,
@@ -23,7 +22,12 @@ module.exports = {
     slideshows: 1,
     assets: '/Users/brentmccoy/Apps/node-modules/bmjs-webparser/assets/',
     images: '/Users/brentmccoy/Apps/node-modules/bmjs-webparser/cache/images/',
-    voice: 'karen'
+    voice: 'karen',
+    shuffle: true,
+    random: true,
+    matchRegex: null,
+    strict: false,
+    minLength: 0
   },
 
   image: {
@@ -45,7 +49,6 @@ module.exports = {
       keyword: 'slow feed dog bowls',
       search: {
         amazon: true,
-        headerKeywords: [],
         keywordType: '',
         keywordPlural: undefined,
         keywordDeterminer: '',
@@ -59,7 +62,6 @@ module.exports = {
       keyword: 'non shedding dogs',
       search: {
         amazon: false,
-        headerKeywords: wp.keywords.dogs,
         keywordType: '',
         keywordPlural: undefined,
         keywordDeterminer: '',

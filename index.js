@@ -1536,6 +1536,11 @@ module.exports = {
               }
               let filteredParagraphs = [];
               paragraphs = paragraphs.filter(el => el.text.length && el.text.length > searchParams.minLength && (!searchParams.matchRegex || !el.header.match(searchParams.matchRegex)));
+              if (searchParams.shuffle) {
+                let intro = paragraphs[0];
+                let body = paragraphs.length > 1 ? shuffle(paragraphs.slice(1)) : [];
+                paragraphs = [intro].concat(body);
+              }
               let searchLowerBound = Math.ceil(searchParams.count/2);
               let searchCount = searchParams.count;
               if (searchParams.random) searchCount = Math.floor(Math.random() * (searchParams.count - searchLowerBound + 1)) + searchLowerBound;

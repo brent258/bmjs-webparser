@@ -19,4 +19,4 @@ wp.init();
 // Search for pages
 //wp.pagesFromFile('./examples/video-list.js').then(data => console.log(data)).catch(err => console.log(err));
 //wp.webpage('https://www.wikihow.com/Train-a-Dog').then(data => fs.writeFileSync('test-webpage.txt',data.body,'utf8')).catch(err => console.log(err));
-wp.parseParagraphs('test-webpage.txt').then(data => console.log(data)).catch(err => console.log(err));
+wp.parseParagraphs('test-webpage.txt',searchParams).then(data => console.log(data)).catch(err => console.log(err));
