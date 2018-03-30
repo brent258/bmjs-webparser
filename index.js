@@ -1480,55 +1480,81 @@ module.exports = {
     });
   },
 
-  parseParagraphs: function(filePath,matchRegex,minLength) {
+  parseParagraphs: function(filePath,searchArgs) {
     return new Promise((resolve,reject) => {
       if (!filePath || typeof filePath !== 'string') {
         reject('Unable to parse paragraphs without text filename.');
       }
       else {
-        if (!matchRegex) matchRegex = null;
-        if (!minLength) minLength = 0;
+        let searchParams = this.setSearchParams(searchArgs);
         fs.readFile(filePath,(err,data) => {
           if (err) {
             reject(err);
           }
           else {
             let text = data.toString().split('\n');
-            let paragraphs = [];
-            for (let i = 0; i < text.length; i++) {
-              if (!text[i]) continue;
-              let x = paragraphs.length-1;
-              if (text[i].match(/^(\#|\*)/g)) {
-                if (paragraphs[x] && paragraphs[x].header && !paragraphs[x].text.length) {
-                  paragraphs.pop();
-                }
-                let header = text[i].slice(1).trim();
-                let keyword = text[i].match(/^\*/g) ? text[i].slice(1).toLowerCase().trim() : '';
-                let obj = {
-                  text: [],
-                  header: header,
-                  keyword: keyword
-                };
-                paragraphs.push(obj);
-              }
-              else {
-                let line = text[i].trim();
-                line = line.match(/^\w/g) && line.match(/(\.|\?|\!)$/g) ? line : '';
-                if (!line) continue;
-                if (paragraphs[x]) {
-                  paragraphs[x].text.push(text[i]);
-                }
-                else {
+            if (searchParams.strict && text[0] && text[0] === '!!!') {
+              reject('Text file unable to be parsed: ' + filePath);
+            }
+            else {
+              let paragraphs = [];
+              for (let i = 0; i < text.length; i++) {
+                if (!text[i]) continue;
+                let x = paragraphs.length-1;
+                if (text[i].match(/^(\#|\*)/g)) {
+                  if (paragraphs[x] && paragraphs[x].header && !paragraphs[x].text.length) {
+                    paragraphs.pop();
+                  }
+                  let header = text[i].slice(1).trim();
+                  let keyword = text[i].match(/^\*/g) ? text[i].slice(1).toLowerCase().trim() : '';
+                  let count = keyword ? 1 : 0;
                   let obj = {
-                    text: [text[i]],
-                    header: '',
-                    keyword: ''
+                    text: [],
+                    header: header,
+                    keyword: keyword,
+                    count: count
                   };
                   paragraphs.push(obj);
                 }
+                else {
+                  let line = text[i].trim();
+                  line = line.match(/^\w/g) && line.match(/(\.|\?|\!)$/g) ? line : '';
+                  if (!line) continue;
+                  if (paragraphs[x]) {
+                    paragraphs[x].text.push(text[i]);
+                  }
+                  else {
+                    let obj = {
+                      text: [text[i]],
+                      header: '',
+                      keyword: '',
+                      count: 0
+                    };
+                    paragraphs.push(obj);
+                  }
+                }
               }
+              let filteredParagraphs = [];
+              paragraphs = paragraphs.filter(el => el.text.length && el.text.length > searchParams.minLength && (!searchParams.matchRegex || !el.header.match(searchParams.matchRegex)));
+              let searchLowerBound = Math.ceil(searchParams.count/2);
+              let searchCount = searchParams.count;
+              if (searchParams.random) searchCount = Math.floor(Math.random() * (searchParams.count - searchLowerBound + 1)) + searchLowerBound;
+              for (let i = 0; i < paragraphs.length; i++) {
+                if (filteredParagraphs.length >= searchCount) break;
+                let maxResult = i === 0 ? searchParams.intro : searchParams.sections;
+                let minResult = Math.ceil(maxResult/2);
+                let spliceIndex = maxResult;
+                if (searchParams.random) spliceIndex = Math.floor(Math.random() * (maxResult - minResult + 1)) + minResult;
+                let paragraph = {
+                  text: paragraphs[i].text.slice(0,spliceIndex),
+                  header: paragraphs[i].header,
+                  keyword: paragraphs[i].keyword,
+                  count: paragraphs[i].count
+                };
+                filteredParagraphs.push(paragraph);
+              }
+              resolve(filteredParagraphs);
             }
-            resolve(paragraphs.filter(el => el.text.length && el.text.length > minLength && (!matchRegex || !el.header.match(matchRegex))));
           }
         });
       }
@@ -1561,181 +1587,6 @@ module.exports = {
         }).catch(err => reject(err));
       }).catch(err => reject(err));
     });
-  },
-
-  firstParagraph: function(obj,textKeywords) {
-    if (!obj || !obj.body.content.length) {
-      return null;
-    }
-    let data = obj.body.content;
-    let paragraph;
-    for (let i = 0; i < data.length; i++) {
-      if (i > 0) break;
-      if (data[i].text.length > 1 && ((!textKeywords && data[i].text.join(' ').match(/\./)) || (textKeywords && this.textFromKeywordList(data[i].text.join(' '),textKeywords)))) {
-        return {text: data[i].text, header: data[i].header, keyword: false, url: obj.url};
-      }
-    }
-    return null;
-  },
-
-  filteredParagraph: function(obj,textKeywords) {
-    if (!obj || !obj.body.content.length) {
-      return [];
-    }
-    let data = obj.body.content;
-    let paragraph = [];
-    for (let i = 0; i < data.length; i++) {
-      if (data[i].text.length > 1 && textKeywords && this.textFromKeywordList(data[i].text.join(' '),textKeywords)) {
-        paragraph.push({text: data[i].text, header: data[i].header, keyword: false, url: obj.url});
-      }
-      else if (data[i].text.length > 1 && !textKeywords) {
-        paragraph.push({text: data[i].text, header: data[i].header, keyword: false, url: obj.url});
-      }
-    }
-    return paragraph;
-  },
-
-  randomParagraph: function(obj,count,headerKeywords,textKeywords) {
-    if (!obj || !obj.body.content.length) {
-      return [];
-    }
-    if (!count) count = 1;
-    if (!headerKeywords) headerKeywords = null;
-    if (!textKeywords) textKeywords = [];
-    let paragraphs = [];
-    let data = obj.body.content;
-    let firstHeader = this.firstParagraph(obj) ? this.firstParagraph(obj).header : '';
-    data = shuffle(data);
-    for (let i = 0; i < data.length; i++) {
-      if (paragraphs.length < count) {
-        if (data[i].header !== firstHeader) {
-          if (headerKeywords && textKeywords.length) {
-            let headerMatch = this.headerFromKeywordList(data[i].header,headerKeywords);
-            let textMatch = this.textFromKeywordList(data[i].text.join(' '),textKeywords);
-            if (!textMatch) continue;
-            let paragraph = {
-              text: data[i].text,
-              header: headerMatch ? pos.titlecase(headerMatch) : data[i].header,
-              keyword: headerMatch ? true : false,
-              url: obj.url
-            };
-            if (data[i].text.length > 1) paragraphs.push(paragraph);
-          }
-          else if (headerKeywords) {
-            let headerMatch = this.headerFromKeywordList(data[i].header,headerKeywords);
-            if (headerMatch && usedKeywords.length && usedKeywords.includes(headerMatch)) continue;
-            let paragraph = {
-              text: data[i].text,
-              header: headerMatch ? pos.titlecase(headerMatch) : data[i].header,
-              keyword: headerMatch ? true : false,
-              url: obj.url
-            };
-            if (data[i].text.length > 1) paragraphs.push(paragraph);
-          }
-          else if (textKeywords.length) {
-            let textMatch = this.textFromKeywordList(data[i].text.join(' '),textKeywords);
-            if (!textMatch) continue;
-            let paragraph = {
-              text: data[i].text,
-              header: data[i].header,
-              keyword: false,
-              url: obj.url
-            };
-            if (data[i].text.length > 1) paragraphs.push(paragraph);
-          }
-          else {
-            if (data[i].text.length > 1) paragraphs.push({text: data[i].text, header: data[i].header, keyword: false, url: obj.url});
-          }
-        }
-        else {
-          continue;
-        }
-      }
-      else {
-        break;
-      }
-    }
-    return paragraphs;
-  },
-
-  pageParagraphs: function(obj,searchArgs,random) {
-    if (!obj || !obj.body.content.length) {
-      return [];
-    }
-    let searchParams = this.setSearchParams(searchArgs);
-    if (random === undefined) random = true;
-    let data = obj.body.content;
-    let paragraphs = [];
-    let lastHeader;
-    for (let i = 0; i < data.length; i++) {
-      if (paragraphs.length && paragraphs[paragraphs.length-1].header === data[i].header) {
-        paragraphs[paragraphs.length-1].text = paragraphs[paragraphs.length-1].text.concat(data[i].text);
-        continue;
-      }
-      else if (searchParams.headerKeywords.length && paragraphs.length && paragraphs[paragraphs.length-1].header === pos.titlecase(this.headerFromKeywordList(data[i].header,searchParams.headerKeywords))) {
-        paragraphs[paragraphs.length-1].text = paragraphs[paragraphs.length-1].text.concat(data[i].text);
-        continue;
-      }
-      if (random && paragraphs.length && rand(true,false) === false) continue;
-      if (searchParams.headerKeywords) {
-        let headerMatch = this.headerFromKeywordList(data[i].header,searchParams.headerKeywords);
-        let paragraph = {
-          text: data[i].text,
-          header: headerMatch ? pos.titlecase(headerMatch) : data[i].header,
-          keyword: headerMatch ? headerMatch : '',
-          url: obj.url,
-          count: (lastHeader !== data[i].header && (headerMatch || data[i].count)) ? 1 : 0
-        };
-        if (data[i].text.length > 0) {
-          lastHeader = data[i].header;
-          paragraphs.push(paragraph);
-        }
-      }
-      else {
-        let paragraph = {
-          text: data[i].text,
-          header: data[i].header,
-          keyword: '',
-          url: obj.url,
-          count: (lastHeader !== data[i].header && data[i].count) ? 1 : 0
-        };
-        if (data[i].text.length > 0) {
-          lastHeader = data[i].header;
-          paragraphs.push(paragraph);
-        }
-      }
-    }
-    let filteredParagraphs = [];
-    let minParagraphCount = searchParams.count > 2 ? (searchParams.count - 2) : 1;
-    let randomParagraphCount = Math.floor(Math.random() * searchParams.count) + minParagraphCount;
-    for (let i = 0; i < paragraphs.length; i++) {
-      if (filteredParagraphs.length >= randomParagraphCount) break;
-      if (!paragraphs[i].header) {
-        let minResult = searchParams.intro > 2 ? (searchParams.intro - 2) : 1;
-        let spliceIndex = Math.floor(Math.random() * searchParams.intro) + minResult;
-        let paragraph = {
-          text: paragraphs[i].text.slice(0,spliceIndex),
-          header: paragraphs[i].header,
-          keyword: paragraphs[i].keyword,
-          url: paragraphs[i].url,
-          count: paragraphs[i].count
-        };
-        filteredParagraphs.push(paragraph);
-      }
-      else {
-        let minResult = searchParams.sections > 2 ? (searchParams.sections - 2) : 1;
-        let spliceIndex = Math.floor(Math.random() * searchParams.sections) + minResult;
-        let paragraph = {
-          text: paragraphs[i].text.slice(0,spliceIndex),
-          header: paragraphs[i].header,
-          keyword: paragraphs[i].keyword,
-          url: paragraphs[i].url,
-          count: paragraphs[i].count
-        };
-        filteredParagraphs.push(paragraph);
-      }
-    }
-    return filteredParagraphs;
   },
 
   resultLinks: function($,searchSource) {
@@ -2228,8 +2079,7 @@ module.exports = {
                 audio: '',
                 image: titleImage,
                 template: titleTemplate,
-                keyword: keyword,
-                url: obj.url
+                keyword: keyword
               };
               if (titleObj.text) {
                 let titleCredit = this.imageCredit(titleObj.image);
@@ -2266,8 +2116,7 @@ module.exports = {
                 audio: (textActive || imageParams.template.includes('imageAudio')) ? obj.text[i] : '',
                 image: slideImage,
                 template: imageParams.template,
-                keyword: keyword,
-                url: obj.url
+                keyword: keyword
               };
               if (slideObj.text || slideObj.image) {
                 let slideCredit = this.imageCredit(slideObj.image);
@@ -2303,8 +2152,7 @@ module.exports = {
               audio: '',
               image: slideImage,
               template: slideTemplate,
-              keyword: keyword,
-              url: obj.url
+              keyword: keyword
             };
             if (slideObj.text || slideObj.image) {
               let slideCredit = this.imageCredit(slideObj.image);
@@ -2453,10 +2301,6 @@ module.exports = {
     if (!searchParams.category) searchParams.category = '22';
     if (!searchParams.privacy) searchParams.privacy = 'public';
     if (searchParams.exact === undefined) searchParams.exact = true;
-    if (searchParams.subSections === undefined) searchParams.subSections = true;
-    if (searchParams.matchSections === undefined) searchParams.matchSections = true;
-    if (!searchParams.headerKeywords) searchParams.headerKeywords = [];
-    if (!searchParams.textKeywords) searchParams.textKeywords = [];
     if (!searchParams.keywordType) searchParams.keywordType = 'PLURAL';
     if (searchParams.keywordPlural === undefined) searchParams.keywordPlural = true;
     if (!searchParams.keywordDeterminer) searchParams.keywordDeterminer = '';
@@ -2475,6 +2319,10 @@ module.exports = {
     if (!searchParams.slideshows) searchParams.slideshows = 1;
     if (!searchParams.keyword) searchParams.keyword = '';
     if (searchParams.random === undefined) searchParams.random = true;
+    if (!searchParams.minLength) searchParams.minLength = 0;
+    if (!searchParams.matchRegex) searchParams.matchRegex = null;
+    if (searchParams.strict === undefined) searchParams.strict = false;
+    if (searchParams.shuffle === undefined) searchParams.shuffle = false;
     return searchParams;
   },
 
@@ -2519,10 +2367,6 @@ module.exports = {
       if (overrideArgs.category) searchParams.category = overrideArgs.category;
       if (overrideArgs.privacy) searchParams.privacy = overrideArgs.privacy;
       if (overrideArgs.exact !== undefined) searchParams.exact = overrideArgs.exact;
-      if (overrideArgs.subSections !== undefined) searchParams.subSections = overrideArgs.subSections;
-      if (overrideArgs.matchSections !== undefined) searchParams.matchSections = overrideArgs.matchSections;
-      if (overrideArgs.headerKeywords) searchParams.headerKeywords = overrideArgs.headerKeywords;
-      if (overrideArgs.textKeywords) searchParams.textKeywords = overrideArgs.textKeywords;
       if (overrideArgs.keywordType) searchParams.keywordType = overrideArgs.keywordType;
       if (overrideArgs.keywordPlural !== undefined) searchParams.keywordPlural = overrideArgs.keywordPlural;
       if (overrideArgs.keywordDeterminer) searchParams.keywordDeterminer = overrideArgs.keywordDeterminer;
@@ -2541,6 +2385,10 @@ module.exports = {
       if (overrideArgs.slideshows) searchParams.slideshows = overrideArgs.slideshows;
       if (overrideArgs.keyword) searchParams.keyword = overrideArgs.keyword;
       if (overrideArgs.random !== undefined) searchParams.random = overrideArgs.random;
+      if (overrideArgs.minLength) searchParams.minLength = overrideArgs.minLength;
+      if (overrideArgs.matchRegex) searchParams.matchRegex = overrideArgs.matchRegex;
+      if (overrideArgs.strict !== undefined) searchParams.strict = overrideArgs.strict;
+      if (overrideArgs.shuffle !== undefined) searchParams.shuffle = overrideArgs.shuffle;
     }
     return searchParams;
   },
