@@ -27,7 +27,7 @@ module.exports = {
     shuffle: true,
     random: true,
     matchRegex: null,
-    strict: false,
+    strict: true,
     minLength: 0
   },
 
@@ -40,7 +40,7 @@ module.exports = {
     count: 2,
     fallbackLimit: 20,
     fallback: 'dogs',
-    template: 'imageTitle',
+    template: '',
     tagline: 'Share the love!!!',
     logo: ''
   },
@@ -55,10 +55,10 @@ module.exports = {
         keywordDeterminer: '',
         keywordNoun: '',
         keywordList: ['slow dog food bowls'],
-        link: ''
+        link: '',
         imageKeywords: []
       },
-      image: {fallback: ''}
+      image: {fallback: '', template: 'imageTitle'}
     },
     {
       keyword: 'non shedding dogs',
@@ -72,7 +72,7 @@ module.exports = {
         link: '',
         imageKeywords: []
       },
-      image: {fallback: ''}
+      image: {fallback: '', template: 'imageOnly'}
     },
   ]
 };

@@ -1899,6 +1899,164 @@ module.exports = {
     });
   },
 
+  downloadResults: function(keyword,results,store) {
+    return new Promise((resolve,reject) => {
+      if (!results) {
+        reject('Unable to download pages without search results.');
+      }
+      else {
+        if (!store) store = [];
+        if (results[0]) {
+          this.webpage(results[0].url).then(page => {
+            let textFile = this.textFilename(keyword);
+            let textObj = {
+              filename: textFile,
+              title: page.title,
+              description: page.description,
+              keywords: page.keywords,
+              url: page.url
+            };
+            if (!this.existsTextCacheValue(keyword,'url',textObj.url)) {
+              if (!fs.existsSync(this.cachePath + '/text/' + keyword)) {
+                fs.mkdir(this.cachePath + '/text/' + keyword, err => {
+                  if (err) {
+                    reject(err);
+                  }
+                  else {
+                    fs.writeFile(textFile,page.body, err => {
+                      if (this.debug) {
+                        if (err) {
+                          if (this.debug) console.log(err);
+                        }
+                        else {
+                          if (this.debug) console.log('Finished writing text file to: ' + textFile);
+                        }
+                      }
+                    });
+                  }
+                });
+              }
+              else {
+                fs.writeFile(textFile,page.body, err => {
+                  if (this.debug) {
+                    if (err) {
+                      if (this.debug) console.log(err);
+                    }
+                    else {
+                      if (this.debug) console.log('Finished writing text file to: ' + textFile);
+                    }
+                  }
+                });
+              }
+            }
+            else {
+              if (this.debug) console.log('Text file already saved to cache: ' + textFile);
+            }
+            store.push(textObj);
+            results.shift();
+            this.downloadResults(keyword,results,store).then(data => resolve(data)).catch(err => reject(err));
+          }).catch(err => {
+            if (this.debug) console.log(err);
+            results.shift();
+            this.downloadResults(keyword,results,store).then(data => resolve(data)).catch(err => reject(err));
+          });
+        }
+        else if (store.length) {
+          if (this.debug) console.log(`Resolving ${store.length} downloaded page results.`);
+          resolve(store);
+        }
+        else {
+          reject('No page results found to download.');
+        }
+      }
+    });
+  },
+
+  pages: function(keyword,searchArgs,limit,pages) {
+    return new Promise((resolve,reject) => {
+      if (!keyword) {
+        reject('Unable to search for pages without keyword.');
+      }
+      else {
+        let searchParams = this.setSearchParams(searchArgs);
+        if (!limit) limit = searchParams.limit;
+        if (!pages) pages = 0;
+        this.search(keyword,searchParams.minResult,searchParams.maxResult).then(results => {
+          this.downloadResults(keyword,results).then(text => {
+            let textCount = text.length;
+            this.updateTextCacheMultiple(text,keyword).then(msg => {
+              if (this.debug) console.log(msg);
+              searchParams.minResult += 10;
+              searchParams.maxResult += 10;
+              pages += textCount;
+              limit--;
+              if (limit > 0) {
+                this.pages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+              }
+              else {
+                if (pages) {
+                  resolve(`Resolving ${pages} pages for keyword: ${keyword}`);
+                }
+                else {
+                  reject(`No pages found for keyword: ${keyword}`);
+                }
+              }
+            }).catch(err => reject(err));
+          }).catch(err => reject(err));
+        }).catch(err => reject(err));
+      }
+    });
+  },
+
+  pagesFromFile: function(filePath,index) {
+    return new Promise((resolve,reject) => {
+      if (!filePath || typeof filePath !== 'string') {
+        reject('Unable to create videos without file path.');
+      }
+      else {
+        let data = require(filePath);
+        if (!index) index = 0;
+        let object = data.objects[index];
+        let searchParams, imageParams;
+        if (object) {
+          searchParams = this.overrideSearchParams(data.search,object.search);
+          imageParams = this.overrideImageParams(data.image,object.image);
+        }
+        else {
+          searchParams = this.overrideSearchParams(data.search,null);
+          imageParams = this.overrideImageParams(data.image,null);
+        }
+        if (index < data.objects.length) {
+          if (searchParams.amazon) {
+            this.amazonPages(object.keyword,searchParams).then(msg => {
+              if (this.debug) console.log(msg);
+              index++;
+              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+            }).catch(err => {
+              if (this.debug) console.log(err);
+              index++;
+              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+            });
+          }
+          else {
+            this.pages(object.keyword,searchParams).then(msg => {
+              if (this.debug) console.log(msg);
+              index++;
+              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+            }).catch(err => {
+              if (this.debug) console.log(err);
+              index++;
+              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+            });
+          }
+        }
+        else {
+          resolve(`Finished downloading ${index} keywords from file: ${filePath}`);
+        }
+      }
+    });
+  },
+
   amazonSearch: function(keyword,minResult,maxResult) {
     return new Promise((resolve,reject) => {
       if (!keyword) {
@@ -2462,6 +2620,31 @@ module.exports = {
     }
   },
 
+  filterDataObjects: function(objects,searchArgs) {
+    if (!objects || typeof objects !== 'object' || !objects.length) {
+      return [];
+    }
+    let searchParams = this.setSearchParams(searchArgs);
+    let filteredObjects = [];
+    if (searchParams.amazon) {
+      filteredObjects = objects.filter(el => el.amazon);
+    }
+    else {
+      for (let i = 0; i < objects.length; i++) {
+        if (!objects[i].amazon) {
+          let text = fs.readFileSync(objects[i].filename,'utf8').split('\n');
+          if (searchParams.strict && text[0] && text[0] === '!!!') {
+            continue;
+          }
+          else {
+            filteredObjects.push(objects[i]);
+          }
+        }
+      }
+    }
+    return filteredObjects;
+  },
+
   amazonText: function(data,limit) {
     if (!data || typeof data !== 'object') {
       if (this.debug) console.log('Unable to generate Amazon text without data.');
@@ -2668,7 +2851,7 @@ module.exports = {
           text = this.slideshowObjects(keyword,searchParams,imageParams);
         }
         else {
-          text = dataObject.amazon ? dataObject.description : this.pageParagraphs(dataObject,searchParams,true);
+          text = dataObject;
         }
         if (text && text.length) {
           this.videoPropertiesMultiple(text,searchParams,imageParams).then(data => {
@@ -2705,115 +2888,6 @@ module.exports = {
     });
   },
 
-  downloadResults: function(keyword,results,store) {
-    return new Promise((resolve,reject) => {
-      if (!results) {
-        reject('Unable to download pages without search results.');
-      }
-      else {
-        if (!store) store = [];
-        if (results[0]) {
-          this.webpage(results[0].url).then(page => {
-            let textFile = this.textFilename(keyword);
-            let textObj = {
-              filename: textFile,
-              title: page.title,
-              description: page.description,
-              keywords: page.keywords,
-              url: page.url
-            };
-            if (!this.existsTextCacheValue(keyword,'url',textObj.url)) {
-              if (!fs.existsSync(this.cachePath + '/text/' + keyword)) {
-                fs.mkdir(this.cachePath + '/text/' + keyword, err => {
-                  if (err) {
-                    reject(err);
-                  }
-                  else {
-                    fs.writeFile(textFile,page.body, err => {
-                      if (this.debug) {
-                        if (err) {
-                          console.log(err);
-                        }
-                        else {
-                          console.log('Finished writing text file to: ' + textFile);
-                        }
-                      }
-                    });
-                  }
-                });
-              }
-              else {
-                fs.writeFile(textFile,page.body, err => {
-                  if (this.debug) {
-                    if (err) {
-                      console.log(err);
-                    }
-                    else {
-                      console.log('Finished writing text file to: ' + textFile);
-                    }
-                  }
-                });
-              }
-            }
-            else {
-              if (this.debug) console.log('Text file already saved to cache: ' + textFile);
-            }
-            store.push(textObj);
-            results.shift();
-            this.downloadResults(keyword,results,store).then(data => resolve(data)).catch(err => reject(err));
-          }).catch(err => {
-            if (this.debug) console.log(err);
-            results.shift();
-            this.downloadResults(keyword,results,store).then(data => resolve(data)).catch(err => reject(err));
-          });
-        }
-        else if (store.length) {
-          if (this.debug) console.log(`Resolving ${store.length} downloaded page results.`);
-          resolve(store);
-        }
-        else {
-          reject('No page results found to download.');
-        }
-      }
-    });
-  },
-
-  pages: function(keyword,searchArgs,limit,pages) {
-    return new Promise((resolve,reject) => {
-      if (!keyword) {
-        reject('Unable to search for pages without keyword.');
-      }
-      else {
-        let searchParams = this.setSearchParams(searchArgs);
-        if (!limit) limit = searchParams.limit;
-        if (!pages) pages = 0;
-        this.search(keyword,searchParams.minResult,searchParams.maxResult).then(results => {
-          this.downloadResults(keyword,results).then(text => {
-            let textCount = text.length;
-            this.updateTextCacheMultiple(text,keyword).then(msg => {
-              if (this.debug) console.log(msg);
-              searchParams.minResult += 10;
-              searchParams.maxResult += 10;
-              pages += textCount;
-              limit--;
-              if (limit > 0) {
-                this.pages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
-              }
-              else {
-                if (pages) {
-                  resolve(`Resolving ${pages} pages for keyword: ${keyword}`);
-                }
-                else {
-                  reject(`No pages found for keyword: ${keyword}`);
-                }
-              }
-            }).catch(err => reject(err));
-          }).catch(err => reject(err));
-        }).catch(err => reject(err));
-      }
-    });
-  },
-
   videosFromKeyword: function(keyword,searchArgs,imageArgs,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore,index) {
     return new Promise((resolve,reject) => {
       if (!keyword || typeof keyword !== 'string' || !searchArgs || !imageArgs) {
@@ -2836,12 +2910,7 @@ module.exports = {
             this.readTextCache(keyword).then(data => {
               objectStore = JSON.parse(data);
               if (objectStore.length) {
-                if (searchParams.amazon) {
-                  objectStore = objectStore.filter(el => el.amazon);
-                }
-                else {
-                  objectStore = objectStore.filter(el => !el.amazon);
-                }
+                objectStore = this.filterDataObjects(objectStore,searchParams);
                 if (objectStore.length) {
                   objectStore = shuffle(objectStore);
                   this.videosFromKeyword(keyword,searchParams,imageParams,searchOverrideArgs,imageOverrideArgs,objectStore,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
@@ -2860,11 +2929,14 @@ module.exports = {
           if ((objectStore && objectStore.length && index < objectStore.length) || (objectStore === null && index < searchParams.slideshows)) {
             let obj = null;
             if (objectStore && !searchParams.amazon) {
-              obj = objectStore[index];
+              obj = this.readDataObjects(objectStore,index,searchParams);
             }
             else if (objectStore) {
               if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageTitle')) {
                 searchParams.imageKeywords = this.amazonKeywords(objectStore);
+              }
+              else {
+                obj = this.readDataObjects(objectStore,index,searchParams);
               }
             }
             this.video(keyword,obj,searchParams,imageParams,false).then(video => {
@@ -2929,21 +3001,19 @@ module.exports = {
               this.readTextCache(object.keyword).then(data => {
                 objectStore = JSON.parse(data);
                 if (objectStore.length) {
-                  if (searchParams.amazon) {
-                    objectStore = objectStore.filter(el => el.amazon);
-                  }
-                  else {
-                    objectStore = objectStore.filter(el => !el.amazon);
-                  }
+                  objectStore = this.filterDataObjects(objectStore,searchParams);
                   if (objectStore.length) {
                     objectStore = shuffle(objectStore);
                     let obj = null;
-                    if (!searchParams.amazon) {
-                      obj = objectStore[index];
+                    if (objectStore && !searchParams.amazon) {
+                      obj = this.readDataObjects(objectStore,0,searchParams);
                     }
-                    else {
+                    else if (objectStore) {
                       if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageTitle')) {
                         searchParams.imageKeywords = this.amazonKeywords(objectStore);
+                      }
+                      else {
+                        obj = this.readDataObjects(objectStore,0,searchParams);
                       }
                     }
                     this.video(object.keyword,obj,searchParams,imageParams,true).then(video => {
@@ -3075,55 +3145,6 @@ module.exports = {
         }
         else {
           reject('No images deleted from image list.');
-        }
-      }
-    });
-  },
-
-  pagesFromFile: function(filePath,index) {
-    return new Promise((resolve,reject) => {
-      if (!filePath || typeof filePath !== 'string') {
-        reject('Unable to create videos without file path.');
-      }
-      else {
-        let data = require(filePath);
-        if (!index) index = 0;
-        let object = data.objects[index];
-        let searchParams, imageParams;
-        if (object) {
-          searchParams = this.overrideSearchParams(data.search,object.search);
-          imageParams = this.overrideImageParams(data.image,object.image);
-        }
-        else {
-          searchParams = this.overrideSearchParams(data.search,null);
-          imageParams = this.overrideImageParams(data.image,null);
-        }
-        if (index < data.objects.length) {
-          if (searchParams.amazon) {
-            this.amazonPages(object.keyword,searchParams).then(msg => {
-              if (this.debug) console.log(msg);
-              index++;
-              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
-            }).catch(err => {
-              if (this.debug) console.log(err);
-              index++;
-              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
-            });
-          }
-          else {
-            this.pages(object.keyword,searchParams).then(msg => {
-              if (this.debug) console.log(msg);
-              index++;
-              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
-            }).catch(err => {
-              if (this.debug) console.log(err);
-              index++;
-              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
-            });
-          }
-        }
-        else {
-          resolve(`Finished downloading ${index} keywords from file: ${filePath}`);
         }
       }
     });

@@ -8,8 +8,8 @@ const fs = require('fs');
 
 wp.init();
 // Create videos
-//wp.videosFromFile('./examples/video-list.js').then(data => console.log(data)).catch(err => console.log(err));
-//wp.videosFromKeyword('slow feed dog bowls',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
+wp.videosFromFile('./examples/video-list.js').then(data => console.log(data)).catch(err => console.log(err));
+//wp.videosFromKeyword('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
 // Add images
 //wp.addImages(addImageList,imageParams,true).then(data => console.log(data)).catch(err => console.log(err));
 // Delete images
@@ -20,8 +20,3 @@ wp.init();
 //wp.pagesFromFile('./examples/video-list.js').then(data => console.log(data)).catch(err => console.log(err));
 //wp.webpage('https://www.wikihow.com/Train-a-Dog').then(data => fs.writeFileSync('test-webpage.txt',data.body,'utf8')).catch(err => console.log(err));
 //wp.parseParagraphs('test-webpage.txt',searchParams).then(data => console.log(data)).catch(err => console.log(err));
-wp.readTextCache('slow feed dog bowls').then(objects => {
-  objects = JSON.parse(objects);
-  let text = wp.readDataObjects(objects,0,searchParams);
-  console.log(text);
-}).catch(err => console.log(err));

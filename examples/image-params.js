@@ -6,7 +6,7 @@ module.exports = {
   limit: 2,
   fallbackLimit: 20,
   fallback: 'dogs',
-  template: 'imageTitle',
+  template: '',
   tagline: 'Share the love!!!',
   logo: ''
 };
