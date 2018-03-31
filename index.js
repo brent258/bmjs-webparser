@@ -2449,8 +2449,47 @@ module.exports = {
       return this.textObjects(text,searchParams);
     }
     else {
-
+      let searchLowerBound = Math.ceil(searchParams.count/2);
+      let searchCount = searchParams.count;
+      let data = [];
+      objects = shuffle(objects);
+      if (searchParams.random) searchCount = Math.floor(Math.random() * (searchParams.count - searchLowerBound + 1)) + searchLowerBound;
+      for (let i = 0; i < searchCount; i++) {
+        let text = this.amazonText(objects[i],searchParams.sections);
+        if (text) data.push(text);
+      }
+      return data;
     }
+  },
+
+  amazonText: function(data,limit) {
+    if (!data || typeof data !== 'object') {
+      if (this.debug) console.log('Unable to generate Amazon text without data.');
+      return null;
+    }
+    let text = [];
+    let arrays = [];
+    let strings = [];
+    let lists = [];
+    if (!data.title) return null;
+    if (data.description.length) arrays.push('description');
+    if (data.features.length) arrays.push('features');
+    if (data.price.length) strings.push('price');
+    if (data.rating.length) strings.push('rating');
+    if (data.colors.length) lists.push('colors');
+    if (data.sizes.length) lists.push('sizes');
+    if (!arrays.length) return null;
+    for (let i = 0; i < arrays.length; i++) {
+      if (!data[arrays[i]].length) continue;
+      let lines = shuffle(data[arrays[i]]).slice(0,limit).join(' ');
+      text.push(lines);
+    }
+    return {
+      header: this.parseHeader(data.title),
+      text: text,
+      keyword: data.asin,
+      count: 1
+    };
   },
 
   textObjects: function(data,searchArgs) {
