@@ -1556,6 +1556,23 @@ module.exports = {
     return '';
   },
 
+  truncateHeader: function(text,length) {
+    let header = this.parseHeader(text);
+    if (header.length < 30) return header;
+    let splitHeader = header.split(' ');
+    let result = '';
+    for (let i = 0; i < splitHeader.length; i++) {
+      if ((result + ' ' + splitHeader[i]).length > length) break;
+      if (!result) {
+        result += splitHeader[i];
+      }
+      else {
+        result += ' ' + splitHeader[i];
+      }
+    }
+    return result;
+  },
+
   parseText: function(text) {
     if (!text || typeof text !== 'string') {
       return '';
@@ -2597,11 +2614,12 @@ module.exports = {
     });
   },
 
-  readDataObjects: function(objects,index,searchArgs) {
+  readDataObjects: function(objects,index,searchArgs,imageArgs) {
     if (!objects || typeof objects !== 'object' || !objects.length || typeof index !== 'number') {
       return null;
     }
     let searchParams = this.setSearchParams(searchArgs);
+    let imageParams = this.setImageParams(imageArgs);
     if (!searchParams.amazon) {
       let text = fs.readFileSync(objects[index].filename,'utf8');
       return this.textObjects(text,searchParams);
@@ -2610,6 +2628,13 @@ module.exports = {
       let searchLowerBound = Math.ceil(searchParams.count/2);
       let searchCount = searchParams.count;
       let data = [];
+      let intro = {
+        header: pos.titlecase(searchParams.keyword),
+        text: [],
+        keyword: imageParams.fallback,
+        count: 0
+      };
+      data.push(intro);
       objects = shuffle(objects);
       if (searchParams.random) searchCount = Math.floor(Math.random() * (searchParams.count - searchLowerBound + 1)) + searchLowerBound;
       for (let i = 0; i < searchCount; i++) {
@@ -2668,7 +2693,7 @@ module.exports = {
       text.push(lines);
     }
     return {
-      header: this.parseHeader(data.title),
+      header: this.truncateHeader(data.title,20),
       text: text,
       keyword: data.asin,
       count: 1
@@ -2929,14 +2954,14 @@ module.exports = {
           if ((objectStore && objectStore.length && index < objectStore.length) || (objectStore === null && index < searchParams.slideshows)) {
             let obj = null;
             if (objectStore && !searchParams.amazon) {
-              obj = this.readDataObjects(objectStore,index,searchParams);
+              obj = this.readDataObjects(objectStore,index,searchParams,imageParams);
             }
             else if (objectStore) {
               if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageTitle')) {
                 searchParams.imageKeywords = this.amazonKeywords(objectStore);
               }
               else {
-                obj = this.readDataObjects(objectStore,index,searchParams);
+                obj = this.readDataObjects(objectStore,index,searchParams,imageParams);
               }
             }
             this.video(keyword,obj,searchParams,imageParams,false).then(video => {
@@ -3006,14 +3031,14 @@ module.exports = {
                     objectStore = shuffle(objectStore);
                     let obj = null;
                     if (objectStore && !searchParams.amazon) {
-                      obj = this.readDataObjects(objectStore,0,searchParams);
+                      obj = this.readDataObjects(objectStore,0,searchParams,imageParams);
                     }
                     else if (objectStore) {
                       if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageTitle')) {
                         searchParams.imageKeywords = this.amazonKeywords(objectStore);
                       }
                       else {
-                        obj = this.readDataObjects(objectStore,0,searchParams);
+                        obj = this.readDataObjects(objectStore,0,searchParams,imageParams);
                       }
                     }
                     this.video(object.keyword,obj,searchParams,imageParams,true).then(video => {

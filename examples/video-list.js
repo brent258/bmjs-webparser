@@ -5,8 +5,8 @@ module.exports = {
   search: {
     limit: 1,
     intro: 20,
-    sections: 10,
-    count: 15,
+    sections: 1,
+    count: 7,
     category: '22',
     privacy: 'public',
     template: 'list',
@@ -20,7 +20,7 @@ module.exports = {
     cacheOnly: true,
     multipleOnly: true,
     slideshows: 1,
-    imageKeywords: [],
+    imageKeywords: wp.keywords.dogs,
     assets: '/Users/brentmccoy/Apps/node-modules/bmjs-webparser/assets/',
     images: '/Users/brentmccoy/Apps/node-modules/bmjs-webparser/cache/images/',
     voice: 'karen',
@@ -56,9 +56,9 @@ module.exports = {
         keywordNoun: '',
         keywordList: ['slow dog food bowls'],
         link: '',
-        imageKeywords: []
+        imageKeywords: null
       },
-      image: {fallback: '', template: 'imageTitle'}
+      image: {fallback: ''}
     },
     {
       keyword: 'non shedding dogs',
@@ -70,9 +70,9 @@ module.exports = {
         keywordNoun: '',
         keywordList: ['non shedding dogs'],
         link: '',
-        imageKeywords: []
+        imageKeywords: null
       },
-      image: {fallback: '', template: 'imageOnly'}
+      image: {fallback: ''}
     },
   ]
 };
