@@ -3,7 +3,7 @@ const wp = require('../index.js');
 module.exports = {
   limit: 1,
   intro: 20,
-  sections: 0,
+  sections: 5,
   count: 15,
   category: '22',
   privacy: 'public',
@@ -14,7 +14,7 @@ module.exports = {
   keywordNoun: 'product',
   keywordList: ['slow dog bowls','slow dog feeders'],
   link: '',
-  amazon: true,
+  amazon: false,
   cacheOnly: true,
   multipleOnly: true,
   slideshows: 1,
@@ -24,6 +24,7 @@ module.exports = {
   shuffle: false,
   random: true,
   matchRegex: null,
-  strict: false,
-  minLength: 0
+  strict: true,
+  minLength: 0,
+  imageKeywords: []
 };

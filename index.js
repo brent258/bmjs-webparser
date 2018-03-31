@@ -70,6 +70,140 @@ module.exports = {
     this.debug = true;
   },
 
+  setImageParams: function(imageArgs) {
+    if (!imageArgs) imageArgs = {};
+    let imageParams = Object.assign({},imageArgs);
+    if (!imageParams.fallback) imageParams.fallback = '';
+    if (!imageParams.template) imageParams.template = '';
+    if (!imageParams.search) imageParams.search = 'google';
+    if (!imageParams.options) imageParams.options = ['medium','commercial'];
+    if (!imageParams.tags) imageParams.tags = [];
+    if (imageParams.crop === undefined) imageParams.crop = true;
+    if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = false;
+    if (imageParams.cacheKeyword === undefined) imageParams.cacheKeyword = false;
+    if (imageParams.cacheFallback === undefined) imageParams.cacheFallback = false;
+    if (imageParams.exact === undefined) imageParams.exact = true;
+    if (!imageParams.limit) imageParams.limit = 1;
+    if (!imageParams.count) imageParams.count = 1;
+    if (!imageParams.fallbackLimit) imageParams.fallbackLimit = 20;
+    if (!imageParams.page) imageParams.page = 1;
+    if (!imageParams.maxTries) imageParams.maxTries = 5;
+    if (!imageParams.googleDomain) imageParams.googleDomain = 'com.au';
+    if (!imageParams.tagline) imageParams.tagline = '';
+    if (!imageParams.logo) imageParams.logo = '';
+    if (imageParams.random === undefined) imageParams.random = true;
+    return imageParams;
+  },
+
+  setSearchParams: function(searchArgs) {
+    if (!searchArgs) searchArgs = {};
+    let searchParams = Object.assign({},searchArgs);
+    if (!searchParams.minResult) searchParams.minResult = 1;
+    if (!searchParams.maxResult) searchParams.maxResult = 1;
+    if (searchParams.maxResult < searchParams.minResult) searchParams.maxResult = searchParams.minResult;
+    if (searchParams.intro === undefined) searchParams.intro = 10;
+    if (searchParams.sections === undefined) searchParams.sections = 5;
+    if (!searchParams.count) searchParams.count = 10;
+    if (!searchParams.maxTries) searchParams.maxTries = 10;
+    if (!searchParams.template) searchParams.template = 'facts';
+    if (!searchParams.limit) searchParams.limit = 1;
+    if (!searchParams.category) searchParams.category = '22';
+    if (!searchParams.privacy) searchParams.privacy = 'public';
+    if (searchParams.exact === undefined) searchParams.exact = true;
+    if (!searchParams.keywordType) searchParams.keywordType = 'PLURAL';
+    if (searchParams.keywordPlural === undefined) searchParams.keywordPlural = true;
+    if (!searchParams.keywordDeterminer) searchParams.keywordDeterminer = '';
+    if (!searchParams.keywordNoun) searchParams.keywordNoun = '';
+    if (!searchParams.keywordList) searchParams.keywordList = [];
+    if (!searchParams.link) searchParams.link = '';
+    if (searchParams.amazon === undefined) searchParams.amazon = false;
+    if (searchParams.cacheOnly === undefined) searchParams.cacheOnly = false;
+    if (searchParams.multipleOnly === undefined) searchParams.multipleOnly = false;
+    if (!searchParams.assets) searchParams.assets = __dirname + '/assets/';
+    if (!searchParams.images) searchParams.images = __dirname + '/cache/images/';
+    if (!searchParams.voice) searchParams.voice = 'karen';
+    if (!searchParams.project) searchParams.project = 'My Project';
+    if (!searchParams.clips) searchParams.clips = 'clips-metadata.json';
+    if (!searchParams.stills) searchParams.stills = 'stills';
+    if (!searchParams.slideshows) searchParams.slideshows = 1;
+    if (!searchParams.keyword) searchParams.keyword = '';
+    if (searchParams.random === undefined) searchParams.random = true;
+    if (!searchParams.minLength) searchParams.minLength = 0;
+    if (!searchParams.matchRegex) searchParams.matchRegex = null;
+    if (searchParams.strict === undefined) searchParams.strict = false;
+    if (searchParams.shuffle === undefined) searchParams.shuffle = false;
+    if (!searchParams.imageKeywords) searchParams.imageKeywords = [];
+    return searchParams;
+  },
+
+  overrideImageParams: function(imageArgs,overrideArgs) {
+    let imageParams = this.setImageParams(imageArgs);
+    if (overrideArgs && typeof overrideArgs === 'object') {
+      if (overrideArgs.fallback) imageParams.fallback = overrideArgs.fallback;
+      if (overrideArgs.template) imageParams.template = overrideArgs.template;
+      if (overrideArgs.search) imageParams.search = overrideArgs.search;
+      if (overrideArgs.options) imageParams.options = overrideArgs.options;
+      if (overrideArgs.tags) imageParams.tags = overrideArgs.tags;
+      if (overrideArgs.crop !== undefined) imageParams.crop = overrideArgs.crop;
+      if (overrideArgs.cacheOnly !== undefined) imageParams.cacheOnly = overrideArgs.cacheOnly;
+      if (overrideArgs.cacheKeyword !== undefined) imageParams.cacheKeyword = overrideArgs.cacheKeyword;
+      if (overrideArgs.cacheFallback !== undefined) imageParams.cacheFallback = overrideArgs.cacheFallback;
+      if (overrideArgs.exact !== undefined) imageParams.exact = overrideArgs.exact;
+      if (overrideArgs.limit) imageParams.limit = overrideArgs.limit;
+      if (overrideArgs.count) imageParams.count = overrideArgs.count;
+      if (overrideArgs.fallbackLimit) imageParams.fallbackLimit = overrideArgs.fallbackLimit;
+      if (overrideArgs.page) imageParams.page = overrideArgs.page;
+      if (overrideArgs.maxTries) imageParams.maxTries = overrideArgs.maxTries;
+      if (overrideArgs.googleDomain) imageParams.googleDomain = overrideArgs.googleDomain;
+      if (overrideArgs.tagline) imageParams.tagline = overrideArgs.tagline;
+      if (overrideArgs.logo) imageParams.logo = overrideArgs.logo;
+      if (overrideArgs.random !== undefined) imageParams.random = overrideArgs.random;
+    }
+    return imageParams;
+  },
+
+  overrideSearchParams: function(searchArgs,overrideArgs) {
+    let searchParams = this.setSearchParams(searchArgs);
+    if (overrideArgs && typeof overrideArgs === 'object') {
+      if (overrideArgs.minResult) searchParams.minResult = overrideArgs.minResult;
+      if (overrideArgs.maxResult) searchParams.maxResult = overrideArgs.maxResult;
+      if (searchParams.maxResult < searchParams.minResult) searchParams.maxResult = searchParams.minResult;
+      if (overrideArgs.intro !== undefined) searchParams.intro = overrideArgs.intro;
+      if (overrideArgs.sections !== undefined) searchParams.sections = overrideArgs.sections;
+      if (overrideArgs.count) searchParams.count = overrideArgs.count;
+      if (overrideArgs.maxTries) searchParams.maxTries = overrideArgs.maxTries;
+      if (overrideArgs.template) searchParams.template = overrideArgs.template;
+      if (overrideArgs.limit) searchParams.limit = overrideArgs.limit;
+      if (overrideArgs.category) searchParams.category = overrideArgs.category;
+      if (overrideArgs.privacy) searchParams.privacy = overrideArgs.privacy;
+      if (overrideArgs.exact !== undefined) searchParams.exact = overrideArgs.exact;
+      if (overrideArgs.keywordType) searchParams.keywordType = overrideArgs.keywordType;
+      if (overrideArgs.keywordPlural !== undefined) searchParams.keywordPlural = overrideArgs.keywordPlural;
+      if (overrideArgs.keywordDeterminer) searchParams.keywordDeterminer = overrideArgs.keywordDeterminer;
+      if (overrideArgs.keywordNoun) searchParams.keywordNoun = overrideArgs.keywordNoun;
+      if (overrideArgs.keywordList) searchParams.keywordList = overrideArgs.keywordList;
+      if (overrideArgs.link) searchParams.link = overrideArgs.link;
+      if (overrideArgs.amazon !== undefined) searchParams.amazon = overrideArgs.amazon;
+      if (overrideArgs.cacheOnly !== undefined) searchParams.cacheOnly = overrideArgs.cacheOnly;
+      if (overrideArgs.multipleOnly !== undefined) searchParams.multipleOnly = overrideArgs.multipleOnly;
+      if (overrideArgs.assets) searchParams.assets = overrideArgs.assets;
+      if (overrideArgs.images) searchParams.images = overrideArgs.images;
+      if (overrideArgs.voice) searchParams.voice = overrideArgs.voice;
+      if (overrideArgs.project) searchParams.project = overrideArgs.project;
+      if (overrideArgs.clips) searchParams.clips = overrideArgs.clips;
+      if (overrideArgs.stills) searchParams.stills = overrideArgs.stills;
+      if (overrideArgs.slideshows) searchParams.slideshows = overrideArgs.slideshows;
+      if (overrideArgs.keyword) searchParams.keyword = overrideArgs.keyword;
+      if (overrideArgs.random !== undefined) searchParams.random = overrideArgs.random;
+      if (overrideArgs.minLength) searchParams.minLength = overrideArgs.minLength;
+      if (overrideArgs.matchRegex) searchParams.matchRegex = overrideArgs.matchRegex;
+      if (overrideArgs.strict !== undefined) searchParams.strict = overrideArgs.strict;
+      if (overrideArgs.shuffle !== undefined) searchParams.shuffle = overrideArgs.shuffle;
+      if (overrideArgs.imageKeywords) searchParams.imageKeywords = overrideArgs.imageKeywords;
+    }
+    return searchParams;
+  },
+
   addImageBlacklist: function(item) {
     if (typeof item === 'object' && item[0] && typeof item[0] === 'object') {
       this.imageBlacklist = this.imageBlacklist.concat(item);
@@ -370,7 +504,11 @@ module.exports = {
   },
 
   existsTextCacheValue: function(keyword,property,value) {
-    let data = JSON.parse(fs.readFileSync(this.cachePath + '/data/text/' + keyword + '.json'));
+    let file = this.cachePath + '/data/text/' + keyword + '.json';
+    if (!fs.existsSync(file)) {
+      return false;
+    }
+    let data = JSON.parse(fs.readFileSync(file));
     for (let i = 0; i < data.length; i++) {
       if (data[i][property] === value) return true;
     }
@@ -383,8 +521,29 @@ module.exports = {
         reject('Unable to create text cache without keyword.');
       }
       else {
-        if (fs.existsSync(this.cachePath + '/data/text/' + keyword + '.json')) {
+        if (fs.existsSync(this.cachePath + '/data/text/' + keyword + '.json') && fs.existsSync(this.cachePath + '/text/' + keyword)) {
           resolve('Text cache already exists for: ' + keyword);
+        }
+        else if (!fs.existsSync(this.cachePath + '/data/text/' + keyword + '.json') && fs.existsSync(this.cachePath + '/text/' + keyword)) {
+          let data = [];
+          fs.writeFile(this.cachePath + '/data/text/' + keyword + '.json', JSON.stringify(data), err => {
+            if (err) {
+              reject(err);
+            }
+            else {
+              resolve('Text cache created for: ' + keyword);
+            }
+          });
+        }
+        else if (fs.existsSync(this.cachePath + '/data/text/' + keyword + '.json') && !fs.existsSync(this.cachePath + '/text/' + keyword)) {
+          fs.mkdir(this.cachePath + '/text/' + keyword, err => {
+            if (err) {
+              reject(err);
+            }
+            else {
+              resolve('Text cache created for: ' + keyword);
+            }
+          });
         }
         else {
           let data = [];
@@ -394,8 +553,12 @@ module.exports = {
             }
             else {
               fs.mkdir(this.cachePath + '/text/' + keyword, err => {
-                if (err) reject(err);
-                resolve('Text cache created for: ' + keyword);
+                if (err) {
+                  reject(err);
+                }
+                else {
+                  resolve('Text cache created for: ' + keyword);
+                }
               });
             }
           });
@@ -415,8 +578,12 @@ module.exports = {
         }
         else {
           fs.readFile(this.cachePath + '/data/text/' + keyword + '.json', (err,data) => {
-            if (err) reject(err);
-            resolve(data);
+            if (err) {
+              reject(err);
+            }
+            else {
+              resolve(data);
+            }
           });
         }
       }
@@ -523,6 +690,18 @@ module.exports = {
     return false;
   },
 
+  existsImageCacheValue: function(keyword,property,value) {
+    let file = this.cachePath + '/data/images/' + keyword + '.json';
+    if (!fs.existsSync(file)) {
+      return false;
+    }
+    let data = JSON.parse(fs.readFileSync(file));
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][property] === value) return true;
+    }
+    return false;
+  },
+
   createImageCache: function(keyword) {
     return new Promise((resolve,reject) => {
       if (!keyword) {
@@ -532,6 +711,27 @@ module.exports = {
         if (fs.existsSync(this.cachePath + '/data/images/' + keyword + '.json') && fs.existsSync(this.cachePath + '/images/' + keyword)) {
           resolve('Image cache already exists for: ' + keyword);
         }
+        else if (!fs.existsSync(this.cachePath + '/data/images/' + keyword + '.json') && fs.existsSync(this.cachePath + '/images/' + keyword)) {
+          let data = [];
+          fs.writeFile(this.cachePath + '/data/images/' + keyword + '.json', JSON.stringify(data), err => {
+            if (err) {
+              reject(err);
+            }
+            else {
+              resolve('Image cache created for: ' + keyword);
+            }
+          });
+        }
+        else if (fs.existsSync(this.cachePath + '/data/images/' + keyword + '.json') && !fs.existsSync(this.cachePath + '/images/' + keyword)) {
+          fs.mkdir(this.cachePath + '/images/' + keyword, err => {
+            if (err) {
+              reject(err);
+            }
+            else {
+              resolve('Image cache created for: ' + keyword);
+            }
+          });
+        }
         else {
           let data = [];
           fs.writeFile(this.cachePath + '/data/images/' + keyword + '.json', JSON.stringify(data), err => {
@@ -540,8 +740,12 @@ module.exports = {
             }
             else {
               fs.mkdir(this.cachePath + '/images/' + keyword, err => {
-                if (err) reject(err);
-                resolve('Image cache created for: ' + keyword);
+                if (err) {
+                  reject(err);
+                }
+                else {
+                  resolve('Image cache created for: ' + keyword);
+                }
               });
             }
           });
@@ -561,8 +765,12 @@ module.exports = {
         }
         else {
           fs.readFile(this.cachePath + '/data/images/' + keyword + '.json', (err,data) => {
-            if (err) reject(err);
-            resolve(data);
+            if (err) {
+              reject(err);
+            }
+            else {
+              resolve(data);
+            }
           });
         }
       }
@@ -1322,7 +1530,7 @@ module.exports = {
     if (!filename || typeof filename !== 'string') {
       return '';
     }
-    return filename.replace(/[^a-zA-z0-9\-\_\.]/g,'');
+    return filename.replace(/[^a-zA-Z0-9\-\_\.]/g,'');
   },
 
   parseHeader: function(text) {
@@ -1532,93 +1740,6 @@ module.exports = {
         }
       });
       resolve(lines.join('\n'));
-    });
-  },
-
-  parseParagraphs: function(filePath,searchArgs) {
-    return new Promise((resolve,reject) => {
-      if (!filePath || typeof filePath !== 'string') {
-        reject('Unable to parse paragraphs without text filename.');
-      }
-      else {
-        let searchParams = this.setSearchParams(searchArgs);
-        fs.readFile(filePath,(err,data) => {
-          if (err) {
-            reject(err);
-          }
-          else {
-            let text = data.toString().split('\n');
-            if (searchParams.strict && text[0] && text[0] === '!!!') {
-              reject('Text file unable to be parsed: ' + filePath);
-            }
-            else {
-              let paragraphs = [];
-              for (let i = 0; i < text.length; i++) {
-                if (!text[i]) continue;
-                let x = paragraphs.length-1;
-                if (text[i].match(/^(\#|\*)/g)) {
-                  if (paragraphs[x] && paragraphs[x].header && !paragraphs[x].text.length) {
-                    paragraphs.pop();
-                  }
-                  let header = text[i].slice(1).trim();
-                  let keyword = text[i].match(/^\*/g) ? text[i].slice(1).toLowerCase().trim() : '';
-                  let count = keyword ? 1 : 0;
-                  let obj = {
-                    text: [],
-                    header: header,
-                    keyword: keyword,
-                    count: count
-                  };
-                  paragraphs.push(obj);
-                }
-                else {
-                  let line = text[i].trim();
-                  line = line.match(/^\w/g) && line.match(/(\.|\?|\!)$/g) ? line : '';
-                  if (!line) continue;
-                  if (paragraphs[x]) {
-                    paragraphs[x].text.push(text[i]);
-                  }
-                  else {
-                    let obj = {
-                      text: [text[i]],
-                      header: '',
-                      keyword: '',
-                      count: 0
-                    };
-                    paragraphs.push(obj);
-                  }
-                }
-              }
-              let filteredParagraphs = [];
-              paragraphs = paragraphs.filter(el => el.text.length && el.text.length > searchParams.minLength && (!searchParams.matchRegex || !el.header.match(searchParams.matchRegex)));
-              if (searchParams.shuffle) {
-                let intro = paragraphs[0];
-                let body = paragraphs.length > 1 ? shuffle(paragraphs.slice(1)) : [];
-                paragraphs = [intro].concat(body);
-              }
-              let searchLowerBound = Math.ceil(searchParams.count/2);
-              let searchCount = searchParams.count;
-              if (searchParams.random) searchCount = Math.floor(Math.random() * (searchParams.count - searchLowerBound + 1)) + searchLowerBound;
-              for (let i = 0; i < paragraphs.length; i++) {
-                if (filteredParagraphs.length >= searchCount) break;
-                let maxResult = i === 0 ? searchParams.intro : searchParams.sections;
-                if (!maxResult) continue;
-                let minResult = Math.ceil(maxResult/2);
-                let spliceIndex = maxResult;
-                if (searchParams.random) spliceIndex = Math.floor(Math.random() * (maxResult - minResult + 1)) + minResult;
-                let paragraph = {
-                  text: paragraphs[i].text.slice(0,spliceIndex),
-                  header: paragraphs[i].header,
-                  keyword: paragraphs[i].keyword,
-                  count: paragraphs[i].count
-                };
-                filteredParagraphs.push(paragraph);
-              }
-              resolve(filteredParagraphs);
-            }
-          }
-        });
-      }
     });
   },
 
@@ -2264,8 +2385,7 @@ module.exports = {
                   audio: '',
                   image: null,
                   template: 'noTransitions',
-                  keyword: '',
-                  url: ''
+                  keyword: ''
                 });
               }
               if (imageParams.logo && searchParams.stills) {
@@ -2274,8 +2394,7 @@ module.exports = {
                   audio: '',
                   image: imageParams.logo,
                   template: 'noTransitions stillImage',
-                  keyword: searchParams.stills,
-                  url: ''
+                  keyword: searchParams.stills
                 });
               }
               resolve(slideStore);
@@ -2294,8 +2413,7 @@ module.exports = {
                   audio: '',
                   image: null,
                   template: 'noTransitions',
-                  keyword: '',
-                  url: ''
+                  keyword: ''
                 });
               }
               if (imageParams.logo && searchParams.stills) {
@@ -2304,8 +2422,7 @@ module.exports = {
                   audio: '',
                   image: imageParams.logo,
                   template: 'noTransitions stillImage',
-                  keyword: searchParams.stills,
-                  url: ''
+                  keyword: searchParams.stills
                 });
               }
               resolve(slideStore);
@@ -2322,139 +2439,101 @@ module.exports = {
     });
   },
 
-  setImageParams: function(imageArgs) {
-    if (!imageArgs) imageArgs = {};
-    let imageParams = Object.assign({},imageArgs);
-    if (!imageParams.fallback) imageParams.fallback = '';
-    if (!imageParams.template) imageParams.template = '';
-    if (!imageParams.search) imageParams.search = 'google';
-    if (!imageParams.options) imageParams.options = ['medium','commercial'];
-    if (!imageParams.tags) imageParams.tags = [];
-    if (imageParams.crop === undefined) imageParams.crop = true;
-    if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = false;
-    if (imageParams.cacheKeyword === undefined) imageParams.cacheKeyword = false;
-    if (imageParams.cacheFallback === undefined) imageParams.cacheFallback = false;
-    if (imageParams.exact === undefined) imageParams.exact = true;
-    if (!imageParams.limit) imageParams.limit = 1;
-    if (!imageParams.count) imageParams.count = 1;
-    if (!imageParams.fallbackLimit) imageParams.fallbackLimit = 20;
-    if (!imageParams.page) imageParams.page = 1;
-    if (!imageParams.maxTries) imageParams.maxTries = 5;
-    if (!imageParams.googleDomain) imageParams.googleDomain = 'com.au';
-    if (!imageParams.tagline) imageParams.tagline = '';
-    if (!imageParams.logo) imageParams.logo = '';
-    if (imageParams.random === undefined) imageParams.random = true;
-    return imageParams;
-  },
-
-  setSearchParams: function(searchArgs) {
-    if (!searchArgs) searchArgs = {};
-    let searchParams = Object.assign({},searchArgs);
-    if (!searchParams.minResult) searchParams.minResult = 1;
-    if (!searchParams.maxResult) searchParams.maxResult = 1;
-    if (searchParams.maxResult < searchParams.minResult) searchParams.maxResult = searchParams.minResult;
-    if (searchParams.intro === undefined) searchParams.intro = 10;
-    if (searchParams.sections === undefined) searchParams.sections = 5;
-    if (!searchParams.count) searchParams.count = 10;
-    if (!searchParams.maxTries) searchParams.maxTries = 10;
-    if (!searchParams.template) searchParams.template = 'facts';
-    if (!searchParams.limit) searchParams.limit = 1;
-    if (!searchParams.category) searchParams.category = '22';
-    if (!searchParams.privacy) searchParams.privacy = 'public';
-    if (searchParams.exact === undefined) searchParams.exact = true;
-    if (!searchParams.keywordType) searchParams.keywordType = 'PLURAL';
-    if (searchParams.keywordPlural === undefined) searchParams.keywordPlural = true;
-    if (!searchParams.keywordDeterminer) searchParams.keywordDeterminer = '';
-    if (!searchParams.keywordNoun) searchParams.keywordNoun = '';
-    if (!searchParams.keywordList) searchParams.keywordList = [];
-    if (!searchParams.link) searchParams.link = '';
-    if (searchParams.amazon === undefined) searchParams.amazon = false;
-    if (searchParams.cacheOnly === undefined) searchParams.cacheOnly = false;
-    if (searchParams.multipleOnly === undefined) searchParams.multipleOnly = false;
-    if (!searchParams.assets) searchParams.assets = __dirname + '/assets/';
-    if (!searchParams.images) searchParams.images = __dirname + '/cache/images/';
-    if (!searchParams.voice) searchParams.voice = 'karen';
-    if (!searchParams.project) searchParams.project = 'My Project';
-    if (!searchParams.clips) searchParams.clips = 'clips-metadata.json';
-    if (!searchParams.stills) searchParams.stills = 'stills';
-    if (!searchParams.slideshows) searchParams.slideshows = 1;
-    if (!searchParams.keyword) searchParams.keyword = '';
-    if (searchParams.random === undefined) searchParams.random = true;
-    if (!searchParams.minLength) searchParams.minLength = 0;
-    if (!searchParams.matchRegex) searchParams.matchRegex = null;
-    if (searchParams.strict === undefined) searchParams.strict = false;
-    if (searchParams.shuffle === undefined) searchParams.shuffle = false;
-    return searchParams;
-  },
-
-  overrideImageParams: function(imageArgs,overrideArgs) {
-    let imageParams = this.setImageParams(imageArgs);
-    if (overrideArgs && typeof overrideArgs === 'object') {
-      if (overrideArgs.fallback) imageParams.fallback = overrideArgs.fallback;
-      if (overrideArgs.template) imageParams.template = overrideArgs.template;
-      if (overrideArgs.search) imageParams.search = overrideArgs.search;
-      if (overrideArgs.options) imageParams.options = overrideArgs.options;
-      if (overrideArgs.tags) imageParams.tags = overrideArgs.tags;
-      if (overrideArgs.crop !== undefined) imageParams.crop = overrideArgs.crop;
-      if (overrideArgs.cacheOnly !== undefined) imageParams.cacheOnly = overrideArgs.cacheOnly;
-      if (overrideArgs.cacheKeyword !== undefined) imageParams.cacheKeyword = overrideArgs.cacheKeyword;
-      if (overrideArgs.cacheFallback !== undefined) imageParams.cacheFallback = overrideArgs.cacheFallback;
-      if (overrideArgs.exact !== undefined) imageParams.exact = overrideArgs.exact;
-      if (overrideArgs.limit) imageParams.limit = overrideArgs.limit;
-      if (overrideArgs.count) imageParams.count = overrideArgs.count;
-      if (overrideArgs.fallbackLimit) imageParams.fallbackLimit = overrideArgs.fallbackLimit;
-      if (overrideArgs.page) imageParams.page = overrideArgs.page;
-      if (overrideArgs.maxTries) imageParams.maxTries = overrideArgs.maxTries;
-      if (overrideArgs.googleDomain) imageParams.googleDomain = overrideArgs.googleDomain;
-      if (overrideArgs.tagline) imageParams.tagline = overrideArgs.tagline;
-      if (overrideArgs.logo) imageParams.logo = overrideArgs.logo;
-      if (overrideArgs.random !== undefined) imageParams.random = overrideArgs.random;
+  readDataObjects: function(objects,index,searchArgs) {
+    if (!objects || typeof objects !== 'object' || !objects.length || typeof index !== 'number') {
+      return null;
     }
-    return imageParams;
-  },
-
-  overrideSearchParams: function(searchArgs,overrideArgs) {
     let searchParams = this.setSearchParams(searchArgs);
-    if (overrideArgs && typeof overrideArgs === 'object') {
-      if (overrideArgs.minResult) searchParams.minResult = overrideArgs.minResult;
-      if (overrideArgs.maxResult) searchParams.maxResult = overrideArgs.maxResult;
-      if (searchParams.maxResult < searchParams.minResult) searchParams.maxResult = searchParams.minResult;
-      if (overrideArgs.intro !== undefined) searchParams.intro = overrideArgs.intro;
-      if (overrideArgs.sections !== undefined) searchParams.sections = overrideArgs.sections;
-      if (overrideArgs.count) searchParams.count = overrideArgs.count;
-      if (overrideArgs.maxTries) searchParams.maxTries = overrideArgs.maxTries;
-      if (overrideArgs.template) searchParams.template = overrideArgs.template;
-      if (overrideArgs.limit) searchParams.limit = overrideArgs.limit;
-      if (overrideArgs.category) searchParams.category = overrideArgs.category;
-      if (overrideArgs.privacy) searchParams.privacy = overrideArgs.privacy;
-      if (overrideArgs.exact !== undefined) searchParams.exact = overrideArgs.exact;
-      if (overrideArgs.keywordType) searchParams.keywordType = overrideArgs.keywordType;
-      if (overrideArgs.keywordPlural !== undefined) searchParams.keywordPlural = overrideArgs.keywordPlural;
-      if (overrideArgs.keywordDeterminer) searchParams.keywordDeterminer = overrideArgs.keywordDeterminer;
-      if (overrideArgs.keywordNoun) searchParams.keywordNoun = overrideArgs.keywordNoun;
-      if (overrideArgs.keywordList) searchParams.keywordList = overrideArgs.keywordList;
-      if (overrideArgs.link) searchParams.link = overrideArgs.link;
-      if (overrideArgs.amazon !== undefined) searchParams.amazon = overrideArgs.amazon;
-      if (overrideArgs.cacheOnly !== undefined) searchParams.cacheOnly = overrideArgs.cacheOnly;
-      if (overrideArgs.multipleOnly !== undefined) searchParams.multipleOnly = overrideArgs.multipleOnly;
-      if (overrideArgs.assets) searchParams.assets = overrideArgs.assets;
-      if (overrideArgs.images) searchParams.images = overrideArgs.images;
-      if (overrideArgs.voice) searchParams.voice = overrideArgs.voice;
-      if (overrideArgs.project) searchParams.project = overrideArgs.project;
-      if (overrideArgs.clips) searchParams.clips = overrideArgs.clips;
-      if (overrideArgs.stills) searchParams.stills = overrideArgs.stills;
-      if (overrideArgs.slideshows) searchParams.slideshows = overrideArgs.slideshows;
-      if (overrideArgs.keyword) searchParams.keyword = overrideArgs.keyword;
-      if (overrideArgs.random !== undefined) searchParams.random = overrideArgs.random;
-      if (overrideArgs.minLength) searchParams.minLength = overrideArgs.minLength;
-      if (overrideArgs.matchRegex) searchParams.matchRegex = overrideArgs.matchRegex;
-      if (overrideArgs.strict !== undefined) searchParams.strict = overrideArgs.strict;
-      if (overrideArgs.shuffle !== undefined) searchParams.shuffle = overrideArgs.shuffle;
+    if (!searchParams.amazon) {
+      let text = fs.readFileSync(objects[index].filename,'utf8');
+      return this.textObjects(text,searchParams);
     }
-    return searchParams;
+    else {
+
+    }
   },
 
-  slideshowParagraphs: function(keyword,searchArgs,imageArgs) {
+  textObjects: function(data,searchArgs) {
+    if (!data || typeof data !== 'string') {
+      if (this.debug) console.log('Unable to generate content paragraphs without text data.');
+      return [];
+    }
+    else {
+      let searchParams = this.setSearchParams(searchArgs);
+      let text = data.split('\n');
+      if (searchParams.strict && text[0] && text[0] === '!!!') {
+        if (this.debug) console.log('Unable to parse unedited text file.');
+        return [];
+      }
+      else {
+        let paragraphs = [];
+        for (let i = 0; i < text.length; i++) {
+          if (!text[i]) continue;
+          let x = paragraphs.length-1;
+          if (text[i].match(/^(\#|\*)/g)) {
+            if (paragraphs[x] && paragraphs[x].header && !paragraphs[x].text.length) {
+              paragraphs.pop();
+            }
+            let header = text[i].slice(1).trim();
+            let keyword = text[i].match(/^\*/g) ? text[i].slice(1).toLowerCase().trim() : '';
+            let count = keyword ? 1 : 0;
+            let obj = {
+              text: [],
+              header: header,
+              keyword: keyword,
+              count: count
+            };
+            paragraphs.push(obj);
+          }
+          else {
+            let line = text[i].trim();
+            line = line.match(/^\w/g) && line.match(/(\.|\?|\!)$/g) ? line : '';
+            if (!line) continue;
+            if (paragraphs[x]) {
+              paragraphs[x].text.push(text[i]);
+            }
+            else {
+              let obj = {
+                text: [text[i]],
+                header: '',
+                keyword: '',
+                count: 0
+              };
+              paragraphs.push(obj);
+            }
+          }
+        }
+        let filteredParagraphs = [];
+        paragraphs = paragraphs.filter(el => el.text.length && el.text.length > searchParams.minLength && (!searchParams.matchRegex || !el.header.match(searchParams.matchRegex)));
+        if (searchParams.shuffle) {
+          let intro = paragraphs[0];
+          let body = paragraphs.length > 1 ? shuffle(paragraphs.slice(1)) : [];
+          paragraphs = [intro].concat(body);
+        }
+        let searchLowerBound = Math.ceil(searchParams.count/2);
+        let searchCount = searchParams.count;
+        if (searchParams.random) searchCount = Math.floor(Math.random() * (searchParams.count - searchLowerBound + 1)) + searchLowerBound;
+        for (let i = 0; i < paragraphs.length; i++) {
+          if (filteredParagraphs.length >= searchCount) break;
+          let maxResult = i === 0 ? searchParams.intro : searchParams.sections;
+          if (!maxResult) continue;
+          let minResult = Math.ceil(maxResult/2);
+          let spliceIndex = maxResult;
+          if (searchParams.random) spliceIndex = Math.floor(Math.random() * (maxResult - minResult + 1)) + minResult;
+          let paragraph = {
+            text: paragraphs[i].text.slice(0,spliceIndex),
+            header: paragraphs[i].header,
+            keyword: paragraphs[i].keyword,
+            count: paragraphs[i].count
+          };
+          filteredParagraphs.push(paragraph);
+        }
+        return filteredParagraphs;
+      }
+    }
+  },
+
+  slideshowObjects: function(keyword,searchArgs,imageArgs) {
     if (!keyword || typeof keyword !== 'string' || !searchArgs || !imageArgs) {
       if (this.debug) console.log('Unable to produce slideshow paragraphs without keyword and parameters.');
       return [];
@@ -2466,14 +2545,13 @@ module.exports = {
     let searchCount = searchParams.count;
     if (searchParams.random) searchCount = Math.floor(Math.random() * (searchParams.count - searchLowerBound + 1)) + searchLowerBound;
     let imageLowerBound = Math.ceil(imageParams.count/2);
-    if (searchParams.headerKeywords && searchParams.headerKeywords.length) {
-      if (searchCount > searchParams.headerKeywords.length) searchCount = searchParams.headerKeywords.length;
+    if (searchParams.imageKeywords && searchParams.imageKeywords.length) {
+      if (searchCount > searchParams.imageKeywords.length) searchCount = searchParams.imageKeywords.length;
       if (!imageParams.template.includes('imageOnly')) {
         let title = {
           text: [],
           header: pos.titlecase(keyword),
           keyword: imageParams.fallback,
-          url: 'image slideshow',
           count: 0
         };
         paragraphs.push(title);
@@ -2482,9 +2560,8 @@ module.exports = {
         for (let i = 0; i < searchCount; i++) {
           let title = {
             text: [],
-            header: pos.titlecase(searchParams.headerKeywords[i]),
-            keyword: searchParams.headerKeywords[i],
-            url: 'image slideshow',
+            header: pos.titlecase(searchParams.imageKeywords[i]),
+            keyword: searchParams.imageKeywords[i],
             count: 1
           };
           paragraphs.push(title);
@@ -2494,8 +2571,7 @@ module.exports = {
             let image = {
               text: [],
               header: '',
-              keyword: searchParams.headerKeywords[i],
-              url: 'image slideshow',
+              keyword: searchParams.imageKeywords[i],
               count: 0
             };
             paragraphs.push(image);
@@ -2506,9 +2582,8 @@ module.exports = {
         for (let i = 0; i < searchCount; i++) {
           let title = {
             text: [],
-            header: pos.titlecase(searchParams.headerKeywords[i].header),
-            keyword: searchParams.headerKeywords[i].keyword,
-            url: 'image slideshow',
+            header: pos.titlecase(searchParams.imageKeywords[i].header),
+            keyword: searchParams.imageKeywords[i].keyword,
             count: 1
           };
           paragraphs.push(title);
@@ -2518,8 +2593,7 @@ module.exports = {
             let image = {
               text: [],
               header: '',
-              keyword: searchParams.headerKeywords[i].keyword,
-              url: 'image slideshow',
+              keyword: searchParams.imageKeywords[i].keyword,
               count: 0
             };
             paragraphs.push(image);
@@ -2533,7 +2607,6 @@ module.exports = {
           text: [],
           header: '',
           keyword: imageParams.fallback,
-          url: 'image slideshow',
           count: 1
         };
         paragraphs.push(image);
@@ -2553,7 +2626,7 @@ module.exports = {
         searchParams.keyword = keyword;
         let text;
         if (!dataObject) {
-          text = this.slideshowParagraphs(keyword,searchParams,imageParams);
+          text = this.slideshowObjects(keyword,searchParams,imageParams);
         }
         else {
           text = dataObject.amazon ? dataObject.description : this.pageParagraphs(dataObject,searchParams,true);
@@ -2611,16 +2684,37 @@ module.exports = {
               url: page.url
             };
             if (!this.existsTextCacheValue(keyword,'url',textObj.url)) {
-              fs.writeFile(textFile,page.body, err => {
-                if (this.debug) {
+              if (!fs.existsSync(this.cachePath + '/text/' + keyword)) {
+                fs.mkdir(this.cachePath + '/text/' + keyword, err => {
                   if (err) {
-                    console.log(err);
+                    reject(err);
                   }
                   else {
-                    console.log('Finished writing text file to: ' + textFile);
+                    fs.writeFile(textFile,page.body, err => {
+                      if (this.debug) {
+                        if (err) {
+                          console.log(err);
+                        }
+                        else {
+                          console.log('Finished writing text file to: ' + textFile);
+                        }
+                      }
+                    });
                   }
-                }
-              });
+                });
+              }
+              else {
+                fs.writeFile(textFile,page.body, err => {
+                  if (this.debug) {
+                    if (err) {
+                      console.log(err);
+                    }
+                    else {
+                      console.log('Finished writing text file to: ' + textFile);
+                    }
+                  }
+                });
+              }
             }
             else {
               if (this.debug) console.log('Text file already saved to cache: ' + textFile);
@@ -2731,7 +2825,7 @@ module.exports = {
             }
             else if (objectStore) {
               if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageTitle')) {
-                searchParams.headerKeywords = this.amazonKeywords(objectStore);
+                searchParams.imageKeywords = this.amazonKeywords(objectStore);
               }
             }
             this.video(keyword,obj,searchParams,imageParams,false).then(video => {
@@ -2810,7 +2904,7 @@ module.exports = {
                     }
                     else {
                       if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageTitle')) {
-                        searchParams.headerKeywords = this.amazonKeywords(objectStore);
+                        searchParams.imageKeywords = this.amazonKeywords(objectStore);
                       }
                     }
                     this.video(object.keyword,obj,searchParams,imageParams,true).then(video => {

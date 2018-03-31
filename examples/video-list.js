@@ -20,6 +20,7 @@ module.exports = {
     cacheOnly: true,
     multipleOnly: true,
     slideshows: 1,
+    imageKeywords: [],
     assets: '/Users/brentmccoy/Apps/node-modules/bmjs-webparser/assets/',
     images: '/Users/brentmccoy/Apps/node-modules/bmjs-webparser/cache/images/',
     voice: 'karen',
@@ -55,6 +56,7 @@ module.exports = {
         keywordNoun: '',
         keywordList: ['slow dog food bowls'],
         link: ''
+        imageKeywords: []
       },
       image: {fallback: ''}
     },
@@ -67,7 +69,8 @@ module.exports = {
         keywordDeterminer: '',
         keywordNoun: '',
         keywordList: ['non shedding dogs'],
-        link: ''
+        link: '',
+        imageKeywords: []
       },
       image: {fallback: ''}
     },
