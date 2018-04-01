@@ -39,7 +39,7 @@ module.exports = {
     limit: 10,
     count: 2,
     fallback: 'dogs',
-    template: 'titleOnly',
+    template: 'textOnly',
     tagline: 'Share the love!!!',
     logo: null
   },

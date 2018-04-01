@@ -1552,8 +1552,8 @@ module.exports = {
   },
 
   truncateHeader: function(text,length) {
-    let header = this.parseHeader(text);
-    if (header.length < 30) return header;
+    let header = text.replace(/[^a-zA-Z0-9\-\s]/g,'').replace(/\s+/g,' ');
+    if (header.length < length) return header;
     let splitHeader = header.split(' ');
     let result = '';
     for (let i = 0; i < splitHeader.length; i++) {
@@ -2594,7 +2594,7 @@ module.exports = {
         for (let i = 0; i < searchCount; i++) {
           let title = {
             text: [],
-            header: pos.titlecase(searchParams.imageKeywords[i].header),
+            header: this.truncateHeader(searchParams.imageKeywords[i].header,25),
             keyword: searchParams.imageKeywords[i].keyword,
             count: 1
           };
@@ -2639,19 +2639,45 @@ module.exports = {
         let slides = [];
         let credits = [];
         let count = obj.count;
+        let imageActive = true;
+        let textActive = true;
+        let titleActive = true;
+        let audioActive = true;
+        if (imageParams.template.includes('imageOnly')) {
+          imageActive = true;
+          textActive = false;
+          titleActive = false;
+          audioActive = false;
+        }
+        else if (imageParams.template.includes('imageTitle')) {
+          imageActive = true;
+          textActive = false;
+          titleActive = true;
+          audioActive = false;
+        }
+        else if (imageParams.template.includes('imageAudio')) {
+          imageActive = true;
+          textActive = false;
+          titleActive = false;
+          audioActive = true;
+        }
+        else if (imageParams.template.includes('titleOnly')) {
+          imageActive = true;
+          textActive = false;
+          titleActive = true;
+          audioActive = true;
+        }
+        else if (imageParams.template.includes('textOnly')) {
+          imageActive = false;
+          textActive = true;
+          titleActive = true;
+          audioActive = true;
+        }
+        let bothActive = imageActive && textActive ? true : false;
         let keyword = obj.keyword ? obj.keyword : imageParams.fallback;
         let titleFallback = searchParams.keywordList.length ? pos.titlecase(rand(...searchParams.keywordList)) : pos.titlecase(searchParams.keyword);
         this.images(keyword,imageParams).then(data => {
           data = this.filterUsedImages(data,usedImages);
-          let imageActive = true;
-          let textActive = true;
-          let titleActive = true;
-          let audioActive = true;
-          if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageAudio') || imageParams.template.includes('titleOnly')) textActive = false;
-          if (imageParams.template.includes('textOnly')) imageActive = false;
-          if (!textActive && !imageParams.template.includes('titleOnly')) titleActive = false;
-          if (!textActive && !imageParams.template.includes('imageAudio') && !imageParams.template.includes('titleOnly')) audioActive = false;
-          let bothActive = imageActive && textActive ? true : false;
           if (obj.text.length) {
             if (obj.header || firstSlide) {
               let titleText = '';
@@ -2663,11 +2689,11 @@ module.exports = {
                   usedImages.push(data[0].image);
                   data.shift();
                 }
-                if (titleActive) titleText = (!firstSlide || searchParams.amazon) ? obj.header : titleFallback;
+                if (titleActive) titleText = obj.header ? obj.header : titleFallback;
                 titleTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
               }
               else if (titleActive) {
-                titleText = (!firstSlide || searchParams.amazon) ? obj.header : titleFallback;
+                titleText = obj.header ? obj.header : titleFallback;
                 titleTemplate = imageParams.template;
                 titleImage = null;
               }
@@ -2727,7 +2753,7 @@ module.exports = {
             let slideImage = null;
             let slideTemplate = '';
             if (obj.header && !imageParams.template.includes('imageOnly')) {
-              slideText = (!firstSlide || searchParams.amazon) ? obj.header : titleFallback;
+              slideText = obj.header;
               slideTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
               slideImage = firstSlide ? data[0] : null;
               if (slideImage) {
@@ -3065,11 +3091,11 @@ module.exports = {
                 dataStore.push(video);
               }
               index++;
-              this.videosFromFile(filePath,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+              this.videosFromFile(filePath,matchKeyword,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
             }).catch(err => {
               if (this.debug) console.log(err);
               index++;
-              this.videosFromFile(filePath,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+              this.videosFromFile(filePath,matchKeyword,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
             });
           }
         }
@@ -3105,11 +3131,12 @@ module.exports = {
         if (keywords.length) {
           let googleParams = this.setImageParams(imageArgs);
           googleParams.search = 'google';
-          this.images(keywords[0],googleParams).then(() => {
+          let kw = images[0].toLowerCase();
+          this.images(kw,googleParams).then(() => {
             if (searchAll) {
               let flickrParams = this.setImageParams(imageArgs);
               flickrParams.search = 'flickr';
-              this.images(keywords[0],flickrParams).then(() => {
+              this.images(kw,flickrParams).then(() => {
                 index++;
                 keywords.shift();
                 this.addImages(keywords,imageArgs,searchAll,index).then(data => resolve(data)).catch(err => reject(err));
