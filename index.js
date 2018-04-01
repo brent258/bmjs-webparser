@@ -2444,6 +2444,7 @@ module.exports = {
     let strings = [];
     let lists = [];
     if (!data.title) return null;
+    text.push(data.title);
     if (data.description.length) arrays.push('description');
     if (data.features.length) arrays.push('features');
     if (data.price.length) strings.push('price');
@@ -2644,8 +2645,12 @@ module.exports = {
           data = this.filterUsedImages(data,usedImages);
           let imageActive = true;
           let textActive = true;
-          if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageAudio')) textActive = false;
+          let titleActive = true;
+          let audioActive = true;
+          if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageAudio') || imageParams.template.includes('titleOnly')) textActive = false;
           if (imageParams.template.includes('textOnly')) imageActive = false;
+          if (!textActive && !imageParams.template.includes('titleOnly')) titleActive = false;
+          if (!textActive && !imageParams.template.includes('imageAudio') && !imageParams.template.includes('titleOnly')) audioActive = false;
           let bothActive = imageActive && textActive ? true : false;
           if (obj.text.length) {
             if (obj.header || firstSlide) {
@@ -2658,10 +2663,10 @@ module.exports = {
                   usedImages.push(data[0].image);
                   data.shift();
                 }
-                if (textActive) titleText = (!firstSlide || searchParams.amazon) ? obj.header : titleFallback;
+                if (titleActive) titleText = (!firstSlide || searchParams.amazon) ? obj.header : titleFallback;
                 titleTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
               }
-              else if (textActive) {
+              else if (titleActive) {
                 titleText = (!firstSlide || searchParams.amazon) ? obj.header : titleFallback;
                 titleTemplate = imageParams.template;
                 titleImage = null;
@@ -2705,7 +2710,7 @@ module.exports = {
               }
               let slideObj = {
                 text: slideText,
-                audio: (textActive || imageParams.template.includes('imageAudio')) ? obj.text[i] : '',
+                audio: audioActive ? obj.text[i] : '',
                 image: slideImage,
                 template: imageParams.template,
                 keyword: keyword
@@ -2867,7 +2872,7 @@ module.exports = {
         }
         if (text && text.length) {
           this.videoPropertiesMultiple(text,searchParams,imageParams).then(data => {
-            let titleKeyword = (matchKeyword || !searchParams.keywordList.length) ? keyword : rand(...searchParams.keywordList,keyword);
+            let titleKeyword = (matchKeyword || !searchParams.keywordList.length) ? keyword : rand(...searchParams.keywordList);
             let promoKeyword = searchParams.keywordList.length ? rand(...searchParams.keywordList) : keyword;
             let slides = {
               title: pos.title(titleKeyword,searchParams.keywordType,searchParams.template,data.count),
@@ -2914,6 +2919,7 @@ module.exports = {
         let searchParams = this.overrideSearchParams(searchArgs,searchOverrideArgs);
         let imageParams = this.overrideImageParams(imageArgs,imageOverrideArgs);
         searchParams.keyword = keyword;
+        if (!searchParams.keywordList.length) searchParams.keywordList = [keyword];
         if (!objectStore && (searchParams.amazon || (!imageParams.template.includes('imageOnly') && !imageParams.template.includes('imageTitle')))) {
           if (!fs.existsSync(this.cachePath + '/data/text/' + keyword + '.json')) {
             reject('No text data found to produce videos from keyword: ' + keyword);
@@ -2984,13 +2990,14 @@ module.exports = {
     });
   },
 
-  videosFromFile: function(filePath,dataStore,index) {
+  videosFromFile: function(filePath,matchKeyword,dataStore,index) {
     return new Promise((resolve,reject) => {
       if (!filePath || typeof filePath !== 'string') {
         reject('Unable to create videos without file path.');
       }
       else {
         let data = require(filePath);
+        if (!matchKeyword) matchKeyword = true;
         if (!dataStore) dataStore = [];
         if (!index) index = 0;
         let object = data.objects[index];
@@ -2998,6 +3005,7 @@ module.exports = {
         if (object) {
           searchParams = this.overrideSearchParams(data.search,object.search);
           imageParams = this.overrideImageParams(data.image,object.image);
+          if (!searchParams.keywordList.length) searchParams.keywordList = [object.keyword];
         }
         else {
           searchParams = this.overrideSearchParams(data.search,null);
@@ -3028,16 +3036,16 @@ module.exports = {
                         obj = this.readDataObjects(objectStore,0,searchParams,imageParams);
                       }
                     }
-                    this.video(object.keyword,obj,searchParams,imageParams,true).then(video => {
+                    this.video(object.keyword,obj,searchParams,imageParams,matchKeyword).then(video => {
                       if (!searchParams.multipleOnly || (searchParams.multipleOnly && video.count > 1)) {
                         dataStore.push(video);
                       }
                       index++;
-                      this.videosFromFile(filePath,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+                      this.videosFromFile(filePath,matchKeyword,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
                     }).catch(err => {
                       if (this.debug) console.log(err);
                       index++;
-                      this.videosFromFile(filePath,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
+                      this.videosFromFile(filePath,matchKeyword,dataStore,index).then(data => resolve(data)).catch(err => reject(err));
                     });
                   }
                   else {
@@ -3052,7 +3060,7 @@ module.exports = {
           }
           else {
             let obj = null;
-            this.video(object.keyword,obj,searchParams,imageParams,true).then(video => {
+            this.video(object.keyword,obj,searchParams,imageParams,matchKeyword).then(video => {
               if (!searchParams.multipleOnly || (searchParams.multipleOnly && video.count > 1)) {
                 dataStore.push(video);
               }

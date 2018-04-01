@@ -2,8 +2,8 @@ const wp = require('../index.js');
 
 module.exports = {
   limit: 1,
-  intro: 20,
-  sections: 1,
+  intro: 0,
+  sections: 2,
   count: 5,
   category: '22',
   privacy: 'public',

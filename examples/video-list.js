@@ -4,8 +4,8 @@ module.exports = {
 
   search: {
     limit: 1,
-    intro: 20,
-    sections: 1,
+    intro: 0,
+    sections: 2,
     count: 7,
     category: '22',
     privacy: 'public',
@@ -39,7 +39,7 @@ module.exports = {
     limit: 10,
     count: 2,
     fallback: 'dogs',
-    template: '',
+    template: 'titleOnly',
     tagline: 'Share the love!!!',
     logo: null
   },
@@ -53,7 +53,7 @@ module.exports = {
         keywordPlural: undefined,
         keywordDeterminer: '',
         keywordNoun: '',
-        keywordList: ['slow dog food bowls'],
+        keywordList: null,
         link: '',
         imageKeywords: null
       },
@@ -67,7 +67,7 @@ module.exports = {
         keywordPlural: undefined,
         keywordDeterminer: '',
         keywordNoun: '',
-        keywordList: ['non shedding dogs'],
+        keywordList: null,
         link: '',
         imageKeywords: null
       },
