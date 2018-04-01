@@ -35,14 +35,13 @@ module.exports = {
     options: null,
     tags: null,
     cacheOnly: true,
-    search: 'flickr',
+    search: 'google',
     limit: 10,
     count: 2,
-    fallbackLimit: 20,
     fallback: 'dogs',
     template: '',
     tagline: 'Share the love!!!',
-    logo: ''
+    logo: null
   },
 
   objects: [

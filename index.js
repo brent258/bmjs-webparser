@@ -80,17 +80,14 @@ module.exports = {
     if (!imageParams.tags) imageParams.tags = [];
     if (imageParams.crop === undefined) imageParams.crop = true;
     if (imageParams.cacheOnly === undefined) imageParams.cacheOnly = false;
-    if (imageParams.cacheKeyword === undefined) imageParams.cacheKeyword = false;
-    if (imageParams.cacheFallback === undefined) imageParams.cacheFallback = false;
     if (imageParams.exact === undefined) imageParams.exact = true;
     if (!imageParams.limit) imageParams.limit = 1;
     if (!imageParams.count) imageParams.count = 1;
-    if (!imageParams.fallbackLimit) imageParams.fallbackLimit = 20;
     if (!imageParams.page) imageParams.page = 1;
     if (!imageParams.maxTries) imageParams.maxTries = 5;
     if (!imageParams.googleDomain) imageParams.googleDomain = 'com.au';
     if (!imageParams.tagline) imageParams.tagline = '';
-    if (!imageParams.logo) imageParams.logo = '';
+    if (!imageParams.logo) imageParams.logo = null;
     if (imageParams.random === undefined) imageParams.random = true;
     return imageParams;
   },
@@ -146,12 +143,9 @@ module.exports = {
       if (overrideArgs.tags) imageParams.tags = overrideArgs.tags;
       if (overrideArgs.crop !== undefined) imageParams.crop = overrideArgs.crop;
       if (overrideArgs.cacheOnly !== undefined) imageParams.cacheOnly = overrideArgs.cacheOnly;
-      if (overrideArgs.cacheKeyword !== undefined) imageParams.cacheKeyword = overrideArgs.cacheKeyword;
-      if (overrideArgs.cacheFallback !== undefined) imageParams.cacheFallback = overrideArgs.cacheFallback;
       if (overrideArgs.exact !== undefined) imageParams.exact = overrideArgs.exact;
       if (overrideArgs.limit) imageParams.limit = overrideArgs.limit;
       if (overrideArgs.count) imageParams.count = overrideArgs.count;
-      if (overrideArgs.fallbackLimit) imageParams.fallbackLimit = overrideArgs.fallbackLimit;
       if (overrideArgs.page) imageParams.page = overrideArgs.page;
       if (overrideArgs.maxTries) imageParams.maxTries = overrideArgs.maxTries;
       if (overrideArgs.googleDomain) imageParams.googleDomain = overrideArgs.googleDomain;
@@ -1429,6 +1423,7 @@ module.exports = {
       }
       else {
         let imageParams = this.setImageParams(imageArgs);
+        if (!this.existsImageCache(keyword)) imageParams.cacheOnly = false;
         if (imageParams.cacheOnly) {
           this.readImageCache(keyword).then(imgs => {
             let images = shuffle(JSON.parse(imgs));
@@ -2391,235 +2386,11 @@ module.exports = {
     return images;
   },
 
-  videoProperties: function(obj,searchArgs,imageArgs,usedImages,firstSlide) {
-    return new Promise((resolve,reject) => {
-      if (!obj || !searchArgs || !imageArgs || !imageArgs.fallback) {
-        reject('Unable to create video properties without page object and image parameters.');
-      }
-      else {
-        if (!usedImages) usedImages = [];
-        let searchParams = this.setSearchParams(searchArgs);
-        let imageParams = this.setImageParams(imageArgs);
-        let slides = [];
-        let credits = [];
-        let count = obj.count;
-        let keyword = obj.keyword ? obj.keyword : imageParams.fallback;
-        let titleFallback = searchParams.keywordList.length ? pos.titlecase(rand(...searchParams.keywordList)) : pos.titlecase(searchParams.keyword);
-        this.images(keyword,imageParams).then(data => {
-          data = this.filterUsedImages(data,usedImages);
-          let imageActive = true;
-          let textActive = true;
-          if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageAudio')) textActive = false;
-          if (imageParams.template.includes('textOnly')) imageActive = false;
-          let bothActive = imageActive && textActive ? true : false;
-          if (obj.text.length) {
-            if (obj.header || firstSlide) {
-              let titleText = '';
-              let titleImage = null;
-              let titleTemplate = '';
-              if (imageActive && firstSlide) {
-                if (data[0]) titleImage = data[0];
-                if (titleImage) {
-                  usedImages.push(data[0].image);
-                  data.shift();
-                }
-                if (textActive) titleText = !firstSlide ? obj.header : titleFallback;
-                titleTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
-              }
-              else if (textActive) {
-                titleText = !firstSlide ? obj.header : titleFallback;
-                titleTemplate = imageParams.template;
-                titleImage = null;
-              }
-              let titleObj = {
-                text: titleText,
-                audio: '',
-                image: titleImage,
-                template: titleTemplate,
-                keyword: keyword
-              };
-              if (titleObj.text) {
-                let titleCredit = this.imageCredit(titleObj.image);
-                if (titleCredit && !titleObj.image.copyright) credits.push(titleCredit);
-                slides.push(titleObj);
-              }
-            }
-            for (let i = 0; i < obj.text.length; i++) {
-              if (!obj.text[i]) continue;
-              let slideText, slideImage;
-              let snippet = pos.snippet(obj.text[i]);
-              if (bothActive) {
-                slideImage = data[0] ? rand(data[0],data[0],data[0],null) : null;
-                if (slideImage)  {
-                  usedImages.push(data[0].image);
-                  data.shift();
-                }
-                slideText = !slideImage ? snippet : rand(snippet,'');
-              }
-              else if (imageActive) {
-                slideImage = data[0] ? data[0] : null;
-                if (slideImage)  {
-                  usedImages.push(data[0].image);
-                  data.shift();
-                }
-                slideText = '';
-              }
-              else if (textActive) {
-                slideImage = null;
-                slideText = snippet;
-              }
-              let slideObj = {
-                text: slideText,
-                audio: (textActive || imageParams.template.includes('imageAudio')) ? obj.text[i] : '',
-                image: slideImage,
-                template: imageParams.template,
-                keyword: keyword
-              };
-              if (slideObj.text || slideObj.image) {
-                let slideCredit = this.imageCredit(slideObj.image);
-                if (slideCredit && !slideObj.image.copyright) credits.push(slideCredit);
-                slides.push(slideObj);
-              }
-            }
-          }
-          else {
-            let slideText = '';
-            let slideImage = null;
-            let slideTemplate = '';
-            if (obj.header && !imageParams.template.includes('imageOnly')) {
-              slideText = !firstSlide ? obj.header : titleFallback;
-              slideTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
-              slideImage = firstSlide ? data[0] : null;
-              if (slideImage) {
-                usedImages.push(data[0].image);
-                data.shift();
-              }
-            }
-            else {
-              slideText = '';
-              slideTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
-              if (data[0]) slideImage = data[0];
-              if (slideImage) {
-                usedImages.push(data[0].image);
-                data.shift();
-              }
-            }
-            let slideObj = {
-              text: slideText,
-              audio: '',
-              image: slideImage,
-              template: slideTemplate,
-              keyword: keyword
-            };
-            if (slideObj.text || slideObj.image) {
-              let slideCredit = this.imageCredit(slideObj.image);
-              if (slideCredit && !slideObj.image.copyright) credits.push(slideCredit);
-              slides.push(slideObj);
-            }
-          }
-          if (slides.length) {
-            if (this.debug) console.log('Resolving video properties: ' + keyword);
-            resolve({slides: slides, credits: credits, count: count});
-          }
-          else {
-            reject('No video properties found from: ' + obj.url);
-          }
-        }).catch(err => reject(err));
-      }
-    });
-  },
-
-  videoPropertiesMultiple: function(objs,searchArgs,imageArgs,usedImages,slideStore,index) {
-    return new Promise((resolve,reject) => {
-      if (!objs || !searchArgs || !imageArgs || !imageArgs.fallback) {
-        reject('Unable to create multiple video properties without page object array and image parameters.');
-      }
-      else {
-        if (!usedImages) usedImages = [];
-        let searchParams = this.setSearchParams(searchArgs);
-        let imageParams = this.setImageParams(imageArgs);
-        if (!slideStore) slideStore = {
-          slides: [],
-          credits: [],
-          count: 0
-        };
-        if (!index) index = 0;
-        let firstSlide = false;
-        if (!slideStore.slides.length) firstSlide = true;
-        if (objs && index < objs.length) {
-          this.videoProperties(objs[index],searchParams,imageParams,usedImages,firstSlide).then(data => {
-            slideStore.slides = slideStore.slides.concat(data.slides);
-            slideStore.credits = slideStore.credits.concat(data.credits);
-            slideStore.count += data.count;
-            index++;
-            if (objs && index >= objs.length) {
-              if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.keyword);
-              if (imageParams.tagline) {
-                slideStore.slides.push({
-                  text: imageParams.tagline,
-                  audio: '',
-                  image: null,
-                  template: 'noTransitions',
-                  keyword: ''
-                });
-              }
-              if (imageParams.logo && searchParams.stills) {
-                slideStore.slides.push({
-                  text: '',
-                  audio: '',
-                  image: imageParams.logo,
-                  template: 'noTransitions stillImage',
-                  keyword: searchParams.stills
-                });
-              }
-              resolve(slideStore);
-            }
-            else {
-              this.videoPropertiesMultiple(objs,searchParams,imageParams,usedImages,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
-            }
-          }).catch(err => {
-            if (this.debug) console.log(err);
-            index++;
-            if (objs && index >= objs.length) {
-              if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.keyword);
-              if (imageParams.tagline) {
-                slideStore.slides.push({
-                  text: imageParams.tagline,
-                  audio: '',
-                  image: null,
-                  template: 'noTransitions',
-                  keyword: ''
-                });
-              }
-              if (imageParams.logo && searchParams.stills) {
-                slideStore.slides.push({
-                  text: '',
-                  audio: '',
-                  image: imageParams.logo,
-                  template: 'noTransitions stillImage',
-                  keyword: searchParams.stills
-                });
-              }
-              resolve(slideStore);
-            }
-            else {
-              this.videoPropertiesMultiple(objs,searchParams,imageParams,usedImages,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
-            }
-          });
-        }
-        else {
-          reject('No video properties found from: ' + searchParams.keyword);
-        }
-      }
-    });
-  },
-
-  readDataObjects: function(objects,index,searchArgs,imageArgs) {
+  readDataObjects: function(objects,index,searchArgs) {
     if (!objects || typeof objects !== 'object' || !objects.length || typeof index !== 'number') {
       return null;
     }
     let searchParams = this.setSearchParams(searchArgs);
-    let imageParams = this.setImageParams(imageArgs);
     if (!searchParams.amazon) {
       let text = fs.readFileSync(objects[index].filename,'utf8');
       return this.textObjects(text,searchParams);
@@ -2628,13 +2399,6 @@ module.exports = {
       let searchLowerBound = Math.ceil(searchParams.count/2);
       let searchCount = searchParams.count;
       let data = [];
-      let intro = {
-        header: pos.titlecase(searchParams.keyword),
-        text: [],
-        keyword: imageParams.fallback,
-        count: 0
-      };
-      data.push(intro);
       objects = shuffle(objects);
       if (searchParams.random) searchCount = Math.floor(Math.random() * (searchParams.count - searchLowerBound + 1)) + searchLowerBound;
       for (let i = 0; i < searchCount; i++) {
@@ -2860,6 +2624,229 @@ module.exports = {
       }
     }
     return paragraphs;
+  },
+
+  videoProperties: function(obj,searchArgs,imageArgs,usedImages,firstSlide) {
+    return new Promise((resolve,reject) => {
+      if (!obj || !searchArgs || !imageArgs || !imageArgs.fallback) {
+        reject('Unable to create video properties without page object and image parameters.');
+      }
+      else {
+        if (!usedImages) usedImages = [];
+        let searchParams = this.setSearchParams(searchArgs);
+        let imageParams = this.setImageParams(imageArgs);
+        let slides = [];
+        let credits = [];
+        let count = obj.count;
+        let keyword = obj.keyword ? obj.keyword : imageParams.fallback;
+        let titleFallback = searchParams.keywordList.length ? pos.titlecase(rand(...searchParams.keywordList)) : pos.titlecase(searchParams.keyword);
+        this.images(keyword,imageParams).then(data => {
+          data = this.filterUsedImages(data,usedImages);
+          let imageActive = true;
+          let textActive = true;
+          if (imageParams.template.includes('imageOnly') || imageParams.template.includes('imageAudio')) textActive = false;
+          if (imageParams.template.includes('textOnly')) imageActive = false;
+          let bothActive = imageActive && textActive ? true : false;
+          if (obj.text.length) {
+            if (obj.header || firstSlide) {
+              let titleText = '';
+              let titleImage = null;
+              let titleTemplate = '';
+              if (imageActive && firstSlide) {
+                if (data[0]) titleImage = data[0];
+                if (titleImage) {
+                  usedImages.push(data[0].image);
+                  data.shift();
+                }
+                if (textActive) titleText = (!firstSlide || searchParams.amazon) ? obj.header : titleFallback;
+                titleTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
+              }
+              else if (textActive) {
+                titleText = (!firstSlide || searchParams.amazon) ? obj.header : titleFallback;
+                titleTemplate = imageParams.template;
+                titleImage = null;
+              }
+              let titleObj = {
+                text: titleText,
+                audio: '',
+                image: titleImage,
+                template: titleTemplate,
+                keyword: keyword
+              };
+              if (titleObj.text) {
+                let titleCredit = this.imageCredit(titleObj.image);
+                if (titleCredit && !titleObj.image.copyright) credits.push(titleCredit);
+                slides.push(titleObj);
+              }
+            }
+            for (let i = 0; i < obj.text.length; i++) {
+              if (!obj.text[i]) continue;
+              let slideText, slideImage;
+              let snippet = pos.snippet(obj.text[i]);
+              if (bothActive) {
+                slideImage = data[0] ? rand(data[0],data[0],data[0],null) : null;
+                if (slideImage)  {
+                  usedImages.push(data[0].image);
+                  data.shift();
+                }
+                slideText = !slideImage ? snippet : rand(snippet,'');
+              }
+              else if (imageActive) {
+                slideImage = data[0] ? data[0] : null;
+                if (slideImage)  {
+                  usedImages.push(data[0].image);
+                  data.shift();
+                }
+                slideText = '';
+              }
+              else if (textActive) {
+                slideImage = null;
+                slideText = snippet;
+              }
+              let slideObj = {
+                text: slideText,
+                audio: (textActive || imageParams.template.includes('imageAudio')) ? obj.text[i] : '',
+                image: slideImage,
+                template: imageParams.template,
+                keyword: keyword
+              };
+              if (slideObj.text || slideObj.image) {
+                let slideCredit = this.imageCredit(slideObj.image);
+                if (slideCredit && !slideObj.image.copyright) credits.push(slideCredit);
+                slides.push(slideObj);
+              }
+            }
+          }
+          else {
+            let slideText = '';
+            let slideImage = null;
+            let slideTemplate = '';
+            if (obj.header && !imageParams.template.includes('imageOnly')) {
+              slideText = (!firstSlide || searchParams.amazon) ? obj.header : titleFallback;
+              slideTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
+              slideImage = firstSlide ? data[0] : null;
+              if (slideImage) {
+                usedImages.push(data[0].image);
+                data.shift();
+              }
+            }
+            else {
+              slideText = '';
+              slideTemplate = imageParams.template ? imageParams.template + ' noTransitionA' : 'noTransitionA';
+              if (data[0]) slideImage = data[0];
+              if (slideImage) {
+                usedImages.push(data[0].image);
+                data.shift();
+              }
+            }
+            let slideObj = {
+              text: slideText,
+              audio: '',
+              image: slideImage,
+              template: slideTemplate,
+              keyword: keyword
+            };
+            if (slideObj.text || slideObj.image) {
+              let slideCredit = this.imageCredit(slideObj.image);
+              if (slideCredit && !slideObj.image.copyright) credits.push(slideCredit);
+              slides.push(slideObj);
+            }
+          }
+          if (slides.length) {
+            if (this.debug) console.log('Resolving video properties: ' + keyword);
+            resolve({slides: slides, credits: credits, count: count});
+          }
+          else {
+            reject('No video properties found from: ' + obj.url);
+          }
+        }).catch(err => reject(err));
+      }
+    });
+  },
+
+  videoPropertiesMultiple: function(objs,searchArgs,imageArgs,usedImages,slideStore,index) {
+    return new Promise((resolve,reject) => {
+      if (!objs || !searchArgs || !imageArgs || !imageArgs.fallback) {
+        reject('Unable to create multiple video properties without page object array and image parameters.');
+      }
+      else {
+        if (!usedImages) usedImages = [];
+        let searchParams = this.setSearchParams(searchArgs);
+        let imageParams = this.setImageParams(imageArgs);
+        if (!slideStore) slideStore = {
+          slides: [],
+          credits: [],
+          count: 0
+        };
+        if (!index) index = 0;
+        let firstSlide = false;
+        if (!slideStore.slides.length) firstSlide = true;
+        if (objs && index < objs.length) {
+          this.videoProperties(objs[index],searchParams,imageParams,usedImages,firstSlide).then(data => {
+            slideStore.slides = slideStore.slides.concat(data.slides);
+            slideStore.credits = slideStore.credits.concat(data.credits);
+            slideStore.count += data.count;
+            index++;
+            if (objs && index >= objs.length) {
+              if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.keyword);
+              if (imageParams.tagline) {
+                slideStore.slides.push({
+                  text: imageParams.tagline,
+                  audio: '',
+                  image: null,
+                  template: 'noTransitions',
+                  keyword: ''
+                });
+              }
+              if (imageParams.logo && searchParams.stills) {
+                slideStore.slides.push({
+                  text: '',
+                  audio: '',
+                  image: imageParams.logo,
+                  template: 'noTransitions stillImage',
+                  keyword: searchParams.stills
+                });
+              }
+              resolve(slideStore);
+            }
+            else {
+              this.videoPropertiesMultiple(objs,searchParams,imageParams,usedImages,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
+            }
+          }).catch(err => {
+            if (this.debug) console.log(err);
+            index++;
+            if (objs && index >= objs.length) {
+              if (this.debug) console.log('Resolving multiple video properties: ' + searchParams.keyword);
+              if (imageParams.tagline) {
+                slideStore.slides.push({
+                  text: imageParams.tagline,
+                  audio: '',
+                  image: null,
+                  template: 'noTransitions',
+                  keyword: ''
+                });
+              }
+              if (imageParams.logo && searchParams.stills) {
+                slideStore.slides.push({
+                  text: '',
+                  audio: '',
+                  image: imageParams.logo,
+                  template: 'noTransitions stillImage',
+                  keyword: searchParams.stills
+                });
+              }
+              resolve(slideStore);
+            }
+            else {
+              this.videoPropertiesMultiple(objs,searchParams,imageParams,usedImages,slideStore,index).then(data => resolve(data)).catch(err => reject(err));
+            }
+          });
+        }
+        else {
+          reject('No video properties found from: ' + searchParams.keyword);
+        }
+      }
+    });
   },
 
   video: function(keyword,dataObject,searchArgs,imageArgs,matchKeyword) {
