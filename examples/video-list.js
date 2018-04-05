@@ -39,7 +39,7 @@ module.exports = {
     limit: 10,
     count: 2,
     fallback: 'dogs',
-    template: 'textOnly',
+    template: 'imageAudio',
     tagline: 'Share the love!!!',
     logo: null
   },
@@ -58,20 +58,6 @@ module.exports = {
         imageKeywords: null
       },
       image: {fallback: ''}
-    },
-    {
-      keyword: 'non shedding dogs',
-      search: {
-        amazon: false,
-        keywordType: '',
-        keywordPlural: undefined,
-        keywordDeterminer: '',
-        keywordNoun: '',
-        keywordList: null,
-        link: '',
-        imageKeywords: null
-      },
-      image: {fallback: ''}
-    },
+    }
   ]
 };

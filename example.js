@@ -11,7 +11,7 @@ wp.init();
 wp.videosFromFile('./examples/video-list.js',true).then(data => console.log(data)).catch(err => console.log(err));
 //wp.videosFromKeyword('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
 // Add images
-//wp.addImages(['puppy','puppies','cute puppy','puppy dog'],imageParams,true).then(data => console.log(data)).catch(err => console.log(err));
+//wp.addImages(wp.keywords.dogs,imageParams,false).then(data => console.log(data)).catch(err => console.log(err));
 // Delete images
 //wp.deleteImages(deleteImageList,'filename').then(data => console.log(data)).catch(err => console.log(err));
 // Upload videosFromFile

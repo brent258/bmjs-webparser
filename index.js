@@ -7,6 +7,7 @@ const rand = require('bmjs-random');
 const pos = require('bmjs-engpos');
 const shuffle = require('bmjs-shuffle');
 const fcp = require('bmjs-fcpxml');
+const article = require('bmjs-article');
 
 module.exports = {
 
@@ -2402,7 +2403,7 @@ module.exports = {
       objects = shuffle(objects);
       if (searchParams.random) searchCount = Math.floor(Math.random() * (searchParams.count - searchLowerBound + 1)) + searchLowerBound;
       for (let i = 0; i < searchCount; i++) {
-        let text = this.amazonText(objects[i],searchParams.sections);
+        let text = this.amazonText(objects[i],searchParams);
         if (text) data.push(text);
       }
       return data;
@@ -2434,29 +2435,16 @@ module.exports = {
     return filteredObjects;
   },
 
-  amazonText: function(data,limit) {
+  amazonText: function(data,searchArgs) {
     if (!data || typeof data !== 'object') {
       if (this.debug) console.log('Unable to generate Amazon text without data.');
       return null;
     }
-    let text = [];
-    let arrays = [];
-    let strings = [];
-    let lists = [];
-    if (!data.title) return null;
-    text.push(data.title);
-    if (data.description.length) arrays.push('description');
-    if (data.features.length) arrays.push('features');
-    if (data.price.length) strings.push('price');
-    if (data.rating.length) strings.push('rating');
-    if (data.colors.length) lists.push('colors');
-    if (data.sizes.length) lists.push('sizes');
-    if (!arrays.length) return null;
-    for (let i = 0; i < arrays.length; i++) {
-      if (!data[arrays[i]].length) continue;
-      let lines = shuffle(data[arrays[i]]).slice(0,limit).join(' ');
-      text.push(lines);
-    }
+    let singularKeywords = !searchArgs.keywordPlural ? searchArgs.keywordList : [];
+    let pluralKeywords = searchArgs.keywordPlural ? searchArgs.keywordList : [];
+    let text = article.productDescription(data,false,singularKeywords,pluralKeywords);
+    console.log(data.title);
+    console.log(text);
     return {
       header: this.truncateHeader(data.title,20),
       text: text,
@@ -3131,12 +3119,11 @@ module.exports = {
         if (keywords.length) {
           let googleParams = this.setImageParams(imageArgs);
           googleParams.search = 'google';
-          let kw = images[0].toLowerCase();
-          this.images(kw,googleParams).then(() => {
+          this.images(keywords[0],googleParams).then(() => {
             if (searchAll) {
               let flickrParams = this.setImageParams(imageArgs);
               flickrParams.search = 'flickr';
-              this.images(kw,flickrParams).then(() => {
+              this.images(keywords[0],flickrParams).then(() => {
                 index++;
                 keywords.shift();
                 this.addImages(keywords,imageArgs,searchAll,index).then(data => resolve(data)).catch(err => reject(err));

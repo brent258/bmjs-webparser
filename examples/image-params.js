@@ -1,9 +1,9 @@
 module.exports = {
   options: null,
   tags: null,
-  cacheOnly: true,
+  cacheOnly: false,
   search: '',
-  limit: 1000,
+  limit: 200,
   fallback: 'puppy',
   template: '',
   tagline: 'Share the love!!!',

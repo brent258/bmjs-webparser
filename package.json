@@ -26,6 +26,7 @@
     "mocha": "^4.1.0"
   },
   "dependencies": {
+    "bmjs-article": "^1.0.0",
     "bmjs-engpos": "latest",
     "bmjs-fcpxml": "^1.1.5",
     "bmjs-random": "latest",
