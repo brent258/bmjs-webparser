@@ -26,11 +26,11 @@
     "mocha": "^4.1.0"
   },
   "dependencies": {
-    "bmjs-article": "^1.0.0",
+    "bmjs-article": "^1.0.2",
     "bmjs-engpos": "latest",
     "bmjs-fcpxml": "^1.1.5",
-    "bmjs-random": "latest",
-    "bmjs-shuffle": "latest",
+    "bmjs-random": "^1.0.0",
+    "bmjs-shuffle": "^1.0.0",
     "cheerio": "^1.0.0-rc.2",
     "jimp": "^0.2.28",
     "request": "^2.85.0",

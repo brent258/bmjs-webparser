@@ -2442,9 +2442,11 @@ module.exports = {
     }
     let singularKeywords = !searchArgs.keywordPlural ? searchArgs.keywordList : [];
     let pluralKeywords = searchArgs.keywordPlural ? searchArgs.keywordList : [];
-    let text = article.productDescription(data,false,singularKeywords,pluralKeywords);
+    let text = article.productDescription(data,false);
     console.log(data.title);
     console.log(text);
+    console.log(singularKeywords);
+    console.log(pluralKeywords);
     return {
       header: this.truncateHeader(data.title,20),
       text: text,
