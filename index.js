@@ -123,6 +123,7 @@ module.exports = {
     if (!searchParams.project) searchParams.project = 'My Project';
     if (!searchParams.clips) searchParams.clips = 'clips-metadata.json';
     if (!searchParams.stills) searchParams.stills = 'stills';
+    if (!searchParams.extension) searchParams.extension = 'm4v';
     if (!searchParams.slideshows) searchParams.slideshows = 1;
     if (!searchParams.keyword) searchParams.keyword = '';
     if (searchParams.random === undefined) searchParams.random = true;
@@ -184,6 +185,7 @@ module.exports = {
       if (overrideArgs.assets) searchParams.assets = overrideArgs.assets;
       if (overrideArgs.images) searchParams.images = overrideArgs.images;
       if (overrideArgs.voice) searchParams.voice = overrideArgs.voice;
+      if (overrideArgs.extension) searchParams.extension = overrideArgs.extension;
       if (overrideArgs.project) searchParams.project = overrideArgs.project;
       if (overrideArgs.clips) searchParams.clips = overrideArgs.clips;
       if (overrideArgs.stills) searchParams.stills = overrideArgs.stills;
@@ -2443,10 +2445,6 @@ module.exports = {
     let singularKeywords = !searchArgs.keywordPlural ? searchArgs.keywordList : [];
     let pluralKeywords = searchArgs.keywordPlural ? searchArgs.keywordList : [];
     let text = article.productDescription(data,false);
-    console.log(data.title);
-    console.log(text);
-    console.log(singularKeywords);
-    console.log(pluralKeywords);
     return {
       header: this.truncateHeader(data.title,20),
       text: text,
@@ -2991,7 +2989,7 @@ module.exports = {
                 reject(err);
               }
               else {
-                fcp.init(searchParams.assets,searchParams.images,searchParams.voice);
+                fcp.init(searchParams.assets,searchParams.images,searchParams.voice,searchParams.extension);
                 fcp.xml(dataStore,searchParams.project);
                 fcp.write();
                 resolve('Video XML successfully saved to: ' + searchParams.assets);
@@ -3095,7 +3093,7 @@ module.exports = {
               reject(err);
             }
             else {
-              fcp.init(searchParams.assets,searchParams.images,searchParams.voice);
+              fcp.init(searchParams.assets,searchParams.images,searchParams.voice,searchParams.extension);
               fcp.xml(dataStore,searchParams.project);
               fcp.write();
               resolve('Video XML successfully saved to: ' + searchParams.assets);
@@ -3106,6 +3104,29 @@ module.exports = {
           reject('No videos produced from selected file path: ' + filePath);
         }
       }
+    });
+  },
+
+  videoKeywordsFromFile: function(readPath,writePath) {
+    if (!readPath || !writePath) {
+      reject('Unable to generate video keywords without file paths.');
+    }
+    fs.readFile(readPath,'utf8', (err,data) => {
+      if (err) throw err;
+      let keywords = data.split('\n');
+      let file = 'module.exports = [';
+      let objects = [];
+      for (let i = 0; i < keywords.length; i++) {
+        if (keywords[i]) {
+          objects.push(`{keyword: '${keywords[i]}'}`);
+        }
+      }
+      file += objects.join(',');
+      file += '];';
+      fs.writeFile(writePath,file, err => {
+        if (err) throw err;
+        console.log('Finished writing video keyword file: ' + writePath);
+      })
     });
   },
 

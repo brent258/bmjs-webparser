@@ -28,7 +28,7 @@
   "dependencies": {
     "bmjs-article": "^1.0.2",
     "bmjs-engpos": "latest",
-    "bmjs-fcpxml": "^1.1.5",
+    "bmjs-fcpxml": "^1.1.6",
     "bmjs-random": "^1.0.0",
     "bmjs-shuffle": "^1.0.0",
     "cheerio": "^1.0.0-rc.2",

@@ -1,4 +1,5 @@
 const wp = require('../index.js');
+const keywords = require('./keywords.js');
 
 module.exports = {
 
@@ -9,18 +10,18 @@ module.exports = {
     count: 7,
     category: '22',
     privacy: 'public',
-    template: 'list',
+    template: 'products',
     keywordType: 'PLURAL',
     keywordPlural: true,
     keywordDeterminer: '',
     keywordNoun: '',
     keywordList: [],
     link: 'http://heartmydog.com',
-    amazon: false,
+    amazon: true,
     cacheOnly: true,
     multipleOnly: true,
     slideshows: 1,
-    imageKeywords: wp.keywords.dogs,
+    imageKeywords: [],
     assets: '/Users/brentmccoy/Apps/node-modules/bmjs-webparser/assets/',
     images: '/Users/brentmccoy/Apps/node-modules/bmjs-webparser/cache/images/',
     voice: 'karen',
@@ -44,20 +45,5 @@ module.exports = {
     logo: null
   },
 
-  objects: [
-    {
-      keyword: 'slow feed dog bowls',
-      search: {
-        amazon: true,
-        keywordType: '',
-        keywordPlural: undefined,
-        keywordDeterminer: '',
-        keywordNoun: '',
-        keywordList: null,
-        link: '',
-        imageKeywords: null
-      },
-      image: {fallback: ''}
-    }
-  ]
+  objects: keywords
 };
