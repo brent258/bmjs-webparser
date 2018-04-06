@@ -1,1 +1,1 @@
-module.exports = [{keyword: 'slow feed dog bowls'}];
+module.exports = [{keyword: 'non shedding dogs'}];
