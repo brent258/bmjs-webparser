@@ -602,7 +602,7 @@ module.exports = {
                 if (blacklist.includes(obj.url)) {
                   resolve('Item already found in blacklist cache for: ' + keyword);
                 }
-                else if (!data.length || !this.objectPropertyInArray('url',obj,data)) {
+                else if (!data.length || (obj.asin && !this.objectPropertyInArray('asin',obj,data) || !obj.asin && !this.objectPropertyInArray('url',obj,data))) {
                   data.push(obj);
                   this.addTextQueue(data,keyword);
                   this.updateTextQueue(keyword).then(() => {
@@ -2243,22 +2243,45 @@ module.exports = {
         reject('Unable to download Amazon page without link object.');
       }
       else {
+        let options = {
+          method: 'GET',
+          uri: link.url,
+          gzip: true,
+          headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
+        };
+        let proxy = this.amazonProxy();
         if (this.existsImageCache(link.asin)) {
-          let msg = 'Amazon product already exists in image cache: ' + link.text;
-          resolve({msg: msg, count: 0});
+          if (this.debug) console.log('Amazon product already exists in image cache, downloading text: ' + link.text);
+          if (proxy) {
+            options.proxy = proxy;
+          }
+          else {
+            if (this.debug) console.log('WARNING: Proxies currently not set.');
+          }
+          request(options).then(html => {
+            if (this.debug) console.log('Loading Amazon product page: ' + link.text);
+            let $ = cheerio.load(html);
+            let obj = this.parseAmazonProduct($,link);
+            if (obj) {
+              this.updateTextCache(obj,link.keyword).then(textData => {
+                if (this.debug) console.log(textData);
+                let msg = 'Finished adding Amazon product to text and image cache: ' + link.text;
+                resolve({msg: msg, count: 1});
+              }).catch(err => reject(err));
+            }
+            else {
+              this.updateBlacklistCache(link.url,link.asin).then(msg => {
+                if (this.debug) console.log(msg);
+                reject('No Amazon product found to add to text and image cache: ' + link.text);
+              }).catch(err => reject(err));
+            }
+          }).catch(err => reject(err));
         }
         else if (this.existsBlacklistCache(link.asin)) {
           let msg = 'Amazon product already exists in blacklist cache: ' + link.text;
           resolve({msg: msg, count: 0});
         }
         else {
-          let options = {
-            method: 'GET',
-            uri: link.url,
-            gzip: true,
-            headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
-          };
-          let proxy = this.amazonProxy();
           if (proxy) {
             options.proxy = proxy;
           }
