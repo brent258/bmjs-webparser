@@ -17,7 +17,7 @@ module.exports = {
     keywordNoun: '',
     keywordList: [],
     link: 'http://heartmydog.com',
-    amazon: false,
+    amazon: true,
     cacheOnly: true,
     multipleOnly: true,
     slideshows: 1,

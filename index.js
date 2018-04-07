@@ -2006,7 +2006,10 @@ module.exports = {
               pages += textCount;
               limit--;
               if (limit > 0) {
-                this.pages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+                this.wait().then(time => {
+                  if (this.debug) console.log(time);
+                  this.pages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+                }).catch(err => reject(err));
               }
               else {
                 if (pages) {
@@ -2020,6 +2023,15 @@ module.exports = {
           }).catch(err => reject(err));
         }).catch(err => reject(err));
       }
+    });
+  },
+
+  wait: function(timeout) {
+    return new Promise((resolve,reject) => {
+      if (!timeout || typeof timeout !== 'number') timeout = 5000;
+      setTimeout(() => {
+        resolve('Waiting for server in ms: ' + timeout);
+      },timeout);
     });
   },
 
@@ -2046,22 +2058,34 @@ module.exports = {
             this.amazonPages(object.keyword,searchParams).then(msg => {
               if (this.debug) console.log(msg);
               index++;
-              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+              this.wait().then(time => {
+                if (this.debug) console.log(time);
+                this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+              }).catch(err => reject(err));
             }).catch(err => {
               if (this.debug) console.log(err);
               index++;
-              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+              this.wait().then(time => {
+                if (this.debug) console.log(time);
+                this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+              }).catch(err => reject(err));
             });
           }
           else {
             this.pages(object.keyword,searchParams).then(msg => {
               if (this.debug) console.log(msg);
               index++;
-              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+              this.wait().then(time => {
+                if (this.debug) console.log(time);
+                this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+              }).catch(err => reject(err));
             }).catch(err => {
               if (this.debug) console.log(err);
               index++;
-              this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+              this.wait().then(time => {
+                if (this.debug) console.log(time);
+                this.pagesFromFile(filePath,index).then(data => resolve(data)).catch(err => reject(err));
+              }).catch(err => reject(err));
             });
           }
         }
@@ -2316,7 +2340,10 @@ module.exports = {
             pages += products.count;
             limit--;
             if (limit > 0) {
-              this.amazonPages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+              this.wait().then(time => {
+                if (this.debug) console.log(time);
+                this.amazonPages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+              }).catch(err => reject(err));
             }
             else {
               if (pages) {
@@ -2332,7 +2359,10 @@ module.exports = {
           searchParams.minResult += 1;
           limit--;
           if (limit > 0) {
-            this.amazonPages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+            this.wait().then(time => {
+              if (this.debug) console.log(time);
+              this.amazonPages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
+            }).catch(err => reject(err));
           }
           else {
             if (pages) {

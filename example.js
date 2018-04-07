@@ -8,7 +8,7 @@ const fs = require('fs');
 
 wp.init();
 // Create videos
-wp.videosFromFile('./examples/video-list.js',true).then(data => console.log(data)).catch(err => console.log(err));
+//wp.videosFromFile('./examples/video-list.js',true).then(data => console.log(data)).catch(err => console.log(err));
 //wp.videosFromKeyword('non shedding dogs',searchParams,imageParams).then(data => console.log(data)).catch(err => console.log(err));
 // Add images
 //wp.addImages(wp.keywords.dogs,imageParams,false).then(data => console.log(data)).catch(err => console.log(err));
@@ -17,7 +17,7 @@ wp.videosFromFile('./examples/video-list.js',true).then(data => console.log(data
 // Upload videosFromFile
 //wp.upload('assets/upload-metadata.json',apiParams);
 // Search for pages
-//wp.pagesFromFile('./examples/video-list.js').then(data => console.log(data)).catch(err => console.log(err));
+wp.pagesFromFile('./examples/video-list.js').then(data => console.log(data)).catch(err => console.log(err));
 //wp.webpage('https://www.wikihow.com/Train-a-Dog').then(data => fs.writeFileSync('test-webpage.txt',data.body,'utf8')).catch(err => console.log(err));
 //wp.parseParagraphs('test-webpage.txt',searchParams).then(data => console.log(data)).catch(err => console.log(err));
 // Create keywords
