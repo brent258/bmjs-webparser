@@ -3066,7 +3066,7 @@ module.exports = {
       }
       else {
         let data = require(filePath);
-        if (!matchKeyword) matchKeyword = true;
+        if (matchKeyword === undefined) matchKeyword = true;
         if (!dataStore) dataStore = [];
         if (!index) index = 0;
         let object = data.objects[index];
