@@ -2126,7 +2126,9 @@ module.exports = {
           let $ = cheerio.load(html);
           let results = this.amazonResultLinks($,keyword);
           if (this.debug) console.log('Resolving Amazon search: ' + keyword);
-          resolve(results);
+          this.wait(1500).then(msg => {
+            resolve(results);
+          }).catch(err => reject(err));
         }).catch(err => reject(err));
       }
     });
@@ -2363,7 +2365,7 @@ module.exports = {
             pages += products.count;
             limit--;
             if (limit > 0) {
-              this.wait().then(time => {
+              this.wait(2000).then(time => {
                 if (this.debug) console.log(time);
                 this.amazonPages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
               }).catch(err => reject(err));
@@ -2382,7 +2384,7 @@ module.exports = {
           searchParams.minResult += 1;
           limit--;
           if (limit > 0) {
-            this.wait().then(time => {
+            this.wait(2000).then(time => {
               if (this.debug) console.log(time);
               this.amazonPages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
             }).catch(err => reject(err));

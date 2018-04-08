@@ -178,11 +178,6 @@ describe('web parser', function() {
     expect(wp.matchUrl(content,url)).to.equal(true);
   });
 
-  it('parse text should return correctly formatted text', () => {
-    let sentence = '1. This is a sentence! Here is another sentence...';
-    expect(wp.parseText(sentence)).to.equal('This is a sentence!|||||Here is another sentence.');
-  });
-
   it('parse header should return correctly formatted text', () => {
     let sentence = '1. This is a header - Here is another sentence...';
     expect(wp.parseHeader(sentence)).to.equal('This Is A Header');
@@ -212,11 +207,6 @@ describe('web parser', function() {
   it('text from keyword list should return true if keyword found', () => {
     let match = wp.textFromKeywordList('This is a post about dog breeds.',['dog breeds']);
     expect(match).to.equal(true);
-  });
-
-  it('find context from link should return true if url matches keywords', () => {
-    expect(wp.findContextFromLink('tips',{url:'http://dogtraining.com/top-10-dog-training-tips', text: 'Dog training info'})).to.equal(true);
-    expect(wp.findContextFromLink('tips',{url:'http://dogtraining.com/', text: 'Dog training tips'})).to.equal(false);
   });
 
   it('filter body content should return an array of filtered text', () => {
