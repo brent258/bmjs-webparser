@@ -88,6 +88,7 @@ module.exports = {
     if (!imageParams.maxTries) imageParams.maxTries = 5;
     if (!imageParams.googleDomain) imageParams.googleDomain = 'com.au';
     if (!imageParams.tagline) imageParams.tagline = '';
+    if (!imageParams.url) imageParams.url = '';
     if (!imageParams.logo) imageParams.logo = null;
     if (imageParams.random === undefined) imageParams.random = true;
     return imageParams;
@@ -112,7 +113,8 @@ module.exports = {
     if (searchParams.keywordPlural === undefined) searchParams.keywordPlural = true;
     if (!searchParams.keywordDeterminer) searchParams.keywordDeterminer = '';
     if (!searchParams.keywordNoun) searchParams.keywordNoun = '';
-    if (!searchParams.keywordList) searchParams.keywordList = [];
+    if (!searchParams.titleKeywords) searchParams.titleKeywords = [];
+    if (!searchParams.bodyKeywords) searchParams.bodyKeywords = [];
     if (!searchParams.link) searchParams.link = '';
     if (searchParams.amazon === undefined) searchParams.amazon = false;
     if (searchParams.cacheOnly === undefined) searchParams.cacheOnly = false;
@@ -152,6 +154,7 @@ module.exports = {
       if (overrideArgs.maxTries) imageParams.maxTries = overrideArgs.maxTries;
       if (overrideArgs.googleDomain) imageParams.googleDomain = overrideArgs.googleDomain;
       if (overrideArgs.tagline) imageParams.tagline = overrideArgs.tagline;
+      if (overrideArgs.url) imageParams.url = overrideArgs.url;
       if (overrideArgs.logo) imageParams.logo = overrideArgs.logo;
       if (overrideArgs.random !== undefined) imageParams.random = overrideArgs.random;
     }
@@ -177,7 +180,8 @@ module.exports = {
       if (overrideArgs.keywordPlural !== undefined) searchParams.keywordPlural = overrideArgs.keywordPlural;
       if (overrideArgs.keywordDeterminer) searchParams.keywordDeterminer = overrideArgs.keywordDeterminer;
       if (overrideArgs.keywordNoun) searchParams.keywordNoun = overrideArgs.keywordNoun;
-      if (overrideArgs.keywordList) searchParams.keywordList = overrideArgs.keywordList;
+      if (overrideArgs.titleKeywords) searchParams.titleKeywords = overrideArgs.titleKeywords;
+      if (overrideArgs.bodyKeywords) searchParams.bodyKeywords = overrideArgs.bodyKeywords;
       if (overrideArgs.link) searchParams.link = overrideArgs.link;
       if (overrideArgs.amazon !== undefined) searchParams.amazon = overrideArgs.amazon;
       if (overrideArgs.cacheOnly !== undefined) searchParams.cacheOnly = overrideArgs.cacheOnly;
@@ -2497,8 +2501,8 @@ module.exports = {
       if (this.debug) console.log('Unable to generate Amazon text without data.');
       return null;
     }
-    let singularKeywords = !searchArgs.keywordPlural ? searchArgs.keywordList : [];
-    let pluralKeywords = searchArgs.keywordPlural ? searchArgs.keywordList : [];
+    let singularKeywords = !searchArgs.keywordPlural ? searchArgs.bodyKeywords : [];
+    let pluralKeywords = searchArgs.keywordPlural ? searchArgs.bodyKeywords : [];
     let text = article.productDescription(data,false);
     return {
       header: this.truncateHeader(data.title,20),
@@ -2718,7 +2722,7 @@ module.exports = {
         }
         let bothActive = imageActive && textActive ? true : false;
         let keyword = obj.keyword ? obj.keyword : imageParams.fallback;
-        let titleFallback = searchParams.keywordList.length ? pos.titlecase(rand(...searchParams.keywordList)) : pos.titlecase(searchParams.keyword);
+        let titleFallback = searchParams.titleKeywords.length ? pos.titlecase(rand(...searchParams.titleKeywords)) : pos.titlecase(searchParams.keyword);
         this.images(keyword,imageParams).then(data => {
           data = this.filterUsedImages(data,usedImages);
           if (obj.text.length) {
@@ -2872,6 +2876,15 @@ module.exports = {
                   keyword: ''
                 });
               }
+              if (imageParams.url) {
+                slideStore.slides.push({
+                  text: imageParams.url,
+                  audio: '',
+                  image: null,
+                  template: 'noTransitions',
+                  keyword: ''
+                });
+              }
               if (imageParams.logo && searchParams.stills) {
                 slideStore.slides.push({
                   text: '',
@@ -2894,6 +2907,15 @@ module.exports = {
               if (imageParams.tagline) {
                 slideStore.slides.push({
                   text: imageParams.tagline,
+                  audio: '',
+                  image: null,
+                  template: 'noTransitions',
+                  keyword: ''
+                });
+              }
+              if (imageParams.url) {
+                slideStore.slides.push({
+                  text: imageParams.url,
                   audio: '',
                   image: null,
                   template: 'noTransitions',
@@ -2941,17 +2963,17 @@ module.exports = {
         }
         if (text && text.length) {
           this.videoPropertiesMultiple(text,searchParams,imageParams).then(data => {
-            let titleKeyword = (matchKeyword || !searchParams.keywordList.length) ? keyword : rand(...searchParams.keywordList);
-            let promoKeyword = searchParams.keywordList.length ? rand(...searchParams.keywordList) : keyword;
+            let titleKeyword = (matchKeyword || !searchParams.titleKeywords.length) ? keyword : rand(...searchParams.titleKeywords);
+            let promoKeyword = searchParams.bodyKeywords.length ? rand(...searchParams.bodyKeywords) : keyword;
             let slides = {
               title: pos.title(titleKeyword,searchParams.keywordType,searchParams.template,data.count),
               category: searchParams.category,
               privacy: searchParams.privacy,
               clips: data.slides,
-              keywords: shuffle(searchParams.keywordList),
+              keywords: shuffle(searchParams.bodyKeywords),
               count: data.count
             };
-            let intro = pos.intro(searchParams.template,searchParams.keywordList,searchParams.keywordPlural,searchParams.keywordDeterminer,searchParams.keywordNoun);
+            let intro = pos.intro(searchParams.template,searchParams.bodyKeywords,searchParams.keywordPlural,searchParams.keywordDeterminer,searchParams.keywordNoun);
             let promo = pos.promo(promoKeyword,searchParams.link,searchParams.keywordDeterminer);
             let license = pos.license(!data.credits.length);
             let description = [];
@@ -2988,7 +3010,7 @@ module.exports = {
         let searchParams = this.overrideSearchParams(searchArgs,searchOverrideArgs);
         let imageParams = this.overrideImageParams(imageArgs,imageOverrideArgs);
         searchParams.keyword = keyword;
-        if (!searchParams.keywordList.length) searchParams.keywordList = [keyword];
+        if (!searchParams.bodyKeywords.length) searchParams.bodyKeywords = [keyword];
         if (!objectStore && (searchParams.amazon || (!imageParams.template.includes('imageOnly') && !imageParams.template.includes('imageTitle')))) {
           if (!fs.existsSync(this.cachePath + '/data/text/' + keyword + '.json')) {
             reject('No text data found to produce videos from keyword: ' + keyword);
@@ -3074,7 +3096,7 @@ module.exports = {
         if (object) {
           searchParams = this.overrideSearchParams(data.search,object.search);
           imageParams = this.overrideImageParams(data.image,object.image);
-          if (!searchParams.keywordList.length) searchParams.keywordList = [object.keyword];
+          if (!searchParams.bodyKeywords.length) searchParams.bodyKeywords = [object.keyword];
         }
         else {
           searchParams = this.overrideSearchParams(data.search,null);
@@ -3169,15 +3191,37 @@ module.exports = {
     fs.readFile(readPath,'utf8', (err,data) => {
       if (err) throw err;
       let keywords = data.split('\n');
-      let file = 'module.exports = [';
+      let file = `const kw = require('bmjs-keywords');\n\nmodule.exports = [\n`;
       let objects = [];
       for (let i = 0; i < keywords.length; i++) {
         if (keywords[i]) {
-          objects.push(`{keyword: '${keywords[i]}'}`);
+          let object = `
+          {
+            keyword: '${keywords[i]}',
+            search: {
+              amazon: undefined,
+              template: '',
+              keywordType: '',
+              keywordPlural: undefined,
+              keywordDeterminer: '',
+              keywordNoun: '',
+              titleKeywords: kw.plural('${keywords[i]}',[['${keywords[i]}']],10).keywordList,
+              bodyKeywords: ['${keywords[i]}'],
+              link: ''
+            },
+            image: {
+              fallback: '',
+              template: '',
+              tagline: '',
+              url: ''
+            }
+          },
+          `;
+          objects.push(object);
         }
       }
-      file += objects.join(',');
-      file += '];';
+      file += objects.join('');
+      file += '\n];';
       fs.writeFile(writePath,file, err => {
         if (err) throw err;
         console.log('Finished writing video keyword file: ' + writePath);
