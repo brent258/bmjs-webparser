@@ -3078,7 +3078,7 @@ module.exports = {
             });
           }
           else if (dataStore.length) {
-            fs.writeFile(searchParams.assets + searchParams.clips,JSON.stringify(dataStore),err => {
+            fs.writeFile(searchParams.export + searchParams.clips,JSON.stringify(dataStore),err => {
               if (err) {
                 reject(err);
               }
