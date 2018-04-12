@@ -89,6 +89,8 @@ module.exports = {
     if (!imageParams.googleDomain) imageParams.googleDomain = 'com.au';
     if (!imageParams.tagline) imageParams.tagline = '';
     if (!imageParams.url) imageParams.url = '';
+    if (!imageParams.taglineAudio) imageParams.taglineAudio = '';
+    if (!imageParams.urlAudio) imageParams.urlAudio = '';
     if (!imageParams.logo) imageParams.logo = null;
     if (imageParams.random === undefined) imageParams.random = true;
     return imageParams;
@@ -120,6 +122,7 @@ module.exports = {
     if (searchParams.cacheOnly === undefined) searchParams.cacheOnly = false;
     if (searchParams.multipleOnly === undefined) searchParams.multipleOnly = false;
     if (!searchParams.assets) searchParams.assets = __dirname + '/assets/';
+    if (!searchParams.export) searchParams.export = __dirname + '/assets/';
     if (!searchParams.images) searchParams.images = __dirname + '/cache/images/';
     if (!searchParams.voice) searchParams.voice = 'karen';
     if (!searchParams.project) searchParams.project = 'My Project';
@@ -155,6 +158,8 @@ module.exports = {
       if (overrideArgs.googleDomain) imageParams.googleDomain = overrideArgs.googleDomain;
       if (overrideArgs.tagline) imageParams.tagline = overrideArgs.tagline;
       if (overrideArgs.url) imageParams.url = overrideArgs.url;
+      if (overrideArgs.taglineAudio) imageParams.taglineAudio = overrideArgs.taglineAudio;
+      if (overrideArgs.urlAudio) imageParams.urlAudio = overrideArgs.urlAudio;
       if (overrideArgs.logo) imageParams.logo = overrideArgs.logo;
       if (overrideArgs.random !== undefined) imageParams.random = overrideArgs.random;
     }
@@ -187,6 +192,7 @@ module.exports = {
       if (overrideArgs.cacheOnly !== undefined) searchParams.cacheOnly = overrideArgs.cacheOnly;
       if (overrideArgs.multipleOnly !== undefined) searchParams.multipleOnly = overrideArgs.multipleOnly;
       if (overrideArgs.assets) searchParams.assets = overrideArgs.assets;
+      if (overrideArgs.export) searchParams.export = overrideArgs.export;
       if (overrideArgs.images) searchParams.images = overrideArgs.images;
       if (overrideArgs.voice) searchParams.voice = overrideArgs.voice;
       if (overrideArgs.extension) searchParams.extension = overrideArgs.extension;
@@ -2130,7 +2136,8 @@ module.exports = {
           let $ = cheerio.load(html);
           let results = this.amazonResultLinks($,keyword);
           if (this.debug) console.log('Resolving Amazon search: ' + keyword);
-          this.wait(1500).then(msg => {
+          this.wait(3000).then(msg => {
+            if (this.debug) console.log(msg);
             resolve(results);
           }).catch(err => reject(err));
         }).catch(err => reject(err));
@@ -2243,7 +2250,7 @@ module.exports = {
     return obj;
   },
 
-  amazonProduct: function(link) {
+  amazonProduct: function(link,addAll) {
     return new Promise((resolve,reject) => {
       if (!link || !link.text || !link.url || !link.keyword || !link.asin) {
         reject('Unable to download Amazon page without link object.');
@@ -2256,7 +2263,7 @@ module.exports = {
           headers: {'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
         };
         let proxy = this.amazonProxy();
-        if (this.existsImageCache(link.asin)) {
+        if (addAll && this.existsImageCache(link.asin)) {
           if (this.debug) console.log('Amazon product already exists in image cache, downloading text: ' + link.text);
           if (proxy) {
             options.proxy = proxy;
@@ -2272,7 +2279,10 @@ module.exports = {
               this.updateTextCache(obj,link.keyword).then(textData => {
                 if (this.debug) console.log(textData);
                 let msg = 'Finished adding Amazon product to text and image cache: ' + link.text;
-                resolve({msg: msg, count: 1});
+                this.wait(3000).then(time => {
+                  if (this.debug) console.log(time);
+                  resolve({msg: msg, count: 1});
+                }).catch(err => reject(err));
               }).catch(err => reject(err));
             }
             else {
@@ -2282,6 +2292,10 @@ module.exports = {
               }).catch(err => reject(err));
             }
           }).catch(err => reject(err));
+        }
+        else if (this.existsImageCache(link.asin)) {
+          let msg = 'Amazon product already exists in image cache: ' + link.text;
+          resolve({msg: msg, count: 0});
         }
         else if (this.existsBlacklistCache(link.asin)) {
           let msg = 'Amazon product already exists in blacklist cache: ' + link.text;
@@ -2304,7 +2318,10 @@ module.exports = {
                 this.updateImageCacheMultiple(obj.images,link.asin,false).then(imageData => {
                   if (this.debug) console.log(imageData);
                   let msg = 'Finished adding Amazon product to text and image cache: ' + link.text;
-                  resolve({msg: msg, count: 1});
+                  this.wait(3000).then(time => {
+                    if (this.debug) console.log(time);
+                    resolve({msg: msg, count: 1});
+                  }).catch(err => reject(err));
                 }).catch(err => reject(err));
               }).catch(err => reject(err));
             }
@@ -2369,7 +2386,7 @@ module.exports = {
             pages += products.count;
             limit--;
             if (limit > 0) {
-              this.wait(2000).then(time => {
+              this.wait(3000).then(time => {
                 if (this.debug) console.log(time);
                 this.amazonPages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
               }).catch(err => reject(err));
@@ -2388,7 +2405,7 @@ module.exports = {
           searchParams.minResult += 1;
           limit--;
           if (limit > 0) {
-            this.wait(2000).then(time => {
+            this.wait(3000).then(time => {
               if (this.debug) console.log(time);
               this.amazonPages(keyword,searchParams,limit,pages).then(data => resolve(data)).catch(err => reject(err));
             }).catch(err => reject(err));
@@ -2907,7 +2924,7 @@ module.exports = {
               if (imageParams.tagline) {
                 slideStore.slides.push({
                   text: imageParams.tagline,
-                  audio: '',
+                  audio: imageParams.taglineAudio,
                   image: null,
                   template: 'noTransitions',
                   keyword: ''
@@ -2916,7 +2933,7 @@ module.exports = {
               if (imageParams.url) {
                 slideStore.slides.push({
                   text: imageParams.url,
-                  audio: '',
+                  audio: imageParams.urlAudio,
                   image: null,
                   template: 'noTransitions',
                   keyword: ''
@@ -3066,7 +3083,7 @@ module.exports = {
                 reject(err);
               }
               else {
-                fcp.init(searchParams.assets,searchParams.images,searchParams.voice,searchParams.extension);
+                fcp.init(searchParams.assets,searchParams.images,searchParams.voice,searchParams.extension,searchParams.export);
                 fcp.xml(dataStore,searchParams.project);
                 fcp.write();
                 resolve('Video XML successfully saved to: ' + searchParams.assets);
@@ -3170,7 +3187,7 @@ module.exports = {
               reject(err);
             }
             else {
-              fcp.init(searchParams.assets,searchParams.images,searchParams.voice,searchParams.extension);
+              fcp.init(searchParams.assets,searchParams.images,searchParams.voice,searchParams.extension,searchParams.export);
               fcp.xml(dataStore,searchParams.project);
               fcp.write();
               resolve('Video XML successfully saved to: ' + searchParams.assets);
